@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "target": "ES2022",
+    "lib": [
+        "ES2022"
+    ],
+    "types": [
+        "node", 
+        "mocha"
+    ],
+    "sourceMap": true,
+    "rootDir": "src",
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
+
+    "paths": {
+      "@src/*": ["./src/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@common/*": ["./src/common/*"],
+      "@models/*": ["./src/models/*"],
+      "@data/*": ["./src/data/*"],
+      "@parser/*": ["./src/parser/*"],
+    }
+  }
+}
