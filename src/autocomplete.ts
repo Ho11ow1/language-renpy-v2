@@ -1,28 +1,60 @@
-import { Logger } from "@utils/logger";
+import { Logger } from "@utils/Logger";
+import { Store } from "@src/store";
 import * as vscode from "vscode";
-
 
 export class CompletionItemProvider implements vscode.CompletionItemProvider
 {
-    public provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken, context: vscode.CompletionContext): vscode.ProviderResult<vscode.CompletionItem[]>
+    private readonly jumpRegex: RegExp = new RegExp("(?:^|\\s)jump\\s+([a-zA-Z0-9_]*)$");
+    private readonly callScreenRegex: RegExp = new RegExp("(?:^|\\s)call\\s+screen\\s+([a-zA-Z0-9_]*)$");
+    private readonly callRegex: RegExp = new RegExp("(?:^|\\s)call\\s+([a-zA-Z0-9_]*)$");
+
+    public provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CompletionItem[]>
     {
-        if (token.isCancellationRequested) { return undefined;}
+        if (token.isCancellationRequested)
+        {
+            return undefined;
+        }
+
         const cursorPrefix = document.lineAt(position).text.substring(0, position.character);
 
-        const txt = cursorPrefix.replace("$", "").trim();
-        Logger.LogMessage(`Running through auto-complete: ${txt}`);
-
-        // Handle static namespaces
-        if (cursorPrefix.endsWith("gui."))
+        // Handle the real auto-complete
+        if (cursorPrefix.endsWith("."))
         {
-            return this.GetGuiCompletions();
+            const cleanPrefix = cursorPrefix.replace("$", "").slice(0, -1).trim();
+            Logger.LogMessage(`Tree autocomplete lookup for: "${cleanPrefix}"`);
+
+            const items = Store.GetCompletionsForPath(cleanPrefix);
+            return items.length > 0 ? items : undefined;
         }
-        if (cursorPrefix.endsWith("config."))
+        // call screen -> show screens
+        if (this.callScreenRegex.test(cursorPrefix))
         {
-            return this.GetConfigCompletions();
+            Logger.LogMessage("Autocomplete lookup for: call screen");
+            const items = Store.GetScreenCompletions();
+            return items.length > 0 ? items : undefined;
+        }
+        // jump | call -> show labels
+        if (this.jumpRegex.test(cursorPrefix) || this.callRegex.test(cursorPrefix))
+        {
+            Logger.LogMessage("Autocomplete lookup for: jump | call");
+            const items = Store.GetLabelCompletions();
+            return items.length > 0 ? items : undefined;
+        }
+        // show Jessica at -> show transforms
+        if (cursorPrefix.trim().endsWith("at"))
+        {
+            Logger.LogMessage("Autocomplete lookup for at transforms");
+            const items = Store.GetTransformCompletions();
+            return items.length > 0 ? items : undefined;
+        }
+        // Just showing immediate intellisense for a python line
+        if (cursorPrefix.trim().startsWith("$"))
+        {
+            Logger.LogMessage("Autocomplete lookup for immediate variables/namespaces");
+            const items = Store.GetImmediateCompletions();
+            return items.length > 0 ? items : undefined;
         }
 
-        // Nothing more to give
         return undefined;
     }
 
@@ -35,32 +67,4 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
             " "
         );
     }
-
-    private GetGuiCompletions(): vscode.CompletionItem[]
-    {
-        const accentColor = new vscode.CompletionItem("accent_color", vscode.CompletionItemKind.Variable);
-        accentColor.detail = `define gui.accent_color = "#cc0066"`;
-        accentColor.documentation = new vscode.MarkdownString("An accent color");
-
-        const textColor = new vscode.CompletionItem("text_color", vscode.CompletionItemKind.Variable);
-        textColor.detail = `define gui.text_color = "#FFFFFF"`;
-        textColor.documentation = new vscode.MarkdownString("Color of regular text");
-
-        return [accentColor, textColor];
-    }
-
-    private GetConfigCompletions(): vscode.CompletionItem[]
-    {
-        const name = new vscode.CompletionItem("name", vscode.CompletionItemKind.Property);
-        name.detail = `define config.name = _("RenTale"")`;
-        name.documentation = new vscode.MarkdownString("Name of the game.");
-
-        const version = new vscode.CompletionItem("version", vscode.CompletionItemKind.Property);
-        version.detail = "define config.version = 1.0";
-        version.documentation = new vscode.MarkdownString("Version string displayed in the interface.");
-
-        return [name, version];
-    }
-
-    
 }

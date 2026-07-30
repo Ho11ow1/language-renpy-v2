@@ -1,37 +1,55 @@
 import * as vscode from "vscode";
-import { Logger } from "@utils/logger";
-import { CompletionItemProvider } from "./autocomplete";
-import { HoverItemProvider } from "./hover";
-import { Store } from "./store";
-import { WorkspaceParser } from "@parser/workspaceparser";
+import { Logger } from "@utils/Logger";
+import { CompletionItemProvider } from "@src/autocomplete";
+import { HoverItemProvider } from "@src/hover";
+import { Store } from "@src/store";
+import { WorkspaceParser } from "@parser/WorkspaceParser";
 
-export function activate(context: vscode.ExtensionContext)
+//
+//  TODO: Restructure this into multiple functions rather than 1 messy block
+//
+export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
     Logger.Clear();
     Logger.UpdateStatusBar("Initializing Extension");
+
+    // Init static store from renpy.json
+    Logger.LogMessage("Creating tree from static renpy.json");
     Store.Initialize();
-    // Debug stuff
+    Logger.LogMessage("Finished indexing renpy.json tree");
+
+    Logger.LogMessage("Starting file parsing");
+    const files = await vscode.workspace.findFiles("{**/*.rpy,**/*_ren.py}", "**/node_modules/**");
+    for (const fileUri of files)
+    {
+        WorkspaceParser.ParseFile(fileUri.fsPath);
+    }
+    Logger.LogMessage("Finished parsing all files");
+
+    // Register debug subscriptions
     context.subscriptions.push(Logger.outputChannel);
     context.subscriptions.push(Logger.statusBar);
 
-    // Intellisense
-	context.subscriptions.push(new CompletionItemProvider().GetDisposable());
+    // Register intellisense providers
+    context.subscriptions.push(new CompletionItemProvider().GetDisposable());
     context.subscriptions.push(new HoverItemProvider().GetDisposable());
 
-    Logger.UpdateStatusBar("Ren'Py v2 Initialized");
-
-    const watcher = vscode.workspace.createFileSystemWatcher("**/*.rpy");
-    watcher.onDidChange((uri) => {
+    // Setup system watcher for changes
+    const watcher: vscode.FileSystemWatcher = vscode.workspace.createFileSystemWatcher("{**/*.rpy,**/*_ren.py}");
+    watcher.onDidChange((uri): void => {
         WorkspaceParser.ParseFile(uri.fsPath);
     });
-    watcher.onDidCreate((uri) => {
+    watcher.onDidCreate((uri): void => {
         WorkspaceParser.ParseFile(uri.fsPath);
     });
-    watcher.onDidDelete((uri) => {
+    watcher.onDidDelete((uri): void => {
         Store.RemoveDeclarationsFromFile(uri.fsPath);
     });
 
     context.subscriptions.push(watcher);
+
+    Logger.UpdateStatusBar("Ren'Py v2 Initialized");
+    Logger.LogMessage("Successfully initialized and parsed all files");
 }
 
-export function deactivate() {}
+export function deactivate(): void {}

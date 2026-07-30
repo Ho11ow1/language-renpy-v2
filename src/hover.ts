@@ -1,15 +1,24 @@
-import { Logger } from "@utils/logger";
+import { Logger } from "@utils/Logger";
 import * as vscode from "vscode";
 
+//
+// TODO: Implement this, pretty simple as we can just lookup the node since we get the full wordRange
+//
 export class HoverItemProvider implements vscode.HoverProvider
 {
     public provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover>
     {
-        if (token.isCancellationRequested) { return undefined;}
+        if (token.isCancellationRequested)
+        {
+            return undefined;
+        }
 
         // Get the thing we are hovering over, e.g. rentale.all_items
         const wordRange = document.getWordRangeAtPosition(position);
-        if (!wordRange) { return undefined; }
+        if (!wordRange)
+        {
+            return undefined;
+        }
 
         const word = document.getText(wordRange);
         const lineText = document.lineAt(position.line).text;
@@ -17,8 +26,6 @@ export class HoverItemProvider implements vscode.HoverProvider
         // Example
         Logger.LogDebug(`Word: ${word} | lineText: ${lineText}`);
         return new vscode.Hover(new vscode.MarkdownString(`define gui.text_color = "#FFFFFF"`));
-
-        return undefined;
     }
 
     public GetDisposable(): vscode.Disposable
@@ -28,6 +35,4 @@ export class HoverItemProvider implements vscode.HoverProvider
             this
         );
     }
-
-
 }

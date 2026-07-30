@@ -5,8 +5,8 @@ export class Logger
 {
     public static outputChannel: vscode.LogOutputChannel = vscode.window.createOutputChannel("Ren'Py Language Extension", { log: true });
     public static statusBar: vscode.StatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 80);
-    
-    private static MESSAGE_PREFIX = "[RENPY V2]" as const;
+
+    private static MESSAGE_PREFIX: string = "[RENPY V2]" as const;
 
     public static LogMessage(msg: string): void
     {
@@ -34,5 +34,5 @@ export class Logger
         this.statusBar.text = msg;
     }
 
-    
+
 }

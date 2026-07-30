@@ -1,0 +1,287 @@
+# Hollow1 - Editor Config
+root = true
+
+# All files
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Code files
+[*.{cs,py,rpy,ts,astro,css,cpp,h}]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+
+# Notation files
+[*.{json,yml,yaml,xaml,axaml,hint}]
+indent_style = space
+indent_size = 4
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false
+
+
+
+# =====================================================
+# C# SPECIFIC RULES
+# =====================================================
+[*.cs]
+
+# ===== NAMING CONVENTIONS =====
+
+# Classes, Interfaces, Structs, Enums - PascalCase
+dotnet_naming_rule.types_should_be_pascal_case.severity = warning
+dotnet_naming_rule.types_should_be_pascal_case.symbols = types
+dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.types.applicable_kinds = class,struct,interface,enum
+dotnet_naming_symbols.types.applicable_accessibilities = *
+
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+# Methods - PascalCase
+dotnet_naming_rule.methods_should_be_pascal_case.severity = warning
+dotnet_naming_rule.methods_should_be_pascal_case.symbols = methods
+dotnet_naming_rule.methods_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.methods.applicable_kinds = method
+dotnet_naming_symbols.methods.applicable_accessibilities = *
+
+# Public Fields - PascalCase
+dotnet_naming_rule.public_fields_should_be_pascal_case.severity = warning
+dotnet_naming_rule.public_fields_should_be_pascal_case.symbols = public_fields
+dotnet_naming_rule.public_fields_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.public_fields.applicable_kinds = field
+dotnet_naming_symbols.public_fields.applicable_accessibilities = public,internal,protected,protected_internal
+
+# Public Properties - PascalCase
+dotnet_naming_rule.public_properties_should_be_pascal_case.severity = warning
+dotnet_naming_rule.public_properties_should_be_pascal_case.symbols = public_properties
+dotnet_naming_rule.public_properties_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.public_properties.applicable_kinds = property
+dotnet_naming_symbols.public_properties.applicable_accessibilities = public,internal,protected,protected_internal
+
+# Public Constants - PascalCase
+dotnet_naming_rule.public_constants_should_be_pascal_case.severity = warning
+dotnet_naming_rule.public_constants_should_be_pascal_case.symbols = public_constants
+dotnet_naming_rule.public_constants_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.public_constants.applicable_kinds = field
+dotnet_naming_symbols.public_constants.applicable_accessibilities = public,internal,protected,protected_internal
+dotnet_naming_symbols.public_constants.required_modifiers = const
+
+# Private fields - camelCase
+dotnet_naming_rule.private_fields_should_be_camel_case.severity = warning
+dotnet_naming_rule.private_fields_should_be_camel_case.symbols = private_fields
+dotnet_naming_rule.private_fields_should_be_camel_case.style = camel_case_style
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.camel_case_style.capitalization = camel_case
+
+# Private readonly fields - _camelCase
+dotnet_naming_rule.private_readonly_fields_should_be_underscore_camel_case.severity = warning
+dotnet_naming_rule.private_readonly_fields_should_be_underscore_camel_case.symbols = private_readonly_fields
+dotnet_naming_rule.private_readonly_fields_should_be_underscore_camel_case.style = underscore_camel_case_style
+
+dotnet_naming_symbols.private_readonly_fields.applicable_kinds = field
+dotnet_naming_symbols.private_readonly_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_readonly_fields.required_modifiers = readonly
+
+dotnet_naming_style.underscore_camel_case_style.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case_style.required_prefix = _
+
+# Private Constants - camelCase
+dotnet_naming_rule.private_constants_should_be_camel_case.severity = warning
+dotnet_naming_rule.private_constants_should_be_camel_case.symbols = private_constants
+dotnet_naming_rule.private_constants_should_be_camel_case.style = camel_case_style
+
+dotnet_naming_symbols.private_constants.applicable_kinds = field
+dotnet_naming_symbols.private_constants.applicable_accessibilities = private
+dotnet_naming_symbols.private_constants.required_modifiers = const
+
+# Parameters - camelCase
+dotnet_naming_rule.parameters_should_be_camel_case.severity = warning
+dotnet_naming_rule.parameters_should_be_camel_case.symbols = parameters
+dotnet_naming_rule.parameters_should_be_camel_case.style = camel_case_style
+
+dotnet_naming_symbols.parameters.applicable_kinds = parameter
+
+# Local variables - camelCase
+dotnet_naming_rule.locals_should_be_camel_case.severity = warning
+dotnet_naming_rule.locals_should_be_camel_case.symbols = locals
+dotnet_naming_rule.locals_should_be_camel_case.style = camel_case_style
+
+dotnet_naming_symbols.locals.applicable_kinds = local
+
+# ===== CODE STYLE RULES =====
+
+# Braces always on new line (Allman style) - applies to all constructs
+csharp_new_line_before_open_brace = all
+
+# Lambda expressions - same line
+csharp_style_expression_bodied_lambdas = true:silent
+
+# Prefer braces always
+csharp_prefer_braces = true:warning
+
+# Using directives
+dotnet_sort_system_directives_first = true
+csharp_using_directive_placement = outside_namespace:warning
+
+# Namespace style - block style required (not file-scoped)
+csharp_style_namespace_declarations = block_scoped:warning
+
+# Do not prefer collection expression (explicit constructors)
+dotnet_style_prefer_collection_expression = false:suggestion
+dotnet_style_collection_initializer = false:silent
+
+# Do not simplify collection initialization
+dotnet_diagnostic.IDE0028.severity = none
+
+# Prefer standard switch over switch expression
+csharp_style_prefer_switch_expression = false:suggestion
+
+# Do not prefer primary constructors
+csharp_style_prefer_primary_constructors = false:error
+
+# Prefer explicit type over var when type is apparent
+csharp_style_var_for_built_in_types = false:silent
+csharp_style_var_when_type_is_apparent = false:silent
+csharp_style_var_elsewhere = true:silent
+
+# ===== SPECIFIC DIAGNOSTIC SUPPRESSIONS =====
+
+# CS8604 - Possible null reference - Keep as warning
+dotnet_diagnostic.CS8604.severity = warning
+
+# CA1822 - Member can be marked as static - Silence
+dotnet_diagnostic.CA1822.severity = none
+
+# IDE0060 - Remove unused parameter - Message only
+dotnet_diagnostic.IDE0060.severity = suggestion
+
+# CA1816 - Call GC.SuppressFinalize - Silence
+dotnet_diagnostic.CA1816.severity = none
+
+# IDE0130 - Namespace does not match folder structure - Silence
+dotnet_diagnostic.IDE0130.severity = none
+
+# IDE0063 - using statement can be simplified - Silence (prefer block style)
+dotnet_diagnostic.IDE0063.severity = none
+
+# IDE0090 - new expression can be simplified - Silence (prefer explicit new<>())
+dotnet_diagnostic.IDE0090.severity = none
+
+# Enum values optional - Silence
+dotnet_diagnostic.CA1008.severity = none
+dotnet_diagnostic.IDE0055.severity = none
+
+# ===== FORMATTING =====
+
+# Indentation
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_indent_labels = no_change
+csharp_indent_block_contents = true
+csharp_indent_braces = false
+
+# Spacing
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_declaration_empty_parameter_list_parentheses = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_between_method_call_empty_parameter_list_parentheses = false
+csharp_space_after_comma = true
+csharp_space_after_dot = false
+csharp_space_before_comma = false
+
+# Wrapping
+csharp_preserve_single_line_statements = false
+csharp_preserve_single_line_blocks = false
+
+
+
+# =====================================================
+# C++ SPECIFIC RULES
+# =====================================================
+[*.{cpp,h}]
+
+# ===== FORMATTING =====
+
+# Brace style - Allman (braces on new line)
+cpp_new_line_before_open_brace_namespace = new_line
+cpp_new_line_before_open_brace_type = new_line
+cpp_new_line_before_open_brace_function = new_line
+cpp_new_line_before_open_brace_block = new_line
+cpp_new_line_before_open_brace_lambda = new_line
+
+# Indentation
+cpp_indent_case_contents = true
+cpp_indent_case_labels = false
+cpp_indent_braces = false
+cpp_indent_multi_line_relative_to = innermost_parenthesis
+cpp_indent_within_parentheses = align_to_parenthesis
+cpp_indent_preserve_within_parentheses = true
+cpp_indent_case_contents_when_block = false
+cpp_indent_lambda_braces_when_parameter = true
+cpp_indent_goto_labels = one_left
+cpp_indent_preprocessor = leftmost_column
+cpp_indent_access_specifiers = false
+cpp_indent_namespace_contents = true
+cpp_indent_preserve_comments = false
+
+# Spacing
+cpp_space_before_function_open_parenthesis = remove
+cpp_space_within_parameter_list_parentheses = false
+cpp_space_between_empty_parameter_list_parentheses = false
+cpp_space_after_keywords_in_control_flow_statements = true
+cpp_space_within_control_flow_statement_parentheses = false
+cpp_space_before_lambda_open_parenthesis = false
+cpp_space_within_cast_parentheses = false
+cpp_space_after_cast_close_parenthesis = false
+cpp_space_within_expression_parentheses = false
+cpp_space_before_block_open_brace = true
+cpp_space_between_empty_braces = false
+cpp_space_before_initializer_list_open_brace = false
+cpp_space_within_initializer_list_braces = true
+cpp_space_preserve_in_initializer_list = true
+cpp_space_before_open_square_bracket = false
+cpp_space_within_square_brackets = false
+cpp_space_before_empty_square_brackets = false
+cpp_space_between_empty_square_brackets = false
+cpp_space_group_square_brackets = true
+cpp_space_within_lambda_brackets = false
+cpp_space_between_empty_lambda_brackets = false
+cpp_space_before_comma = false
+cpp_space_after_comma = true
+cpp_space_remove_around_member_operators = true
+cpp_space_before_inheritance_colon = true
+cpp_space_before_constructor_colon = true
+cpp_space_remove_before_semicolon = true
+cpp_space_after_semicolon = true
+cpp_space_remove_around_unary_operator = true
+cpp_space_around_binary_operator = insert
+cpp_space_around_assignment_operator = insert
+cpp_space_pointer_reference_alignment = left
+cpp_space_around_ternary_operator = insert
+
+# Wrapping
+cpp_wrap_preserve_blocks = one_liners
+
+# ===== SPECIFIC DIAGNOSTIC SUPPRESSIONS =====
+
+# VCR101 - Macro can be converted to constexpr - Silence
+cpp_diagnostic.VCR101.severity = none
+
+# VCR102 - Browsing operations around this macro may fail - Silence
+cpp_diagnostic.VCR102.severity = none
+
+# VCIC001 - Content from #include is used and transitively included - Silence
+cpp_diagnostic.VCIC001.severity = none

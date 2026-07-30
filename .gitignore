@@ -1,5 +1,92 @@
-out
-dist
-node_modules
-.vscode-test/
-*.vsix
+# Hollow1 - Universal .gitignore
+# Covers: C#, C++, Ren'Py, Python, Astro, Unity, Go
+
+
+# =====================
+# Environment / Temp
+# =====================
+.env
+.env.production
+appsettings.json
+**.bak
+
+# =====================
+# Editors / IDEs
+# =====================
+.vscode/
+.vs/
+.idea/
+
+# =====================
+# OS
+# =====================
+.DS_Store
+Thumbs.db
+
+# =====================
+# Visual Studio / .NET
+# =====================
+**/bin/
+**/obj/
+**/out/
+**.vsix
+**.csproj.user
+
+# =====================
+# Ren'Py
+# =====================
+/game/saves
+/game/cache
+/game/**/*.rpyc
+/game/**/*.rpymc
+/game/**/*.bak
+/game/**/*.new
+/game/**/*.old
+/dialogue.tab
+/strings.json
+
+# =====================
+# Unity
+# =====================
+Library/
+Logs/
+Temp/
+UserSettings/
+!*.meta
+
+# =====================
+# Node / Astro
+# =====================
+node_modules/
+.astro/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =====================
+# C++ / Dll
+# =====================
+Debug/
+Release/
+x64/
+**.vcxproj.user
+**.vcxproj.filters
+
+# =====================
+# CMake
+# =====================
+build/
+
+# =====================
+# Go
+# =====================
+**/dist/
+**.txt
+ 
+# =====================
+# Python
+# =====================
+__pycache__/
+**.pyc
+.venv/

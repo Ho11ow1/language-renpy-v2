@@ -1,4 +1,4 @@
-import { LocationInfo } from "./locationInfo";
+import { LocationInfo } from "@models/LocationInfo";
 import * as vscode from "vscode";
 
 export class Declaration
@@ -8,7 +8,7 @@ export class Declaration
     public detail: string;                    // Holds auto-complete info
     private staticDetail: string;             // Holds the renpy.json detail as a fallback if no user-override is parsed
     public pythonType: string;                // Holds the python relative type of this item
-    public locationInfo?: LocationInfo;       // Holds { filePath: "game/scripts/Characters/Characters.rpy", lineNumber: 4 } 
+    public locationInfo?: LocationInfo;       // Holds { filePath: "game/scripts/Characters/Characters.rpy", lineNumber: 4 }
     public documentation?: string;            // Holds a string that will be converted into a hover detail
 
     public constructor(name: string, kind: vscode.CompletionItemKind, detail: string, pythonType: string = "None", documentation?: string, locationInfo?: LocationInfo)
@@ -17,7 +17,7 @@ export class Declaration
         this.kind = kind;
         this.detail = detail;
         this.staticDetail = detail;
-        this.pythonType = this.resolveType(pythonType);
+        this.pythonType = pythonType;
         this.documentation = documentation;
         this.locationInfo = locationInfo;
     }
@@ -28,19 +28,12 @@ export class Declaration
         this.locationInfo = locationInfo;
         if (pythonType && pythonType !== "None")
         {
-            this.pythonType = this.resolveType(pythonType);
+            this.pythonType = pythonType;
         }
     }
 
-    public Reset()
+    public Reset(): void
     {
         this.detail = this.staticDetail;
-    }
-
-    private resolveType(pythonType: string): string
-    {
-        
-
-        return "None";
     }
 }

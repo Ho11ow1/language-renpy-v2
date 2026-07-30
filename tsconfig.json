@@ -21,6 +21,7 @@
       "@utils/*": ["./src/utils/*"],
       "@common/*": ["./src/common/*"],
       "@models/*": ["./src/models/*"],
+      "@interfaces/*": ["./src/interfaces/*"],
       "@data/*": ["./src/data/*"],
       "@parser/*": ["./src/parser/*"],
     }
