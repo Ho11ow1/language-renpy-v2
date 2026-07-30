@@ -6,6 +6,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
 {
     private readonly jumpRegex: RegExp = new RegExp("(?:^|\\s)jump\\s+([a-zA-Z0-9_]*)$");
     private readonly callScreenRegex: RegExp = new RegExp("(?:^|\\s)call\\s+screen\\s+([a-zA-Z0-9_]*)$");
+    private readonly showScreenRegex: RegExp = new RegExp("(?:^|\\s)show\\s+screen\\s+([a-zA-Z0-9_]*)$");
     private readonly callRegex: RegExp = new RegExp("(?:^|\\s)call\\s+([a-zA-Z0-9_]*)$");
 
     public provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CompletionItem[]>
@@ -26,8 +27,8 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
             const items = Store.GetCompletionsForPath(cleanPrefix);
             return items.length > 0 ? items : undefined;
         }
-        // call screen -> show screens
-        if (this.callScreenRegex.test(cursorPrefix))
+        // call | show screen -> show screens
+        if (this.callScreenRegex.test(cursorPrefix) || this.showScreenRegex.test(cursorPrefix))
         {
             Logger.LogMessage("Autocomplete lookup for: call screen");
             const items = Store.GetScreenCompletions();
