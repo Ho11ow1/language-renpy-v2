@@ -7,49 +7,102 @@ import { LocationInfo } from "@models/LocationInfo";
 import { Logger } from "@utils/Logger";
 import { HasUnclosedDelimiters, InferTypeFromExpression } from "@utils/Functions";
 
-//
-//  TODO: Implement Class and Namespace detection via init python in namespace | class name
-//
 export class WorkspaceParser
 {
-    // User-level self declared
-    private static globalLabelRegex: RegExp = new RegExp("^label\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
-    private static screenRegex: RegExp = new RegExp("^screen\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
-    private static persistentRegex: RegExp = new RegExp("^(?:default|define)\\s+persistent\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static transformRegex: RegExp = new RegExp("^transform\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
-    private static variableRegex: RegExp = new RegExp("^(?:default|define)\\s+([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
+    // Python specific stuff
+    private static initPythonRegex: RegExp = new RegExp("^\\s*(?:init\\s+(?:-?\\d+\\s+)?python(?:\\s+in\\s+([a-zA-Z_]\\w*))?|python)\\s*:");
+    private static classRegex: RegExp = new RegExp("^\\s*class\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
+    private static functionRegex: RegExp = new RegExp("^\\s*(?:async\\s+)?def\\s+([a-zA-Z_]\\w*)\\s*\\([^)]*\\)\\s*(?:->\\s*[^:]+)?\\s*:");
+    private static classMemberFieldRegex: RegExp = new RegExp("^\\s*(?:self|cls)\\.([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
+    private static propertyDecoratorRegex: RegExp = new RegExp("^\\s*@(?:property|[a-zA-Z_]\w*\\.setter)\\b");
+    private static setterDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\w*\\.setter\\b");
 
-    // User-level override
-    private static configRegex: RegExp = new RegExp("^(?:default|define)\\s+config\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static buildRegex: RegExp = new RegExp("^(?:default|define)\\s+build\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static guiRegex: RegExp = new RegExp("^(?:default|define)\\s+gui\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static bubbleRegex: RegExp = new RegExp("^(?:default|define)\\s+bubble\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static preferencesRegex: RegExp = new RegExp("^(?:default|define)\\s+preferences\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
+    // General use-case stuff
+    private static labelRegex: RegExp = new RegExp("^\\s*label\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
+    private static screenRegex: RegExp = new RegExp("^\\s*screen\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
+    private static transformRegex: RegExp = new RegExp("^\\s*transform\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
+    private static styleRegex: RegExp = new RegExp("^\\s*style\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
 
-    // Helper to only grab root level items
-    private static indentRegex: RegExp = new RegExp("^\\s");
+    // Variable user-case stuff
+    private static imageRegex: RegExp = new RegExp("^\\s*image\\s+([a-zA-Z0-9_\\s]+?)\\s*=\\s*([\\s\\S]+)$");
+    private static persistentRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+persistent\\.([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
+
+    // Explicit variable statements
+    private static renpyVarRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+([a-zA-Z_]\\w*(?:\\.[a-zA-Z_]\\w*)*)\\s*=\\s*([\\s\\S]+)$");
+    private static plainVarRegex: RegExp = new RegExp("^\\s*([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
+
+    // Built-in overrides
+    private static configRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+config\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
+    private static buildRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+build\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
+    private static guiRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+gui\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
+    private static bubbleRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+bubble\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
+    private static preferencesRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+preferences\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
+
+    // Helpers
+    private static fileSplitRegex: RegExp = new RegExp("\\r?\\n");
+    private static tabRegex: RegExp = new RegExp("\\t", "g");
+    private static whitespaceRegex: RegExp = new RegExp("^(\\s*)");
 
     public static ParseFile(filePath: string): void
     {
-        if (!fs.existsSync(filePath))
-        {
-            return;
-        }
+        if (!fs.existsSync(filePath)) return;
 
         try
         {
             Store.RemoveDeclarationsFromFile(filePath);
 
             const fileContent = fs.readFileSync(filePath, "utf-8");
-            const lines = fileContent.split(new RegExp("\\r?\\n"));
+            const lines = fileContent.split(this.fileSplitRegex);
+
+            let currentNamespace: string | null = null;
+            let namespaceIndent: number = -1;
+
+            let currentClass: string | null = null;
+            let classIndent: number = -1;
+
+            let currentFunction: string | null = null;
+            let functionIndent: number = -1;
+
+            let inRenpyBlock: boolean = false;
+            let blockIndent: number = -1;
 
             for (let lineIndex = 0; lineIndex < lines.length; lineIndex++)
             {
                 const line = lines[lineIndex];
 
-                if (!line || this.indentRegex.test(line) || line.trim().startsWith("#"))
+                if (!line || line.trim().startsWith("#") || line.trim().startsWith("@"))
                 {
                     continue;
+                }
+
+                const lineIndent = this.getIndentLevel(line);
+
+                if (currentFunction !== null && lineIndent <= functionIndent && line.trim().length > 0)
+                {
+                    currentFunction = null;
+                    functionIndent = -1;
+                }
+
+                if (currentClass !== null && lineIndent <= classIndent && line.trim().length > 0)
+                {
+                    currentClass = null;
+                    classIndent = -1;
+                }
+
+                if (inRenpyBlock && lineIndent <= blockIndent && line.trim().length > 0)
+                {
+                    inRenpyBlock = false;
+                    blockIndent = -1;
+                }
+
+                if (currentNamespace !== null && lineIndent <= namespaceIndent && line.trim().length > 0)
+                {
+                    currentNamespace = null;
+                    namespaceIndent = -1;
+                    currentClass = null;
+                    classIndent = -1;
+                    currentFunction = null;
+                    functionIndent = -1;
                 }
 
                 let fullStatement = line;
@@ -61,12 +114,51 @@ export class WorkspaceParser
                 }
 
                 lineIndex = lookAheadIndex - 1;
-
                 const location = new LocationInfo(filePath, lineIndex + 1);
 
-                const labelMatch = line.match(this.globalLabelRegex);
+                const pythonBlockMatch = fullStatement.match(this.initPythonRegex);
+                if (pythonBlockMatch)
+                {
+                    if (pythonBlockMatch[1])
+                    {
+                        currentNamespace = pythonBlockMatch[1];
+                        namespaceIndent = lineIndent;
+                        Store.EnsurePathExists([currentNamespace]);
+                    }
+
+                    continue;
+                }
+
+                const classMatch = fullStatement.match(this.classRegex);
+                if (classMatch)
+                {
+                    const className = classMatch[1];
+                    currentClass = className;
+                    classIndent = lineIndent;
+
+                    const parentScope = currentNamespace ? [currentNamespace] : [];
+                    const fullClassName = parentScope.length > 0 ? `${parentScope.join(".")}.${className}` : className;
+
+                    const decl = new Declaration(
+                        fullClassName,
+                        vscode.CompletionItemKind.Class,
+                        fullStatement.trim(),
+                        "class",
+                        `User class declared in ${path.basename(filePath)}`,
+                        location
+                    );
+
+                    Store.RegisterUserSymbol([...parentScope, className], decl);
+                    Store.RegisterTypeAlias(fullClassName, fullClassName);
+
+                    continue;
+                }
+
+                const labelMatch = fullStatement.match(this.labelRegex);
                 if (labelMatch)
                 {
+                    inRenpyBlock = true;
+                    blockIndent = lineIndent;
                     const labelName = labelMatch[1];
                     const decl = new Declaration(
                         `label ${labelName}`,
@@ -77,12 +169,15 @@ export class WorkspaceParser
                         location
                     );
                     Store.RegisterUserSymbol([labelName], decl);
+
                     continue;
                 }
 
-                const screenMatch = line.match(this.screenRegex);
+                const screenMatch = fullStatement.match(this.screenRegex);
                 if (screenMatch)
                 {
+                    inRenpyBlock = true;
+                    blockIndent = lineIndent;
                     const screenName = screenMatch[1];
                     const decl = new Declaration(
                         `screen ${screenName}`,
@@ -93,13 +188,69 @@ export class WorkspaceParser
                         location
                     );
                     Store.RegisterUserSymbol([screenName], decl);
+
                     continue;
                 }
 
-                const persistentMatch = line.match(this.persistentRegex);
+                const transformMatch = fullStatement.match(this.transformRegex);
+                if (transformMatch)
+                {
+                    inRenpyBlock = true;
+                    blockIndent = lineIndent;
+                    const transformName = transformMatch[1];
+                    const decl = new Declaration(
+                        `transform ${transformName}`,
+                        vscode.CompletionItemKind.Property,
+                        fullStatement.trim(),
+                        "transform",
+                        `User-defined transform in ${path.basename(filePath)}`,
+                        location
+                    );
+                    Store.RegisterUserSymbol([transformName], decl);
+
+                    continue;
+                }
+
+                const styleMatch = fullStatement.match(this.styleRegex);
+                if (styleMatch)
+                {
+                    inRenpyBlock = true;
+                    blockIndent = lineIndent;
+                    const styleName = styleMatch[1];
+                    const decl = new Declaration(
+                        `style ${styleName}`,
+                        vscode.CompletionItemKind.Property,
+                        fullStatement.trim(),
+                        "style",
+                        `User-defined style in ${path.basename(filePath)}`,
+                        location
+                    );
+                    Store.RegisterUserSymbol([styleName], decl);
+
+                    continue;
+                }
+
+                const imageMatch = fullStatement.match(this.imageRegex);
+                if (imageMatch)
+                {
+                    const imageName = imageMatch[1].trim();
+                    const decl = new Declaration(
+                        `image ${imageName}`,
+                        vscode.CompletionItemKind.Value,
+                        fullStatement.trim(),
+                        "image",
+                        `User image defined in ${path.basename(filePath)}`,
+                        location
+                    );
+                    Store.RegisterUserSymbol([imageName], decl);
+
+                    continue;
+                }
+
+                const persistentMatch = fullStatement.match(this.persistentRegex);
                 if (persistentMatch)
                 {
-                    const varName = persistentMatch[1];
+                    const varName = persistentMatch[1].trim();
                     const rightHandExpr = persistentMatch[2].trim();
                     const inferredType = InferTypeFromExpression(rightHandExpr);
 
@@ -121,172 +272,192 @@ export class WorkspaceParser
                     continue;
                 }
 
-                const transformMatch = line.match(this.transformRegex);
-                if (transformMatch)
+                const defMatch = fullStatement.match(this.functionRegex);
+                if (defMatch)
                 {
-                    const transformName = transformMatch[1];
+                    const functionName = defMatch[1];
+                    if (functionName.startsWith("__") && functionName.endsWith("__") || functionName.startsWith("_"))
+                    {
+                        continue;
+                    }
+
+                    currentFunction = functionName;
+                    functionIndent = lineIndent;
+
+                    let isProperty = false;
+                    let isSetter = false;
+                    let checkIndex = lineIndex - 1;
+
+                    while (checkIndex >= 0)
+                    {
+                        const prevTrimmed = lines[checkIndex].trim();
+                        if (prevTrimmed.length === 0 || prevTrimmed.startsWith("#"))
+                        {
+                            checkIndex--;
+                            continue;
+                        }
+
+                        if (prevTrimmed.startsWith("@"))
+                        {
+                            if (this.propertyDecoratorRegex.test(prevTrimmed))
+                            {
+                                isProperty = true;
+                                if (this.setterDecoratorRegex.test(prevTrimmed))
+                                {
+                                    isSetter = true;
+                                }
+                            }
+                            checkIndex--;
+                            continue;
+                        }
+
+                        break;
+                    }
+                    if (isSetter)
+                    {
+                        continue;
+                    }
+
+                    const isMethod = currentClass !== null;
+                    let kind = isMethod ? vscode.CompletionItemKind.Method : vscode.CompletionItemKind.Function;
+                    if (isProperty)
+                    {
+                        kind = vscode.CompletionItemKind.Property;
+                    }
+
+                    const scopePath = this.GetScopePath(currentNamespace, currentClass, functionName);
+                    const fullName = scopePath.join(".");
+
+                    const declType = isProperty ? "Property" : (isMethod ? "Method" : "Function");
+
                     const decl = new Declaration(
-                        `transform ${transformName}`,
-                        vscode.CompletionItemKind.Property,
+                        fullName,
+                        kind,
                         fullStatement.trim(),
-                        "transform",
-                        `User-defined transform in ${path.basename(filePath)}`,
+                        isProperty ? "property" : "function",
+                        `${declType} declared in ${path.basename(filePath)}`,
                         location
                     );
 
-                    Store.RegisterUserSymbol([transformName], decl);
+                    Store.RegisterUserSymbol(scopePath, decl);
 
                     continue;
                 }
 
-                const varMatch = line.match(this.variableRegex);
-                if (varMatch)
+                if (currentClass !== null)
                 {
-                    const varName = varMatch[1];
-                    const rightHandExpr = varMatch[2].trim();
-                    const inferredType = InferTypeFromExpression(rightHandExpr);
-
-                    const decl = new Declaration(
-                        varName,
-                        vscode.CompletionItemKind.Variable,
-                        fullStatement.trim(),
-                        inferredType,
-                        `User variable declared in ${path.basename(filePath)}`,
-                        location
-                    );
-
-                    Store.RegisterUserSymbol([varName], decl);
-
-                    if (inferredType !== "Any")
+                    const selfMatch = fullStatement.match(this.classMemberFieldRegex);
+                    if (selfMatch)
                     {
-                        Store.RegisterTypeAlias(varName, inferredType);
+                        const fieldName = selfMatch[1];
+                        if (fieldName.startsWith("_"))
+                        {
+                            continue;
+                        }
+
+                        const rightHandExpr = selfMatch[2].trim();
+                        const inferredType = InferTypeFromExpression(rightHandExpr);
+                        const scopePath = this.GetScopePath(currentNamespace, currentClass, fieldName);
+                        const fullName = scopePath.join(".");
+
+                        const decl = new Declaration(
+                            fullName,
+                            vscode.CompletionItemKind.Field,
+                            fullStatement.trim(),
+                            inferredType,
+                            `Property ${fieldName} of ${currentClass}`,
+                            location
+                        );
+
+                        Store.RegisterUserSymbol(scopePath, decl);
+
+                        continue;
                     }
+                }
+
+                //
+                //  Skip anything inside of functions, screens & labels so we don't catch local vars, screen vars, etc...
+                //
+                if (currentFunction !== null || inRenpyBlock)
+                {
                     continue;
                 }
 
-                const configMatch = line.match(this.configRegex);
-                if (configMatch)
+                const configMatch = fullStatement.match(this.configRegex);
+                if (configMatch) { this.HandleOverride("config", configMatch, fullStatement, filePath, location); continue; }
+
+                const buildMatch = fullStatement.match(this.buildRegex);
+                if (buildMatch) { this.HandleOverride("build", buildMatch, fullStatement, filePath, location); continue; }
+
+                const guiMatch = fullStatement.match(this.guiRegex);
+                if (guiMatch) { this.HandleOverride("gui", guiMatch, fullStatement, filePath, location); continue; }
+
+                const bubbleMatch = fullStatement.match(this.bubbleRegex);
+                if (bubbleMatch) { this.HandleOverride("bubble", bubbleMatch, fullStatement, filePath, location); continue; }
+
+                const preferencesMatch = fullStatement.match(this.preferencesRegex);
+                if (preferencesMatch) { this.HandleOverride("preferences", preferencesMatch, fullStatement, filePath, location); continue; }
+
+                const renpyVarMatch = fullStatement.match(this.renpyVarRegex);
+                if (renpyVarMatch)
                 {
-                    const varName = configMatch[1];
-                    const rightHandExpr = configMatch[2].trim();
+                    const varPathStr = renpyVarMatch[1];
+                    const rightHandExpr = renpyVarMatch[2].trim();
                     const inferredType = InferTypeFromExpression(rightHandExpr);
 
+                    const varSegments = varPathStr.split(".");
+                    const targetKind = currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable;
+
+                    const scopePath = this.GetScopePath(currentNamespace, currentClass, ...varSegments);
+                    const fullName = scopePath.join(".");
+
                     const decl = new Declaration(
-                        `config.${varName}`,
-                        vscode.CompletionItemKind.Variable,
+                        fullName,
+                        targetKind,
                         fullStatement.trim(),
                         inferredType,
-                        `Config variable overridden in ${path.basename(filePath)}`,
+                        `Variable declared in ${path.basename(filePath)}`,
                         location
                     );
 
-                    Store.RegisterUserSymbol(["config", varName], decl);
+                    Store.RegisterUserSymbol(scopePath, decl);
 
                     if (inferredType !== "Any")
                     {
-                        Store.RegisterTypeAlias(`config.${varName}`, inferredType);
-                    }
-                    continue;
-                }
-
-                const buildMatch = line.match(this.buildRegex);
-                if (buildMatch)
-                {
-                    const varName = buildMatch[1];
-                    const rightHandExpr = buildMatch[2].trim();
-                    const inferredType = InferTypeFromExpression(rightHandExpr);
-
-                    const decl = new Declaration(
-                        `build.${varName}`,
-                        vscode.CompletionItemKind.Variable,
-                        fullStatement.trim(),
-                        inferredType,
-                        `Build variable overridden in ${path.basename(filePath)}`,
-                        location
-                    );
-
-                    Store.RegisterUserSymbol(["build", varName], decl);
-
-                    if (inferredType !== "Any")
-                    {
-                        Store.RegisterTypeAlias(`build.${varName}`, inferredType);
+                        const qualifiedType = this.GetQualifiedType(currentNamespace, inferredType);
+                        Store.RegisterTypeAlias(fullName, qualifiedType);
                     }
 
                     continue;
                 }
 
-                const guiMatch = line.match(this.guiRegex);
-                if (guiMatch)
+                const plainVarMatch = fullStatement.match(this.plainVarRegex);
+                if (plainVarMatch && (currentClass !== null || currentNamespace !== null))
                 {
-                    const varName = guiMatch[1];
-                    const rightHandExpr = guiMatch[2].trim();
+                    const varName = plainVarMatch[1];
+                    const rightHandExpr = plainVarMatch[2].trim();
                     const inferredType = InferTypeFromExpression(rightHandExpr);
 
+                    const scopePath = this.GetScopePath(currentNamespace, currentClass, varName);
+                    const fullName = scopePath.join(".");
+
                     const decl = new Declaration(
-                        `gui.${varName}`,
-                        vscode.CompletionItemKind.Variable,
+                        fullName,
+                        currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable,
                         fullStatement.trim(),
                         inferredType,
-                        `GUI variable overridden in ${path.basename(filePath)}`,
+                        `Variable declared in ${path.basename(filePath)}`,
                         location
                     );
 
-                    Store.RegisterUserSymbol(["gui", varName], decl);
+                    Store.RegisterUserSymbol(scopePath, decl);
 
                     if (inferredType !== "Any")
                     {
-                        Store.RegisterTypeAlias(`gui.${varName}`, inferredType);
+                        const qualifiedType = this.GetQualifiedType(currentNamespace, inferredType);
+                        Store.RegisterTypeAlias(fullName, qualifiedType);
                     }
-                    continue;
-                }
 
-                const bubbleMatch = line.match(this.bubbleRegex);
-                if (bubbleMatch)
-                {
-                    const varName = bubbleMatch[1];
-                    const rightHandExpr = bubbleMatch[2].trim();
-                    const inferredType = InferTypeFromExpression(rightHandExpr);
-
-                    const decl = new Declaration(
-                        `bubble.${varName}`,
-                        vscode.CompletionItemKind.Variable,
-                        fullStatement.trim(),
-                        inferredType,
-                        `Config variable overridden in ${path.basename(filePath)}`,
-                        location
-                    );
-
-                    Store.RegisterUserSymbol(["bubble", varName], decl);
-
-                    if (inferredType !== "Any")
-                    {
-                        Store.RegisterTypeAlias(`bubble.${varName}`, inferredType);
-                    }
-                    continue;
-                }
-
-                const preferencesMatch = line.match(this.preferencesRegex);
-                if (preferencesMatch)
-                {
-                    const varName = preferencesMatch[1];
-                    const rightHandExpr = preferencesMatch[2].trim();
-                    const inferredType = InferTypeFromExpression(rightHandExpr);
-
-                    const decl = new Declaration(
-                        `preferences.${varName}`,
-                        vscode.CompletionItemKind.Variable,
-                        fullStatement.trim(),
-                        inferredType,
-                        `Preference variable overridden in ${path.basename(filePath)}`,
-                        location
-                    );
-
-                    Store.RegisterUserSymbol(["preferences", varName], decl);
-
-                    if (inferredType !== "Any")
-                    {
-                        Store.RegisterTypeAlias(`preferences.${varName}`, inferredType);
-                    }
                     continue;
                 }
             }
@@ -294,6 +465,65 @@ export class WorkspaceParser
         catch (error)
         {
             Logger.LogMessage(`Error parsing file ${filePath}: ${error}`);
+        }
+    }
+
+    private static getIndentLevel(line: string): number
+    {
+        const match = line.match(this.whitespaceRegex);
+        if (!match)
+        {
+            return 0;
+        }
+        return match[1].replace(this.tabRegex, "    ").length;
+    }
+
+    private static GetScopePath(currentNamespace: string | null, currentClass: string | null, ...subPaths: string[]): string[]
+    {
+        const parts = [];
+
+        if (currentNamespace)
+        {
+            parts.push(currentNamespace);
+        }
+        if (currentClass)
+        {
+            parts.push(currentClass);
+        }
+
+        return [...parts, ...subPaths];
+    };
+
+    private static GetQualifiedType(currentNamespace: string | null, typeStr: string): string
+    {
+        if (currentNamespace && !typeStr.includes(".") && typeStr !== "Any" && typeStr !== "None")
+        {
+            return `${currentNamespace}.${typeStr}`;
+        }
+
+        return typeStr;
+    };
+
+    private static HandleOverride(prefix: string, match: RegExpMatchArray, fullStatement: string, filePath: string, location: LocationInfo): void
+    {
+        const varName = match[1];
+        const rightHandExpr = match[2].trim();
+        const inferredType = InferTypeFromExpression(rightHandExpr);
+
+        const decl = new Declaration(
+            `${prefix}.${varName}`,
+            vscode.CompletionItemKind.Variable,
+            fullStatement.trim(),
+            inferredType,
+            `${prefix} variable overridden in ${path.basename(filePath)}`,
+            location
+        );
+
+        Store.RegisterUserSymbol([prefix, varName], decl);
+
+        if (inferredType !== "Any")
+        {
+            Store.RegisterTypeAlias(`${prefix}.${varName}`, inferredType);
         }
     }
 }

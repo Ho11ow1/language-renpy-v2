@@ -30,7 +30,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
 
 export function deactivate(): void {}
 
-async function Initialize()
+async function Initialize(): Promise<void>
 {
     Logger.Clear();
 
