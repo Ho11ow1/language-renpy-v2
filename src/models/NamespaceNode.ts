@@ -50,7 +50,11 @@ export class NamespaceNode
 
         for (const [key, decl] of this.members.entries())
         {
-            if (decl.pythonType === "label" || decl.pythonType === "screen" || decl.pythonType === "transform")
+            if (decl.pythonType === "label" || decl.pythonType === "screen" || decl.pythonType === "transform" || decl.pythonType === "style" || decl.pythonType === "image")
+            {
+                continue;
+            }
+            if (decl.kind === vscode.CompletionItemKind.Class && key === this.name)
             {
                 continue;
             }
