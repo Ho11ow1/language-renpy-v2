@@ -95,5 +95,5 @@ export function InferTypeFromExpression(rightHandExpr: string): string
         return "tuple";
     }
 
-    return "None";
+    return "Any";
 }
