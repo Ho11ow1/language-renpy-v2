@@ -24,7 +24,7 @@ export class WorkspaceParser
     private static styleRegex: RegExp = new RegExp("^\\s*style\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
 
     // Variable user-case stuff
-    private static imageRegex: RegExp = new RegExp("^\\s*image\\s+([a-zA-Z0-9_\\s]+?)\\s*=\\s*([\\s\\S]+)$");
+    private static imageRegex: RegExp = new RegExp("^\\s*image\\s+([a-zA-Z0-9_\\s]+?)\\s*[=:]\\s*([\\s\\S]*)$");
     private static persistentRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+persistent\\.([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
 
     // Explicit variable statements
