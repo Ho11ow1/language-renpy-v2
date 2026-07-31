@@ -39,7 +39,14 @@
                     "light": "./renpy.svg"
                 }
             }
-        ]
+        ],
+        "configurationDefaults": {
+            "[renpy]": {
+                "editor.insertSpaces": true,
+                "editor.tabSize": 4,
+                "editor.detectIndentation": false
+            }
+        }
     },
     "scripts": {
         "vscode:prepublish": "pnpm run package",
