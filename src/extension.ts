@@ -5,26 +5,13 @@ import { HoverItemProvider } from "@src/hover";
 import { Store } from "@src/store";
 import { WorkspaceParser } from "@parser/WorkspaceParser";
 
-//
-//  TODO: Restructure this into multiple functions rather than 1 messy block
-//
+const RENPY_FILE_PATTERNS = "{**/*.rpy,**/*_ren.py}" as const;
+
 export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
-    Logger.Clear();
-    Logger.UpdateStatusBar("Initializing Extension");
-
-    // Init static store from renpy.json
-    Logger.LogMessage("Creating tree from static renpy.json");
-    Store.Initialize();
-    Logger.LogMessage("Finished indexing renpy.json tree");
-
-    Logger.LogMessage("Starting file parsing");
-    const files = await vscode.workspace.findFiles("{**/*.rpy,**/*_ren.py}", "**/node_modules/**");
-    for (const fileUri of files)
-    {
-        WorkspaceParser.ParseFile(fileUri.fsPath);
-    }
-    Logger.LogMessage("Finished parsing all files");
+    // Setup static store & parse all wanted files
+    Logger.UpdateStatusBar("Initializing Ren'Py v2");
+    await Initialize();
 
     // Register debug subscriptions
     context.subscriptions.push(Logger.outputChannel);
@@ -34,8 +21,36 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(new CompletionItemProvider().GetDisposable());
     context.subscriptions.push(new HoverItemProvider().GetDisposable());
 
-    // Setup system watcher for changes
-    const watcher: vscode.FileSystemWatcher = vscode.workspace.createFileSystemWatcher("{**/*.rpy,**/*_ren.py}");
+    // File system watcher so we update what we know
+    context.subscriptions.push(SetupWatcher());
+
+    Logger.LogMessage("Successfully initialized and parsed all files");
+    Logger.UpdateStatusBar("Ren'Py v2 Initialized");
+}
+
+export function deactivate(): void {}
+
+async function Initialize()
+{
+    Logger.Clear();
+
+    Store.Initialize();
+
+    Logger.LogMessage("Finished indexing renpy.json tree");
+
+    const files = await vscode.workspace.findFiles(RENPY_FILE_PATTERNS, "**/node_modules/**"); // We shouldn't need to exclude node_modules but just in case so we don't even try looking
+    for (const fileUri of files)
+    {
+        WorkspaceParser.ParseFile(fileUri.fsPath);
+    }
+
+    Logger.LogMessage("Finished parsing all renpy files");
+}
+
+function SetupWatcher(): vscode.FileSystemWatcher
+{
+    const watcher = vscode.workspace.createFileSystemWatcher(RENPY_FILE_PATTERNS);
+
     watcher.onDidChange((uri): void => {
         WorkspaceParser.ParseFile(uri.fsPath);
     });
@@ -46,10 +61,5 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
         Store.RemoveDeclarationsFromFile(uri.fsPath);
     });
 
-    context.subscriptions.push(watcher);
-
-    Logger.UpdateStatusBar("Ren'Py v2 Initialized");
-    Logger.LogMessage("Successfully initialized and parsed all files");
+    return watcher;
 }
-
-export function deactivate(): void {}
