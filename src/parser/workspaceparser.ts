@@ -18,7 +18,7 @@ export class WorkspaceParser
     private static setterDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\w*\\.setter\\b");
 
     // General use-case stuff
-    private static labelRegex: RegExp = new RegExp("^\\s*label\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
+    private static labelRegex: RegExp = new RegExp("^\\s*label\\s+(?!_\\s*\\()([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
     private static screenRegex: RegExp = new RegExp("^\\s*screen\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
     private static transformRegex: RegExp = new RegExp("^\\s*transform\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
     private static styleRegex: RegExp = new RegExp("^\\s*style\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
