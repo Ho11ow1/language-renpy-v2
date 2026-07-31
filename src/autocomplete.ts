@@ -4,13 +4,11 @@ import * as vscode from "vscode";
 
 export class CompletionItemProvider implements vscode.CompletionItemProvider
 {
-    // Label stuff | Should combine these 2 later on when i get to cleaning stuff
-    private readonly jumpRegex: RegExp = new RegExp("(?:^|\\s)jump\\s+([a-zA-Z0-9_]*)$");
-    private readonly callRegex: RegExp = new RegExp("(?:^|\\s)call\\s+([a-zA-Z0-9_]*)$");
+    // Label stuff
+    private readonly callJumpRegex: RegExp = new RegExp("(?:^|\\s)(?:call|jump)\\s+([a-zA-Z0-9_]*)$");
 
-    // Screen stuff | Should combine these 2 later on when i get to cleaning stuff
-    private readonly callScreenRegex: RegExp = new RegExp("(?:^|\\s)call\\s+screen\\s+([a-zA-Z0-9_]*)$");
-    private readonly showScreenRegex: RegExp = new RegExp("(?:^|\\s)show\\s+screen\\s+([a-zA-Z0-9_]*)$");
+    // Screen stuff
+    private readonly callShowScreenRegex: RegExp = new RegExp("(?:^|\\s)(?:call|show)\\s+screen\\s+([a-zA-Z0-9_]*)$");
 
     // Image stuff
     private readonly showRegex: RegExp = new RegExp("(?:^|\\s)show\\s+([a-zA-Z0-9_]*)$");
@@ -50,7 +48,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // call | show screen -> show screens
         //
-        if (this.callScreenRegex.test(cursorPrefix) || this.showScreenRegex.test(cursorPrefix))
+        if (this.callShowScreenRegex.test(cursorPrefix))
         {
             Logger.LogMessage("Autocomplete lookup for: call screen");
             const items = Store.GetScreenCompletions;
@@ -59,7 +57,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // jump | call -> show labels
         //
-        if (this.jumpRegex.test(cursorPrefix) || this.callRegex.test(cursorPrefix))
+        if (this.callJumpRegex.test(cursorPrefix))
         {
             Logger.LogMessage("Autocomplete lookup for: jump | call");
             const items = Store.GetLabelCompletions;
