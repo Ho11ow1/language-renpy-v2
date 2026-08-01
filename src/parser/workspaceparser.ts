@@ -14,8 +14,9 @@ export class WorkspaceParser
     private static classRegex: RegExp = new RegExp("^\\s*class\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
     private static functionRegex: RegExp = new RegExp("^\\s*(?:async\\s+)?def\\s+([a-zA-Z_]\\w*)\\s*\\([^)]*\\)\\s*(?:->\\s*[^:]+)?\\s*:");
     private static classMemberFieldRegex: RegExp = new RegExp("^\\s*(?:self|cls)\\.([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
-    private static propertyDecoratorRegex: RegExp = new RegExp("^\\s*@(?:property|[a-zA-Z_]\w*\\.setter)\\b");
-    private static setterDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\w*\\.setter\\b");
+    private static propertyDecoratorRegex: RegExp = new RegExp("^\\s*@(?:property|[a-zA-Z_]\\w*\\.setter)\\b");
+    private static setterDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\\w*\\.setter\\b");
+    private static variantDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\\w*\\.variant\\b");
 
     // General use-case stuff
     private static labelRegex: RegExp = new RegExp("^\\s*label\\s+(?!_\\s*\\()([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
@@ -286,6 +287,7 @@ export class WorkspaceParser
 
                     let isProperty = false;
                     let isSetter = false;
+                    let isVariant = false;
                     let checkIndex = lineIndex - 1;
 
                     while (checkIndex >= 0)
@@ -307,13 +309,17 @@ export class WorkspaceParser
                                     isSetter = true;
                                 }
                             }
+                            if (this.variantDecoratorRegex.test(prevTrimmed))
+                            {
+                                isVariant = true
+                            }
                             checkIndex--;
                             continue;
                         }
 
                         break;
                     }
-                    if (isSetter)
+                    if (isSetter || isVariant)
                     {
                         continue;
                     }
