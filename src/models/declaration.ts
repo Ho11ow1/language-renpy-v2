@@ -10,8 +10,9 @@ export class Declaration
     public pythonType: string;                // Holds the python relative type of this item
     public locationInfo?: LocationInfo;       // Holds { filePath: "game/scripts/Characters/Characters.rpy", lineNumber: 4 }
     public documentation?: string;            // Holds a string that will be converted into a hover detail
+    public isCustom: boolean;                 // Let's us know if we should delete the entry or just return to static
 
-    public constructor(name: string, kind: vscode.CompletionItemKind, detail: string, pythonType: string = "None", documentation?: string, locationInfo?: LocationInfo)
+    public constructor(name: string, kind: vscode.CompletionItemKind, detail: string, pythonType: string = "Any", documentation?: string, locationInfo?: LocationInfo, isCustom: boolean = true)
     {
         this.name = name;
         this.kind = kind;
@@ -20,13 +21,14 @@ export class Declaration
         this.pythonType = pythonType;
         this.documentation = documentation;
         this.locationInfo = locationInfo;
+        this.isCustom = isCustom;
     }
 
-    public UpdateFromWorkspace(detail: string, locationInfo: LocationInfo, pythonType?: string): void
+    public updateFromWorkspace(detail: string, locationInfo: LocationInfo, pythonType?: string): void
     {
         this.detail = detail;
         this.locationInfo = locationInfo;
-        if (pythonType && pythonType !== "None")
+        if (pythonType && pythonType !== "Any")
         {
             this.pythonType = pythonType;
         }
@@ -35,5 +37,6 @@ export class Declaration
     public Reset(): void
     {
         this.detail = this.staticDetail;
+        this.locationInfo = undefined;
     }
 }

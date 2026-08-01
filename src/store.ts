@@ -11,14 +11,27 @@ export class Store
     private static rootNode: NamespaceNode = new NamespaceNode("root");
     private static typeAliasMap: Map<string, string> = new Map<string, string>();
 
-    public static get GetImmediateCompletions(): vscode.CompletionItem[] { return this.rootNode.GetImmediateCompletions(); }
-    public static get GetLabelCompletions(): vscode.CompletionItem[] { return this.GetCompletions("label"); }
-    public static get GetScreenCompletions(): vscode.CompletionItem[] { return this.GetCompletions("screen"); }
-    public static get GetTransformCompletions(): vscode.CompletionItem[] { return this.GetCompletions("transform"); }
-    public static get GetStyleCompletions(): vscode.CompletionItem[] { return this.GetCompletions("style"); }
-    public static get GetImageCompletions(): vscode.CompletionItem[] { return this.GetCompletions("image"); }
+    public static get getImmediateCompletions(): vscode.CompletionItem[] { return this.rootNode.getImmediateCompletions(); }
+    public static get getLabelCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("label"); }
+    public static get getScreenCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("screen"); }
+    public static get getTransformCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("transform"); }
+    public static get getStyleCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("style"); }
+    public static get getImageCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("image"); }
+    public static getCompletionsForPath(dottedPath: string): vscode.CompletionItem[]
+    {
+        const segments = dottedPath.split(".").filter((s): boolean => s.length > 0);
 
-    public static Initialize(): void
+        const resolvedSegments = this.resolvePathAliases(segments);
+        const targetNode = this.rootNode.getNodeAtPath(resolvedSegments);
+        if (!targetNode)
+        {
+            return [];
+        }
+
+        return targetNode.getImmediateCompletions();
+    }
+
+    public static init(): void
     {
         this.typeAliasMap.clear();
 
@@ -26,38 +39,25 @@ export class Store
         for (const [topLevelKey, items] of Object.entries(data))
         {
             const nsNode = new NamespaceNode(topLevelKey);
+
             this.rootNode.children.set(topLevelKey, nsNode);
-            this.PopulateNodeRecursive(items, nsNode, topLevelKey);
+            this.populateNodeRecursive(items, nsNode, topLevelKey);
         }
-        Logger.LogMessage(`Store initialized. Root keys: ${Array.from(this.rootNode.children.keys()).join(", ")}`);
+    
+        Logger.logMessage(`Store initialized. Root keys: ${Array.from(this.rootNode.children.keys()).join(", ")}`);
     }
 
-    public static RemoveDeclarationsFromFile(filePath: string): void
+    public static removeDeclarationsFromFile(filePath: string): void
     {
-        this.rootNode.ResetWorkspaceOverrides(filePath);
+        this.rootNode.resetWorkspaceOverrides(filePath);
     }
 
-    public static RegisterTypeAlias(variablePath: string, classTypePath: string): void
+    public static registerTypeAlias(variablePath: string, classTypePath: string): void
     {
         this.typeAliasMap.set(variablePath, classTypePath);
     }
 
-    public static GetCompletionsForPath(dottedPath: string): vscode.CompletionItem[]
-    {
-        const segments = dottedPath.split(".").filter((s): boolean => s.length > 0);
-
-        const resolvedSegments = this.ResolvePathAliases(segments);
-        const targetNode = this.rootNode.GetNodeAtPath(resolvedSegments);
-
-        if (!targetNode)
-        {
-            return [];
-        }
-
-        return targetNode.GetImmediateCompletions();
-    }
-
-    public static RegisterUserSymbol(pathSegments: string[], declaration: Declaration): void
+    public static registerUserSymbol(pathSegments: string[], declaration: Declaration): void
     {
         if (pathSegments.length === 0)
         {
@@ -68,6 +68,7 @@ export class Store
         for (let i = 0; i < pathSegments.length - 1; i++)
         {
             const segment = pathSegments[i];
+
             let childNode = currentNode.children.get(segment);
             if (!childNode)
             {
@@ -95,11 +96,22 @@ export class Store
         }
         else
         {
-            currentNode.members.set(lastSegment, declaration);
+            const existingDecl = currentNode.members.get(lastSegment);
+            if (existingDecl && !existingDecl.isCustom)
+            {
+                existingDecl.detail = declaration.detail;
+                existingDecl.documentation = declaration.documentation;
+                existingDecl.locationInfo = declaration.locationInfo;
+                existingDecl.pythonType = declaration.pythonType;
+            }
+            else
+            {
+                currentNode.members.set(lastSegment, declaration);
+            }
         }
     }
 
-    public static EnsurePathExists(pathSegments: string[]): NamespaceNode
+    public static ensurePathExists(pathSegments: string[]): NamespaceNode
     {
         let currentNode = this.rootNode;
 
@@ -117,7 +129,36 @@ export class Store
         return currentNode;
     }
 
-    private static ResolveKind(kind: string): vscode.CompletionItemKind
+    public static getDeclarationAtPath(pathSegments: string[]): Declaration | undefined
+    {
+        if (pathSegments.length === 0)
+        {
+            return undefined;
+        }
+
+        const parentSegments = pathSegments.slice(0, -1);
+        const leafName = pathSegments[pathSegments.length - 1];
+
+        const resolvedParents = parentSegments.length > 0 ? this.resolvePathAliases(parentSegments) : [];
+        const parentNode = resolvedParents.length > 0 ? this.rootNode.getNodeAtPath(resolvedParents) : this.rootNode;
+        if (!parentNode)
+        {
+            return undefined;
+        }
+
+        if (parentNode.members.has(leafName))
+        {
+            return parentNode.members.get(leafName);
+        }
+        if (parentNode.children.has(leafName))
+        {
+            return parentNode.children.get(leafName)?.declaration;
+        }
+
+        return undefined;
+    }
+
+    private static resolveKind(kind: string): vscode.CompletionItemKind
     {
         switch (kind.toLowerCase())
         {
@@ -136,20 +177,21 @@ export class Store
         }
     }
 
-    private static PopulateNodeRecursive(items: Record<string, IStaticJsonItem>, parentNode: NamespaceNode, currentPath: string): void
+    private static populateNodeRecursive(items: Record<string, IStaticJsonItem>, parentNode: NamespaceNode, currentPath: string): void
     {
         for (const [key, item] of Object.entries(items))
         {
             const fullPath = `${currentPath}.${key}`;
-            const kind = this.ResolveKind(item.kind ?? "");
+            const kind = this.resolveKind(item.kind ?? "");
 
-            const decl = new Declaration(fullPath, kind, item.detail ?? fullPath, item.pythonType ?? "None", item.doc);
+            const decl = new Declaration(fullPath, kind, item.detail ?? "", item.pythonType ?? "Any", item.doc ?? "", undefined, false);
 
             if (item.children && Object.keys(item.children).length > 0)
             {
                 const childNode = new NamespaceNode(key, decl);
+
                 parentNode.children.set(key, childNode);
-                this.PopulateNodeRecursive(item.children, childNode, fullPath);
+                this.populateNodeRecursive(item.children, childNode, fullPath);
             }
             else
             {
@@ -158,7 +200,7 @@ export class Store
         }
     }
 
-    private static ResolvePathAliases(segments: string[]): string[]
+    private static resolvePathAliases(segments: string[]): string[]
     {
         const resolved = [];
         let currentPath = "";
@@ -170,41 +212,48 @@ export class Store
             if (this.typeAliasMap.has(currentPath))
             {
                 const aliasedType = this.typeAliasMap.get(currentPath)!;
+
                 resolved.length = 0;
                 resolved.push(...aliasedType.split("."));
+
                 currentPath = aliasedType;
-                currentNode = this.rootNode.GetNodeAtPath(resolved);
+                currentNode = this.rootNode.getNodeAtPath(resolved);
+
                 continue;
             }
             if (currentNode && currentNode.children.has(seg))
             {
                 resolved.push(seg);
+
                 currentNode = currentNode.children.get(seg);
+
                 continue;
             }
             if (currentNode && currentNode.members.has(seg))
             {
                 const member = currentNode.members.get(seg)!;
-                let targetType = member.pythonType;
 
+                let targetType = member.pythonType;
                 if (targetType && targetType !== "Any" && targetType !== "None")
                 {
                     let typeSegments = targetType.split(".");
-
-                    if (!this.rootNode.GetNodeAtPath(typeSegments) && resolved.length > 0)
+                    if (!this.rootNode.getNodeAtPath(typeSegments) && resolved.length > 0)
                     {
                         const parentNamespace = resolved[0];
+
                         const qualifiedType = `${parentNamespace}.${targetType}`;
-                        if (this.rootNode.GetNodeAtPath(qualifiedType.split(".")))
+                        if (this.rootNode.getNodeAtPath(qualifiedType.split(".")))
                         {
                             typeSegments = qualifiedType.split(".");
                         }
                     }
 
                     resolved.length = 0;
+
                     resolved.push(...typeSegments);
                     currentPath = typeSegments.join(".");
-                    currentNode = this.rootNode.GetNodeAtPath(resolved);
+                    currentNode = this.rootNode.getNodeAtPath(resolved);
+
                     continue;
                 }
             }
@@ -215,28 +264,20 @@ export class Store
         return resolved;
     }
 
-    private static GetCompletions(wantedType: string): vscode.CompletionItem[]
+    private static getKeywordCompletions(wantedType: string): vscode.CompletionItem[]
     {
         const items = [];
         const prefixRegex = new RegExp(`^${wantedType}\\s+`);
 
-        for (const [_, delc] of this.rootNode.members.entries())
+        for (const [_, decl] of this.rootNode.members.entries())
         {
-            if (delc.pythonType === wantedType || delc.name.startsWith(`${wantedType} `))
+            if (decl.pythonType === wantedType || decl.name.startsWith(`${wantedType} `))
             {
-                const name = delc.name.replace(prefixRegex, "");
-                const item = new vscode.CompletionItem(name, delc.kind);
+                const name = decl.name.replace(prefixRegex, "");
+                const item = new vscode.CompletionItem(name, decl.kind);
 
-                item.detail = delc.detail;
-                item.documentation = delc.documentation ? new vscode.MarkdownString(delc.documentation) : undefined;
-                if (item.kind === vscode.CompletionItemKind.Function || item.kind === vscode.CompletionItemKind.Method)
-                {
-                    item.insertText = new vscode.SnippetString(`${name}($1)`);
-                    item.command = {
-                        command: "editor.action.triggerParameterHints",
-                        title: "Trigger Parameter Hints"
-                    };
-                }
+                item.detail = decl.detail;
+                item.documentation = decl.documentation ? new vscode.MarkdownString(decl.documentation) : undefined;
 
                 items.push(item);
             }

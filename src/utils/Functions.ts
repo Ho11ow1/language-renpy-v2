@@ -3,7 +3,7 @@ const floatRegex: RegExp = new RegExp("^-?\\d+\\.\\d+$");
 const stringRegex: RegExp = new RegExp("^(?:\"[\\s\\S]*\"|'[\\s\\S]*')$");
 const constructorRegex: RegExp = new RegExp("^([a-zA-Z_]\\w*(?:\\.[a-zA-Z_]\\w*)*)\\s*\\(");
 
-export function HasUnclosedDelimiters(text: string): boolean
+export function hasUnclosedDelimiters(text: string): boolean
 {
     let parenthesis = 0;
     let brackets = 0;
@@ -22,7 +22,6 @@ export function HasUnclosedDelimiters(text: string): boolean
             }
             continue;
         }
-
         if (char === '"' || char === "'")
         {
             inString = char;
@@ -40,9 +39,9 @@ export function HasUnclosedDelimiters(text: string): boolean
     return parenthesis > 0 || brackets > 0 || braces > 0;
 }
 
-export function InferTypeFromExpression(rightHandExpr: string): string
+export function inferTypeFromExpression(rightHandExpr: string): string
 {
-    const expr: string = rightHandExpr.trim();
+    const expr = rightHandExpr.trim();
 
     const constructorMatch = expr.match(constructorRegex);
     if (constructorMatch)
@@ -54,42 +53,34 @@ export function InferTypeFromExpression(rightHandExpr: string): string
     {
         return "bool";
     }
-
     if (expr === "None")
     {
         return "None";
     }
-
     if (intRegex.test(expr))
     {
         return "int";
     }
-
     if (floatRegex.test(expr))
     {
         return "float";
     }
-
     if (stringRegex.test(expr))
     {
         return "str";
     }
-
     if ((expr.startsWith("{") && expr.endsWith("}") && expr.includes(":")) || expr === "{}" || expr.startsWith("dict("))
     {
         return "dict";
     }
-
     if ((expr.startsWith("[") && expr.endsWith("]")) || expr.startsWith("list("))
     {
         return "list";
     }
-
     if (expr.startsWith("set("))
     {
         return "set";
     }
-
     if ((expr.startsWith("(") && expr.endsWith(")")) || expr.startsWith("tuple("))
     {
         return "tuple";

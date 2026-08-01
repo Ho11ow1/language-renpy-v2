@@ -31,9 +31,9 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         if (cursorPrefix.endsWith("."))
         {
             const cleanPrefix = cursorPrefix.replace("$", "").slice(0, -1).trim();
-            Logger.LogMessage(`Tree autocomplete lookup for: "${cleanPrefix}"`);
+            Logger.logMessage(`Tree autocomplete lookup for: "${cleanPrefix}"`);
 
-            const items = Store.GetCompletionsForPath(cleanPrefix);
+            const items = Store.getCompletionsForPath(cleanPrefix);
             return items.length > 0 ? items : undefined;
         }
         //
@@ -41,8 +41,9 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         if (this.styleRegex.test(cursorPrefix))
         {
-            Logger.LogMessage("Autocomplete lookup for: style");
-            const items = Store.GetStyleCompletions;
+            Logger.logMessage("Autocomplete lookup for: style");
+
+            const items = Store.getStyleCompletions;
             return items.length > 0 ? items : undefined;
         }
         //
@@ -50,8 +51,9 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         if (this.callShowScreenRegex.test(cursorPrefix))
         {
-            Logger.LogMessage("Autocomplete lookup for: call screen");
-            const items = Store.GetScreenCompletions;
+            Logger.logMessage("Autocomplete lookup for: call screen");
+
+            const items = Store.getScreenCompletions;
             return items.length > 0 ? items : undefined;
         }
         //
@@ -59,8 +61,9 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         if (this.callJumpRegex.test(cursorPrefix))
         {
-            Logger.LogMessage("Autocomplete lookup for: jump | call");
-            const items = Store.GetLabelCompletions;
+            Logger.logMessage("Autocomplete lookup for: jump | call");
+
+            const items = Store.getLabelCompletions;
             return items.length > 0 ? items : undefined;
         }
         //
@@ -68,8 +71,9 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         if (this.showRegex.test(cursorPrefix))
         {
-            Logger.LogMessage("Autocomplete lookup for images");
-            const items = Store.GetImageCompletions;
+            Logger.logMessage("Autocomplete lookup for images");
+
+            const items = Store.getImageCompletions;
             return items.length > 0 ? items : undefined;
         }
         //
@@ -77,8 +81,9 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         if (cursorPrefix.trim().endsWith("at"))
         {
-            Logger.LogMessage("Autocomplete lookup for at transforms");
-            const items = Store.GetTransformCompletions;
+            Logger.logMessage("Autocomplete lookup for at transforms");
+
+            const items = Store.getTransformCompletions;
             return items.length > 0 ? items : undefined;
         }
         //
@@ -86,21 +91,17 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         if (cursorPrefix.trim().startsWith("$"))
         {
-            Logger.LogMessage("Autocomplete lookup for immediate variables/namespaces");
-            const items = Store.GetImmediateCompletions;
+            Logger.logMessage("Autocomplete lookup for immediate");
+
+            const items = Store.getImmediateCompletions;
             return items.length > 0 ? items : undefined;
         }
 
         return undefined;
     }
 
-    public GetDisposable(): vscode.Disposable
+    public getDisposable(): vscode.Disposable
     {
-        return vscode.languages.registerCompletionItemProvider(
-            "renpy",
-            this,
-            ".",
-            " "
-        );
+        return vscode.languages.registerCompletionItemProvider("renpy", this, ".", " ");
     }
 }

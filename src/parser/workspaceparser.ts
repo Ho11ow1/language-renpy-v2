@@ -5,7 +5,7 @@ import { Store } from "@src/store";
 import { Declaration } from "@models/Declaration";
 import { LocationInfo } from "@models/LocationInfo";
 import { Logger } from "@utils/Logger";
-import { HasUnclosedDelimiters, InferTypeFromExpression } from "@utils/Functions";
+import { hasUnclosedDelimiters, inferTypeFromExpression } from "@utils/Functions";
 
 export class WorkspaceParser
 {
@@ -44,13 +44,13 @@ export class WorkspaceParser
     private static tabRegex: RegExp = new RegExp("\\t", "g");
     private static whitespaceRegex: RegExp = new RegExp("^(\\s*)");
 
-    public static ParseFile(filePath: string): void
+    public static parseFile(filePath: string): void
     {
         if (!fs.existsSync(filePath)) return;
 
         try
         {
-            Store.RemoveDeclarationsFromFile(filePath);
+            Store.removeDeclarationsFromFile(filePath);
 
             const fileContent = fs.readFileSync(filePath, "utf-8");
             const lines = fileContent.split(this.fileSplitRegex);
@@ -108,7 +108,7 @@ export class WorkspaceParser
 
                 let fullStatement = line;
                 let lookAheadIndex = lineIndex + 1;
-                while (HasUnclosedDelimiters(fullStatement) && lookAheadIndex < lines.length)
+                while (hasUnclosedDelimiters(fullStatement) && lookAheadIndex < lines.length)
                 {
                     fullStatement += "\n" + lines[lookAheadIndex];
                     lookAheadIndex++;
@@ -124,7 +124,7 @@ export class WorkspaceParser
                     {
                         currentNamespace = pythonBlockMatch[1];
                         namespaceIndent = lineIndent;
-                        Store.EnsurePathExists([currentNamespace]);
+                        Store.ensurePathExists([currentNamespace]);
                     }
 
                     continue;
@@ -149,8 +149,8 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.RegisterUserSymbol([...parentScope, className], decl);
-                    Store.RegisterTypeAlias(fullClassName, fullClassName);
+                    Store.registerUserSymbol([...parentScope, className], decl);
+                    Store.registerTypeAlias(fullClassName, fullClassName);
 
                     continue;
                 }
@@ -169,7 +169,7 @@ export class WorkspaceParser
                         `User-defined label in ${path.basename(filePath)}`,
                         location
                     );
-                    Store.RegisterUserSymbol([labelName], decl);
+                    Store.registerUserSymbol([labelName], decl);
 
                     continue;
                 }
@@ -188,7 +188,7 @@ export class WorkspaceParser
                         `User-defined screen in ${path.basename(filePath)}`,
                         location
                     );
-                    Store.RegisterUserSymbol([screenName], decl);
+                    Store.registerUserSymbol([screenName], decl);
 
                     continue;
                 }
@@ -207,7 +207,7 @@ export class WorkspaceParser
                         `User-defined transform in ${path.basename(filePath)}`,
                         location
                     );
-                    Store.RegisterUserSymbol([transformName], decl);
+                    Store.registerUserSymbol([transformName], decl);
 
                     continue;
                 }
@@ -226,7 +226,7 @@ export class WorkspaceParser
                         `User-defined style in ${path.basename(filePath)}`,
                         location
                     );
-                    Store.RegisterUserSymbol([styleName], decl);
+                    Store.registerUserSymbol([styleName], decl);
 
                     continue;
                 }
@@ -243,7 +243,7 @@ export class WorkspaceParser
                         `User image defined in ${path.basename(filePath)}`,
                         location
                     );
-                    Store.RegisterUserSymbol([imageName], decl);
+                    Store.registerUserSymbol([imageName], decl);
 
                     continue;
                 }
@@ -253,7 +253,7 @@ export class WorkspaceParser
                 {
                     const varName = persistentMatch[1].trim();
                     const rightHandExpr = persistentMatch[2].trim();
-                    const inferredType = InferTypeFromExpression(rightHandExpr);
+                    const inferredType = inferTypeFromExpression(rightHandExpr);
 
                     const decl = new Declaration(
                         `persistent.${varName}`,
@@ -263,11 +263,11 @@ export class WorkspaceParser
                         `Persistent variable declared in ${path.basename(filePath)}`,
                         location
                     );
-                    Store.RegisterUserSymbol(["persistent", varName], decl);
+                    Store.registerUserSymbol(["persistent", varName], decl);
 
                     if (inferredType !== "Any")
                     {
-                        Store.RegisterTypeAlias(`persistent.${varName}`, inferredType);
+                        Store.registerTypeAlias(`persistent.${varName}`, inferredType);
                     }
 
                     continue;
@@ -331,7 +331,7 @@ export class WorkspaceParser
                         kind = vscode.CompletionItemKind.Property;
                     }
 
-                    const scopePath = this.GetScopePath(currentNamespace, currentClass, functionName);
+                    const scopePath = this.getScopePath(currentNamespace, currentClass, functionName);
                     const fullName = scopePath.join(".");
 
                     const declType = isProperty ? "Property" : (isMethod ? "Method" : "Function");
@@ -345,7 +345,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.RegisterUserSymbol(scopePath, decl);
+                    Store.registerUserSymbol(scopePath, decl);
 
                     continue;
                 }
@@ -362,8 +362,8 @@ export class WorkspaceParser
                         }
 
                         const rightHandExpr = selfMatch[2].trim();
-                        const inferredType = InferTypeFromExpression(rightHandExpr);
-                        const scopePath = this.GetScopePath(currentNamespace, currentClass, fieldName);
+                        const inferredType = inferTypeFromExpression(rightHandExpr);
+                        const scopePath = this.getScopePath(currentNamespace, currentClass, fieldName);
                         const fullName = scopePath.join(".");
 
                         const decl = new Declaration(
@@ -375,7 +375,7 @@ export class WorkspaceParser
                             location
                         );
 
-                        Store.RegisterUserSymbol(scopePath, decl);
+                        Store.registerUserSymbol(scopePath, decl);
 
                         continue;
                     }
@@ -390,31 +390,31 @@ export class WorkspaceParser
                 }
 
                 const configMatch = fullStatement.match(this.configRegex);
-                if (configMatch) { this.HandleOverride("config", configMatch, fullStatement, filePath, location); continue; }
+                if (configMatch) { this.handleOverride("config", configMatch, fullStatement, filePath, location); continue; }
 
                 const buildMatch = fullStatement.match(this.buildRegex);
-                if (buildMatch) { this.HandleOverride("build", buildMatch, fullStatement, filePath, location); continue; }
+                if (buildMatch) { this.handleOverride("build", buildMatch, fullStatement, filePath, location); continue; }
 
                 const guiMatch = fullStatement.match(this.guiRegex);
-                if (guiMatch) { this.HandleOverride("gui", guiMatch, fullStatement, filePath, location); continue; }
+                if (guiMatch) { this.handleOverride("gui", guiMatch, fullStatement, filePath, location); continue; }
 
                 const bubbleMatch = fullStatement.match(this.bubbleRegex);
-                if (bubbleMatch) { this.HandleOverride("bubble", bubbleMatch, fullStatement, filePath, location); continue; }
+                if (bubbleMatch) { this.handleOverride("bubble", bubbleMatch, fullStatement, filePath, location); continue; }
 
                 const preferencesMatch = fullStatement.match(this.preferencesRegex);
-                if (preferencesMatch) { this.HandleOverride("preferences", preferencesMatch, fullStatement, filePath, location); continue; }
+                if (preferencesMatch) { this.handleOverride("preferences", preferencesMatch, fullStatement, filePath, location); continue; }
 
                 const renpyVarMatch = fullStatement.match(this.renpyVarRegex);
                 if (renpyVarMatch)
                 {
                     const varPathStr = renpyVarMatch[1];
                     const rightHandExpr = renpyVarMatch[2].trim();
-                    const inferredType = InferTypeFromExpression(rightHandExpr);
+                    const inferredType = inferTypeFromExpression(rightHandExpr);
 
                     const varSegments = varPathStr.split(".");
                     const targetKind = currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable;
 
-                    const scopePath = this.GetScopePath(currentNamespace, currentClass, ...varSegments);
+                    const scopePath = this.getScopePath(currentNamespace, currentClass, ...varSegments);
                     const fullName = scopePath.join(".");
 
                     const decl = new Declaration(
@@ -426,12 +426,12 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.RegisterUserSymbol(scopePath, decl);
+                    Store.registerUserSymbol(scopePath, decl);
 
                     if (inferredType !== "Any")
                     {
-                        const qualifiedType = this.GetQualifiedType(currentNamespace, inferredType);
-                        Store.RegisterTypeAlias(fullName, qualifiedType);
+                        const qualifiedType = this.getQualifiedType(currentNamespace, inferredType);
+                        Store.registerTypeAlias(fullName, qualifiedType);
                     }
 
                     continue;
@@ -442,9 +442,9 @@ export class WorkspaceParser
                 {
                     const varName = plainVarMatch[1];
                     const rightHandExpr = plainVarMatch[2].trim();
-                    const inferredType = InferTypeFromExpression(rightHandExpr);
+                    const inferredType = inferTypeFromExpression(rightHandExpr);
 
-                    const scopePath = this.GetScopePath(currentNamespace, currentClass, varName);
+                    const scopePath = this.getScopePath(currentNamespace, currentClass, varName);
                     const fullName = scopePath.join(".");
 
                     const decl = new Declaration(
@@ -456,12 +456,12 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.RegisterUserSymbol(scopePath, decl);
+                    Store.registerUserSymbol(scopePath, decl);
 
                     if (inferredType !== "Any")
                     {
-                        const qualifiedType = this.GetQualifiedType(currentNamespace, inferredType);
-                        Store.RegisterTypeAlias(fullName, qualifiedType);
+                        const qualifiedType = this.getQualifiedType(currentNamespace, inferredType);
+                        Store.registerTypeAlias(fullName, qualifiedType);
                     }
 
                     continue;
@@ -470,7 +470,7 @@ export class WorkspaceParser
         }
         catch (error)
         {
-            Logger.LogMessage(`Error parsing file ${filePath}: ${error}`);
+            Logger.logMessage(`Error parsing file ${filePath}: ${error}`);
         }
     }
 
@@ -484,7 +484,7 @@ export class WorkspaceParser
         return match[1].replace(this.tabRegex, "    ").length;
     }
 
-    private static GetScopePath(currentNamespace: string | null, currentClass: string | null, ...subPaths: string[]): string[]
+    private static getScopePath(currentNamespace: string | null, currentClass: string | null, ...subPaths: string[]): string[]
     {
         const parts = [];
 
@@ -500,7 +500,7 @@ export class WorkspaceParser
         return [...parts, ...subPaths];
     };
 
-    private static GetQualifiedType(currentNamespace: string | null, typeStr: string): string
+    private static getQualifiedType(currentNamespace: string | null, typeStr: string): string
     {
         if (currentNamespace && !typeStr.includes(".") && typeStr !== "Any" && typeStr !== "None")
         {
@@ -510,11 +510,11 @@ export class WorkspaceParser
         return typeStr;
     };
 
-    private static HandleOverride(prefix: string, match: RegExpMatchArray, fullStatement: string, filePath: string, location: LocationInfo): void
+    private static handleOverride(prefix: string, match: RegExpMatchArray, fullStatement: string, filePath: string, location: LocationInfo): void
     {
         const varName = match[1];
         const rightHandExpr = match[2].trim();
-        const inferredType = InferTypeFromExpression(rightHandExpr);
+        const inferredType = inferTypeFromExpression(rightHandExpr);
 
         const decl = new Declaration(
             `${prefix}.${varName}`,
@@ -525,11 +525,11 @@ export class WorkspaceParser
             location
         );
 
-        Store.RegisterUserSymbol([prefix, varName], decl);
+        Store.registerUserSymbol([prefix, varName], decl);
 
         if (inferredType !== "Any")
         {
-            Store.RegisterTypeAlias(`${prefix}.${varName}`, inferredType);
+            Store.registerTypeAlias(`${prefix}.${varName}`, inferredType);
         }
     }
 }

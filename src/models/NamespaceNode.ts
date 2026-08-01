@@ -14,7 +14,7 @@ export class NamespaceNode
         this.declaration = declaration;
     }
 
-    public GetNodeAtPath(pathSegments: string[]): NamespaceNode | undefined
+    public getNodeAtPath(pathSegments: string[]): NamespaceNode | undefined
     {
         if (pathSegments.length === 0)
         {
@@ -23,16 +23,15 @@ export class NamespaceNode
 
         const [head, ...tail] = pathSegments;
         const child = this.children.get(head);
-
         if (!child)
         {
             return undefined;
         }
 
-        return child.GetNodeAtPath(tail);
+        return child.getNodeAtPath(tail);
     }
 
-    public GetImmediateCompletions(): vscode.CompletionItem[]
+    public getImmediateCompletions(): vscode.CompletionItem[]
     {
         const items = [];
 
@@ -40,11 +39,13 @@ export class NamespaceNode
         {
             const kind = childNode.declaration?.kind ?? vscode.CompletionItemKind.Module;
             const item = new vscode.CompletionItem(key, kind);
+
             item.detail = childNode.declaration?.detail ?? `namespace ${key}`;
             if (childNode.declaration?.documentation)
             {
                 item.documentation = new vscode.MarkdownString(childNode.declaration.documentation);
             }
+
             items.push(item);
         }
 
@@ -60,30 +61,63 @@ export class NamespaceNode
             }
 
             const item = new vscode.CompletionItem(key, decl.kind);
+
             item.detail = decl.detail;
-            if (decl.documentation)
+            item.documentation = new vscode.MarkdownString(decl.documentation);
+            if (item.kind === vscode.CompletionItemKind.Function || item.kind === vscode.CompletionItemKind.Method)
             {
-                item.documentation = new vscode.MarkdownString(decl.documentation);
+                item.insertText = new vscode.SnippetString(`${key}($1)`);
+                item.command = {
+                    command: "editor.action.triggerParameterHints",
+                    title: "Trigger Parameter hints"
+                };
             }
+
             items.push(item);
         }
 
         return items;
     }
 
-    public ResetWorkspaceOverrides(filePath: string): void
+    public resetWorkspaceOverrides(filePath: string): void
     {
-        for (const [_, decl] of this.members.entries())
+        for (const [key, decl] of this.members.entries())
         {
             if (decl.locationInfo?.filePath === filePath)
             {
-                decl.Reset();
+                if (decl.isCustom)
+                {
+                    this.members.delete(key);
+                }
+                else
+                {
+                    decl.Reset();
+                }
             }
         }
 
-        for (const child of this.children.values())
+        for (const [key, childNode] of Array.from(this.children.entries()))
         {
-            child.ResetWorkspaceOverrides(filePath);
+            childNode.resetWorkspaceOverrides(filePath);
+
+            if (childNode.declaration?.locationInfo?.filePath === filePath)
+            {
+                if (childNode.declaration.isCustom)
+                {
+                    if (childNode.members.size === 0 && childNode.children.size === 0)
+                    {
+                        this.children.delete(key);
+                    }
+                    else
+                    {
+                        childNode.declaration = undefined;
+                    }
+                }
+                else
+                {
+                    childNode.declaration.Reset();
+                }
+            }
         }
     }
 }

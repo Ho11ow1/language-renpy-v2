@@ -8,22 +8,22 @@ export class Logger
 
     private static MESSAGE_PREFIX: string = "[RENPY V2]" as const;
 
-    public static LogMessage(msg: string): void
+    public static logMessage(msg: string): void
     {
         this.outputChannel.info(`${this.MESSAGE_PREFIX} | ${msg}`);
     }
 
-    public static LogDebug(msg: string): void
+    public static logDebug(msg: string): void
     {
         this.outputChannel.debug(`${this.MESSAGE_PREFIX} | ${msg}`);
     }
 
-    public static Clear(): void
+    public static clear(): void
     {
         this.outputChannel.clear();
     }
 
-    public static UpdateStatusBar(msg: string): void
+    public static updateStatusBar(msg: string): void
     {
         if (msg === "")
         {
@@ -33,6 +33,4 @@ export class Logger
         this.statusBar.show();
         this.statusBar.text = msg;
     }
-
-
 }
