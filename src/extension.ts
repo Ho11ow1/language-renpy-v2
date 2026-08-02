@@ -3,7 +3,7 @@ import { Logger } from "@utils/Logger";
 import { CompletionItemProvider } from "@src/autocomplete";
 import { HoverItemProvider } from "@src/hover";
 import { Store } from "@src/store";
-import { WorkspaceParser } from "@parser/WorkspaceParser";
+import { WorkspaceParser } from "@parser/workspaceparser";
 
 const RENPY_FILE_PATTERNS = "{**/*.rpy,**/*_ren.py}" as const;
 

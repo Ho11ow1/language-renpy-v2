@@ -4,7 +4,9 @@ import * as vscode from "vscode";
 import { Store } from "@src/store";
 import { Declaration } from "@models/Declaration";
 import { LocationInfo } from "@models/LocationInfo";
+import { ParserScopeState } from "@models/ParserScopeState";
 import { Logger } from "@utils/Logger";
+import { ParserUtils } from "@utils/ParserUtils";
 import { hasUnclosedDelimiters, inferTypeFromExpression } from "@utils/Functions";
 
 export class WorkspaceParser
@@ -14,9 +16,6 @@ export class WorkspaceParser
     private static classRegex: RegExp = new RegExp("^\\s*class\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
     private static functionRegex: RegExp = new RegExp("^\\s*(?:async\\s+)?def\\s+([a-zA-Z_]\\w*)\\s*\\([^)]*\\)\\s*(?:->\\s*[^:]+)?\\s*:");
     private static classMemberFieldRegex: RegExp = new RegExp("^\\s*(?:self|cls)\\.([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
-    private static propertyDecoratorRegex: RegExp = new RegExp("^\\s*@(?:property|[a-zA-Z_]\\w*\\.setter)\\b");
-    private static setterDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\\w*\\.setter\\b");
-    private static variantDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\\w*\\.variant\\b");
 
     // General use-case stuff
     private static labelRegex: RegExp = new RegExp("^\\s*label\\s+(?!_\\s*\\()([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
@@ -41,12 +40,13 @@ export class WorkspaceParser
 
     // Helpers
     private static fileSplitRegex: RegExp = new RegExp("\\r?\\n");
-    private static tabRegex: RegExp = new RegExp("\\t", "g");
-    private static whitespaceRegex: RegExp = new RegExp("^(\\s*)");
 
     public static parseFile(filePath: string): void
     {
-        if (!fs.existsSync(filePath)) return;
+        if (!fs.existsSync(filePath))
+        {
+            return;
+        }
 
         try
         {
@@ -54,57 +54,19 @@ export class WorkspaceParser
 
             const fileContent = fs.readFileSync(filePath, "utf-8");
             const lines = fileContent.split(this.fileSplitRegex);
-
-            let currentNamespace: string | null = null;
-            let namespaceIndent: number = -1;
-
-            let currentClass: string | null = null;
-            let classIndent: number = -1;
-
-            let currentFunction: string | null = null;
-            let functionIndent: number = -1;
-
-            let inRenpyBlock: boolean = false;
-            let blockIndent: number = -1;
+            const parserScopeState = new ParserScopeState()
 
             for (let lineIndex = 0; lineIndex < lines.length; lineIndex++)
             {
                 const line = lines[lineIndex];
 
-                if (!line || line.trim().startsWith("#") || line.trim().startsWith("@"))
+                if (!line || line.trim().startsWith("#"))
                 {
                     continue;
                 }
 
-                const lineIndent = this.getIndentLevel(line);
-
-                if (currentFunction !== null && lineIndent <= functionIndent && line.trim().length > 0)
-                {
-                    currentFunction = null;
-                    functionIndent = -1;
-                }
-
-                if (currentClass !== null && lineIndent <= classIndent && line.trim().length > 0)
-                {
-                    currentClass = null;
-                    classIndent = -1;
-                }
-
-                if (inRenpyBlock && lineIndent <= blockIndent && line.trim().length > 0)
-                {
-                    inRenpyBlock = false;
-                    blockIndent = -1;
-                }
-
-                if (currentNamespace !== null && lineIndent <= namespaceIndent && line.trim().length > 0)
-                {
-                    currentNamespace = null;
-                    namespaceIndent = -1;
-                    currentClass = null;
-                    classIndent = -1;
-                    currentFunction = null;
-                    functionIndent = -1;
-                }
+                const lineIndent = ParserUtils.getIndentLevel(line);
+                parserScopeState.update(lineIndent, line.trim().length)
 
                 let fullStatement = line;
                 let lookAheadIndex = lineIndex + 1;
@@ -122,9 +84,10 @@ export class WorkspaceParser
                 {
                     if (pythonBlockMatch[1])
                     {
-                        currentNamespace = pythonBlockMatch[1];
-                        namespaceIndent = lineIndent;
-                        Store.ensurePathExists([currentNamespace]);
+                        parserScopeState.currentNamespace = pythonBlockMatch[1];
+                        parserScopeState.namespaceIndent = lineIndent;
+
+                        Store.ensurePathExists([parserScopeState.currentNamespace]);
                     }
 
                     continue;
@@ -134,10 +97,10 @@ export class WorkspaceParser
                 if (classMatch)
                 {
                     const className = classMatch[1];
-                    currentClass = className;
-                    classIndent = lineIndent;
+                    parserScopeState.currentClass = className;
+                    parserScopeState.classIndent = lineIndent;
 
-                    const parentScope = currentNamespace ? [currentNamespace] : [];
+                    const parentScope = parserScopeState.currentNamespace ? [parserScopeState.currentNamespace] : [];
                     const fullClassName = parentScope.length > 0 ? `${parentScope.join(".")}.${className}` : className;
 
                     const decl = new Declaration(
@@ -158,8 +121,9 @@ export class WorkspaceParser
                 const labelMatch = fullStatement.match(this.labelRegex);
                 if (labelMatch)
                 {
-                    inRenpyBlock = true;
-                    blockIndent = lineIndent;
+                    parserScopeState.inRenpyBlock = true;
+                    parserScopeState.blockIndent = lineIndent;
+
                     const labelName = labelMatch[1];
                     const decl = new Declaration(
                         `label ${labelName}`,
@@ -169,6 +133,7 @@ export class WorkspaceParser
                         `User-defined label in ${path.basename(filePath)}`,
                         location
                     );
+
                     Store.registerUserSymbol([labelName], decl);
 
                     continue;
@@ -177,9 +142,11 @@ export class WorkspaceParser
                 const screenMatch = fullStatement.match(this.screenRegex);
                 if (screenMatch)
                 {
-                    inRenpyBlock = true;
-                    blockIndent = lineIndent;
+                    parserScopeState.inRenpyBlock = true;
+                    parserScopeState.blockIndent = lineIndent;
+
                     const screenName = screenMatch[1];
+
                     const decl = new Declaration(
                         `screen ${screenName}`,
                         vscode.CompletionItemKind.Property,
@@ -188,6 +155,7 @@ export class WorkspaceParser
                         `User-defined screen in ${path.basename(filePath)}`,
                         location
                     );
+
                     Store.registerUserSymbol([screenName], decl);
 
                     continue;
@@ -196,9 +164,11 @@ export class WorkspaceParser
                 const transformMatch = fullStatement.match(this.transformRegex);
                 if (transformMatch)
                 {
-                    inRenpyBlock = true;
-                    blockIndent = lineIndent;
+                    parserScopeState.inRenpyBlock = true;
+                    parserScopeState.blockIndent = lineIndent;
+
                     const transformName = transformMatch[1];
+
                     const decl = new Declaration(
                         `transform ${transformName}`,
                         vscode.CompletionItemKind.Property,
@@ -207,6 +177,7 @@ export class WorkspaceParser
                         `User-defined transform in ${path.basename(filePath)}`,
                         location
                     );
+
                     Store.registerUserSymbol([transformName], decl);
 
                     continue;
@@ -215,9 +186,11 @@ export class WorkspaceParser
                 const styleMatch = fullStatement.match(this.styleRegex);
                 if (styleMatch)
                 {
-                    inRenpyBlock = true;
-                    blockIndent = lineIndent;
+                    parserScopeState.inRenpyBlock = true;
+                    parserScopeState.blockIndent = lineIndent;
+
                     const styleName = styleMatch[1];
+
                     const decl = new Declaration(
                         `style ${styleName}`,
                         vscode.CompletionItemKind.Property,
@@ -226,6 +199,7 @@ export class WorkspaceParser
                         `User-defined style in ${path.basename(filePath)}`,
                         location
                     );
+
                     Store.registerUserSymbol([styleName], decl);
 
                     continue;
@@ -235,6 +209,7 @@ export class WorkspaceParser
                 if (imageMatch)
                 {
                     const imageName = imageMatch[1].trim();
+
                     const decl = new Declaration(
                         `image ${imageName}`,
                         vscode.CompletionItemKind.Value,
@@ -243,6 +218,7 @@ export class WorkspaceParser
                         `User image defined in ${path.basename(filePath)}`,
                         location
                     );
+
                     Store.registerUserSymbol([imageName], decl);
 
                     continue;
@@ -277,71 +253,33 @@ export class WorkspaceParser
                 if (defMatch)
                 {
                     const functionName = defMatch[1];
+                    parserScopeState.currentFunction = functionName;
+                    parserScopeState.functionIndent = lineIndent;
+                    
                     if (functionName.startsWith("__") && functionName.endsWith("__") || functionName.startsWith("_"))
                     {
                         continue;
                     }
 
-                    currentFunction = functionName;
-                    functionIndent = lineIndent;
-
-                    let isProperty = false;
-                    let isSetter = false;
-                    let isVariant = false;
-                    let checkIndex = lineIndex - 1;
-
-                    while (checkIndex >= 0)
-                    {
-                        const prevTrimmed = lines[checkIndex].trim();
-                        if (prevTrimmed.length === 0 || prevTrimmed.startsWith("#"))
-                        {
-                            checkIndex--;
-                            continue;
-                        }
-
-                        if (prevTrimmed.startsWith("@"))
-                        {
-                            if (this.propertyDecoratorRegex.test(prevTrimmed))
-                            {
-                                isProperty = true;
-                                if (this.setterDecoratorRegex.test(prevTrimmed))
-                                {
-                                    isSetter = true;
-                                }
-                            }
-                            if (this.variantDecoratorRegex.test(prevTrimmed))
-                            {
-                                isVariant = true
-                            }
-                            checkIndex--;
-                            continue;
-                        }
-
-                        break;
-                    }
+                    const [isSetter, isVariant, isProperty] = ParserUtils.getMethodDecorators(lines, lineIndex);
                     if (isSetter || isVariant)
                     {
                         continue;
                     }
 
-                    const isMethod = currentClass !== null;
-                    let kind = isMethod ? vscode.CompletionItemKind.Method : vscode.CompletionItemKind.Function;
-                    if (isProperty)
-                    {
-                        kind = vscode.CompletionItemKind.Property;
-                    }
-
-                    const scopePath = this.getScopePath(currentNamespace, currentClass, functionName);
+                    const isMethod = parserScopeState.currentClass !== null;
+                    const kind = isProperty ? vscode.CompletionItemKind.Property : ( isMethod ? vscode.CompletionItemKind.Method : vscode.CompletionItemKind.Function)
+                    const scopePath = ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, functionName);
                     const fullName = scopePath.join(".");
-
                     const declType = isProperty ? "Property" : (isMethod ? "Method" : "Function");
+                    const docString = ParserUtils.getMethodDoc(lines, lineIndex);
 
                     const decl = new Declaration(
                         fullName,
                         kind,
                         fullStatement.trim(),
                         isProperty ? "property" : "function",
-                        `${declType} declared in ${path.basename(filePath)}`,
+                        `${docString !== "" ? docString : `${declType} declared in ${path.basename(filePath)}`}`,
                         location
                     );
 
@@ -350,7 +288,7 @@ export class WorkspaceParser
                     continue;
                 }
 
-                if (currentClass !== null)
+                if (parserScopeState.currentClass !== null)
                 {
                     const selfMatch = fullStatement.match(this.classMemberFieldRegex);
                     if (selfMatch)
@@ -363,7 +301,7 @@ export class WorkspaceParser
 
                         const rightHandExpr = selfMatch[2].trim();
                         const inferredType = inferTypeFromExpression(rightHandExpr);
-                        const scopePath = this.getScopePath(currentNamespace, currentClass, fieldName);
+                        const scopePath = ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, fieldName);
                         const fullName = scopePath.join(".");
 
                         const decl = new Declaration(
@@ -371,7 +309,7 @@ export class WorkspaceParser
                             vscode.CompletionItemKind.Field,
                             fullStatement.trim(),
                             inferredType,
-                            `Property ${fieldName} of ${currentClass}`,
+                            `Property ${fieldName} of ${parserScopeState.currentClass}`,
                             location
                         );
 
@@ -384,7 +322,7 @@ export class WorkspaceParser
                 //
                 //  Skip anything inside of functions, screens & labels so we don't catch local vars, screen vars, etc...
                 //
-                if (currentFunction !== null || inRenpyBlock)
+                if (parserScopeState.currentFunction !== null || parserScopeState.inRenpyBlock)
                 {
                     continue;
                 }
@@ -412,9 +350,8 @@ export class WorkspaceParser
                     const inferredType = inferTypeFromExpression(rightHandExpr);
 
                     const varSegments = varPathStr.split(".");
-                    const targetKind = currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable;
-
-                    const scopePath = this.getScopePath(currentNamespace, currentClass, ...varSegments);
+                    const targetKind = parserScopeState.currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable;
+                    const scopePath = ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, ...varSegments);
                     const fullName = scopePath.join(".");
 
                     const decl = new Declaration(
@@ -430,7 +367,7 @@ export class WorkspaceParser
 
                     if (inferredType !== "Any")
                     {
-                        const qualifiedType = this.getQualifiedType(currentNamespace, inferredType);
+                        const qualifiedType = ParserUtils.getQualifiedType(parserScopeState.currentNamespace, inferredType);
                         Store.registerTypeAlias(fullName, qualifiedType);
                     }
 
@@ -438,18 +375,18 @@ export class WorkspaceParser
                 }
 
                 const plainVarMatch = fullStatement.match(this.plainVarRegex);
-                if (plainVarMatch && (currentClass !== null || currentNamespace !== null))
+                if (plainVarMatch && (parserScopeState.currentClass !== null || parserScopeState.currentNamespace !== null))
                 {
                     const varName = plainVarMatch[1];
                     const rightHandExpr = plainVarMatch[2].trim();
                     const inferredType = inferTypeFromExpression(rightHandExpr);
 
-                    const scopePath = this.getScopePath(currentNamespace, currentClass, varName);
+                    const scopePath = ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, varName);
                     const fullName = scopePath.join(".");
 
                     const decl = new Declaration(
                         fullName,
-                        currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable,
+                        parserScopeState.currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable,
                         fullStatement.trim(),
                         inferredType,
                         `Variable declared in ${path.basename(filePath)}`,
@@ -460,7 +397,7 @@ export class WorkspaceParser
 
                     if (inferredType !== "Any")
                     {
-                        const qualifiedType = this.getQualifiedType(currentNamespace, inferredType);
+                        const qualifiedType = ParserUtils.getQualifiedType(parserScopeState.currentNamespace, inferredType);
                         Store.registerTypeAlias(fullName, qualifiedType);
                     }
 
@@ -473,42 +410,6 @@ export class WorkspaceParser
             Logger.logMessage(`Error parsing file ${filePath}: ${error}`);
         }
     }
-
-    private static getIndentLevel(line: string): number
-    {
-        const match = line.match(this.whitespaceRegex);
-        if (!match)
-        {
-            return 0;
-        }
-        return match[1].replace(this.tabRegex, "    ").length;
-    }
-
-    private static getScopePath(currentNamespace: string | null, currentClass: string | null, ...subPaths: string[]): string[]
-    {
-        const parts = [];
-
-        if (currentNamespace)
-        {
-            parts.push(currentNamespace);
-        }
-        if (currentClass)
-        {
-            parts.push(currentClass);
-        }
-
-        return [...parts, ...subPaths];
-    };
-
-    private static getQualifiedType(currentNamespace: string | null, typeStr: string): string
-    {
-        if (currentNamespace && !typeStr.includes(".") && typeStr !== "Any" && typeStr !== "None")
-        {
-            return `${currentNamespace}.${typeStr}`;
-        }
-
-        return typeStr;
-    };
 
     private static handleOverride(prefix: string, match: RegExpMatchArray, fullStatement: string, filePath: string, location: LocationInfo): void
     {
