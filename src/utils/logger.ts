@@ -23,7 +23,7 @@ export class Logger
         this.outputChannel.clear();
     }
 
-    public static updateStatusBar(msg: string): void
+    public static updateStatusBar(msg: string, icon?: string): void
     {
         if (msg === "")
         {
@@ -31,6 +31,6 @@ export class Logger
         }
 
         this.statusBar.show();
-        this.statusBar.text = msg;
+        this.statusBar.text = `${icon !== undefined ? icon : ""} ${msg}`;
     }
 }

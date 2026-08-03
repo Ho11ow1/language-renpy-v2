@@ -1,16 +1,15 @@
+import * as vscode from "vscode";
 import { Logger } from "@utils/Logger";
 import { Store } from "@src/store";
-import * as vscode from "vscode";
 
 export class CompletionItemProvider implements vscode.CompletionItemProvider
 {
-    // Label stuff
+    // BASIC stuff
+    private readonly varNameRegex: RegExp = /([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\.$/;
     private readonly callJumpRegex: RegExp = /(?:^|\s)(?:call|jump)\s+([a-zA-Z0-9_]*)$/;
-
-    // Screen stuff
     private readonly callShowScreenRegex: RegExp = /(?:^|\s)(?:call|show)\s+screen\s+([a-zA-Z0-9_]*)$/;
 
-    // Image stuff
+    // ATL stuff
     private readonly showRegex: RegExp = /(?:^|\s)show\s+([a-zA-Z0-9_]*)$/;
 
     // TBD stuff
@@ -23,23 +22,27 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
             return undefined;
         }
 
-        const cursorPrefix = document.lineAt(position).text.substring(0, position.character);
+        const lineText = document.lineAt(position).text.substring(0, position.character);
 
         //
         // Handle the real auto-complete
         //
-        if (cursorPrefix.endsWith("."))
+        if (lineText.endsWith("."))
         {
-            const cleanPrefix = cursorPrefix.replace("$", "").slice(0, -1).trim();
-            Logger.logMessage(`Tree autocomplete lookup for: "${cleanPrefix}"`);
+            const match = lineText.match(this.varNameRegex);
+            if (match)
+            {
+                const targetPath = match[1];
+                Logger.logMessage(`Tree autocomplete lookup for: "${targetPath}"`);
 
-            const items = Store.getCompletionsForPath(cleanPrefix);
-            return items.length > 0 ? items : undefined;
+                const items = Store.getCompletionsForPath(targetPath);
+                return items.length > 0 ? items : undefined;
+            }
         }
         //
         // Have to make this check to only activate if we are in a screen context later
         //
-        if (this.styleRegex.test(cursorPrefix))
+        if (this.styleRegex.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for: style");
 
@@ -49,7 +52,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // call | show screen -> show screens
         //
-        if (this.callShowScreenRegex.test(cursorPrefix))
+        if (this.callShowScreenRegex.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for: call screen");
 
@@ -59,7 +62,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // jump | call -> show labels
         //
-        if (this.callJumpRegex.test(cursorPrefix))
+        if (this.callJumpRegex.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for: jump | call");
 
@@ -69,7 +72,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         //  show -> show anything typed as an image: Image(), "images/*", Movie(), etc...
         //
-        if (this.showRegex.test(cursorPrefix))
+        if (this.showRegex.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for images");
 
@@ -79,7 +82,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // show Jessica at -> show transforms
         //
-        if (cursorPrefix.trim().endsWith("at"))
+        if (lineText.trim().endsWith("at"))
         {
             Logger.logMessage("Autocomplete lookup for at transforms");
 
@@ -89,13 +92,18 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // Just showing immediate intellisense for a python line
         //
-        if (cursorPrefix.trim().startsWith("$"))
+        if (lineText.trim().startsWith("$"))
         {
             Logger.logMessage("Autocomplete lookup for immediate");
 
             const items = Store.getImmediateCompletions;
             return items.length > 0 ? items : undefined;
         }
+        //
+        //  Need to handle screen & ATL syntax here at some point, probably after adding syntax / grammar
+        //  Additionally should probably turn everything above into else if but we'll brun that bridge when we get there
+        //  Also while we're at it split up the above section into pure py, atl & screen as show & at is technically ATL
+        //
 
         return undefined;
     }

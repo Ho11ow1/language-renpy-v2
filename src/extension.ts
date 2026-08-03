@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { Logger } from "@utils/Logger";
 import { CompletionItemProvider } from "@src/autocomplete";
+import { SignatureHelpProvider } from "@src/signature";
 import { HoverItemProvider } from "@src/hover";
 import { Store } from "@src/store";
 import { WorkspaceParser } from "@parser/workspaceparser";
@@ -10,7 +11,7 @@ const RENPY_FILE_PATTERNS = "{**/*.rpy,**/*_ren.py}" as const;
 export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
     // Setup static store & parse all wanted files
-    Logger.updateStatusBar("Initializing Ren'Py v2");
+    Logger.updateStatusBar("Initializing Ren'Py v2", `$(loading~spin)`);
     await init();
 
     // Register debug subscriptions
@@ -20,12 +21,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
     // Register intellisense providers
     context.subscriptions.push(new CompletionItemProvider().getDisposable());
     context.subscriptions.push(new HoverItemProvider().getDisposable());
+    context.subscriptions.push(new SignatureHelpProvider().getDisposable());
 
     // File system watcher so we update what we know
     context.subscriptions.push(setupWatcher());
 
     Logger.logMessage("Successfully initialized and parsed all files");
-    Logger.updateStatusBar("Ren'Py v2 Initialized");
+    Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
 }
 
 export function deactivate(): void {}
