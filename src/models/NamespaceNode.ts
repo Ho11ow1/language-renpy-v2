@@ -40,6 +40,15 @@ export class NamespaceNode
             const kind = childNode.declaration?.kind ?? vscode.CompletionItemKind.Module;
             const item = new vscode.CompletionItem(key, kind);
 
+            if (item.kind === vscode.CompletionItemKind.Class)
+            {
+                item.insertText = new vscode.SnippetString(`${key}($1)`);
+                item.command = {
+                    command: "editor.action.triggerParameterHints",
+                    title: "Trigger Parameter hints"
+                };
+            }
+
             item.detail = childNode.declaration?.detail ?? `namespace ${key}`;
             if (childNode.declaration?.documentation)
             {
