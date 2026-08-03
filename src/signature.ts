@@ -42,13 +42,7 @@ export class SignatureHelpProvider implements vscode.SignatureHelpProvider
         const argsWithoutStrings = innermostArgs.replace(this.funcArgsNoStringRegex, "");// Needed else param count will be off because strings can have ','
         const activeParamIndex = (argsWithoutStrings.match(this.funcParamSplitRegex) || []).length;
 
-        const paramMatch = decl.detail.match(this.funcParamRegex);
-        if (!paramMatch)
-        {
-            return undefined;
-        }
-
-        return this.getSignatureComponent(paramMatch[1], activeParamIndex, decl);
+        return this.getSignatureComponent(activeParamIndex, decl);
     }
 
     public getDisposable(): vscode.Disposable
@@ -56,17 +50,26 @@ export class SignatureHelpProvider implements vscode.SignatureHelpProvider
         return vscode.languages.registerSignatureHelpProvider({scheme: "file", language: "renpy"}, this, "(", ",");
     }
 
-    private getSignatureComponent(paramString: string, activeParamIndex: number, decl: Declaration): vscode.SignatureHelp
+    private getSignatureComponent(activeParamIndex: number, decl: Declaration): vscode.SignatureHelp
     {
-        const paramsArr = paramString.split(",").map(p => p.trim()).filter(p => p !== "self" && p !== "cls" && p.length > 0);
+        let targetDetail = decl.detail;
+        if (decl.kind === vscode.CompletionItemKind.Class)
+        {
+            targetDetail = decl.constructorDetail ?? `${decl.name.split(".").pop()}()`;
+        }
 
-        const signatureInfo = new vscode.SignatureInformation(decl.detail, decl.documentation ? new vscode.MarkdownString(decl.documentation) : undefined);
+        const paramMatch = targetDetail.match(this.funcParamRegex);
+        const rawParams = paramMatch ? paramMatch[1] : "";
+        const paramsArr = rawParams.split(",").map(p => p.trim()).filter(p => p !== "self" && p !== "cls" && p.length > 0);
+
+
+        const signatureInfo = new vscode.SignatureInformation(targetDetail, decl.documentation ? new vscode.MarkdownString(decl.documentation) : undefined);
         signatureInfo.parameters = paramsArr.map(p => new vscode.ParameterInformation(p));
 
         const signatureHelp = new vscode.SignatureHelp();
         signatureHelp.signatures = [signatureInfo];
         signatureHelp.activeSignature = 0;
-        signatureHelp.activeParameter = activeParamIndex;
+        signatureHelp.activeParameter = Math.min(activeParamIndex, Math.max(0, paramsArr.length - 1));
 
         return signatureHelp;
     }

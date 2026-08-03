@@ -92,7 +92,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // Just showing immediate intellisense for a python line
         //
-        if (lineText.trim().startsWith("$"))
+        if (lineText.trim().startsWith("$") || lineText.trim().endsWith("="))
         {
             Logger.logMessage("Autocomplete lookup for immediate");
 

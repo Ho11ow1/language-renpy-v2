@@ -40,7 +40,7 @@ export class NamespaceNode
             const kind = childNode.declaration?.kind ?? vscode.CompletionItemKind.Module;
             const item = new vscode.CompletionItem(key, kind);
 
-            if (item.kind === vscode.CompletionItemKind.Class)
+            if (childNode.declaration?.kind === vscode.CompletionItemKind.Class && childNode.declaration.constructorDetail)
             {
                 item.insertText = new vscode.SnippetString(`${key}($1)`);
                 item.command = {
