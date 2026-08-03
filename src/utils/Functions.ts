@@ -1,7 +1,7 @@
-const intRegex: RegExp = new RegExp("^-?\\d+$");
-const floatRegex: RegExp = new RegExp("^-?\\d+\\.\\d+$");
-const stringRegex: RegExp = new RegExp("^(?:\"[\\s\\S]*\"|'[\\s\\S]*')$");
-const constructorRegex: RegExp = new RegExp("^([a-zA-Z_]\\w*(?:\\.[a-zA-Z_]\\w*)*)\\s*\\(");
+const intRegex: RegExp = /^-?\d+$/;
+const floatRegex: RegExp = /^-?\d+\.\d+$/;
+const stringRegex: RegExp = /^(?:"[\s\S]*"|'[\s\S]*')$/;
+const constructorRegex: RegExp = /^([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*\(/;
 
 export function hasUnclosedDelimiters(text: string): boolean
 {

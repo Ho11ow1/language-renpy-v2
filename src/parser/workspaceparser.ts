@@ -12,34 +12,34 @@ import { hasUnclosedDelimiters, inferTypeFromExpression } from "@utils/Functions
 export class WorkspaceParser
 {
     // Python specific stuff
-    private static initPythonRegex: RegExp = new RegExp("^\\s*(?:init\\s+(?:-?\\d+\\s+)?python(?:\\s+in\\s+([a-zA-Z_]\\w*))?|python)\\s*:");
-    private static classRegex: RegExp = new RegExp("^\\s*class\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
-    private static functionRegex: RegExp = new RegExp("^\\s*(?:async\\s+)?def\\s+([a-zA-Z_]\\w*)\\s*\\([^)]*\\)\\s*(?:->\\s*[^:]+)?\\s*:");
-    private static classMemberFieldRegex: RegExp = new RegExp("^\\s*(?:self|cls)\\.([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
+    private static initPythonRegex: RegExp = /^\s*(?:init\s+(?:-?\d+\s+)?python(?:\s+in\s+([a-zA-Z_]\w*))?|python)\s*:/;
+    private static classRegex: RegExp = /^\s*class\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
+    private static functionRegex: RegExp = /^\s*(?:async\s+)?def\s+([a-zA-Z_]\w*)\s*\([^)]*\)\s*(?:->\s*[^:]+)?\s*:/;
+    private static classMemberFieldRegex: RegExp = /^\s*(?:self|cls)\.([a-zA-Z_]\w*)\s*=\s*([\s\S]+)$/;
 
     // General use-case stuff
-    private static labelRegex: RegExp = new RegExp("^\\s*label\\s+(?!_\\s*\\()([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
-    private static screenRegex: RegExp = new RegExp("^\\s*screen\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
-    private static transformRegex: RegExp = new RegExp("^\\s*transform\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
-    private static styleRegex: RegExp = new RegExp("^\\s*style\\s+([a-zA-Z_]\\w*)\\s*(?:\\([^)]*\\))?\\s*:");
+    private static labelRegex: RegExp = /^\s*label\s+(?!_\s*\()([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
+    private static screenRegex: RegExp = /^\s*screen\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
+    private static transformRegex: RegExp = /^\s*transform\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
+    private static styleRegex: RegExp = /^\s*style\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
 
     // Variable user-case stuff
-    private static imageRegex: RegExp = new RegExp("^\\s*image\\s+([a-zA-Z0-9_\\s]+?)\\s*[=:]\\s*([\\s\\S]*)$");
-    private static persistentRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+persistent\\.([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
+    private static imageRegex: RegExp = /^\s*image\s+([a-zA-Z0-9_\s]+?)\s*[=:]\s*([\s\S]*)$/;
+    private static persistentRegex: RegExp = /^\s*(?:default|define)\s+persistent\.([a-zA-Z_]\w*)\s*=\s*([\s\S]+)$/;
 
     // Explicit variable statements
-    private static renpyVarRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+([a-zA-Z_]\\w*(?:\\.[a-zA-Z_]\\w*)*)\\s*=\\s*([\\s\\S]+)$");
-    private static plainVarRegex: RegExp = new RegExp("^\\s*([a-zA-Z_]\\w*)\\s*=\\s*([\\s\\S]+)$");
+    private static renpyVarRegex: RegExp = /^\s*(?:default|define)\s+([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*=\s*([\s\S]+)$/;
+    private static plainVarRegex: RegExp = /^\s*([a-zA-Z_]\w*)\s*=\s*([\s\S]+)$/;
 
     // Built-in overrides
-    private static configRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+config\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static buildRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+build\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static guiRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+gui\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static bubbleRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+bubble\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
-    private static preferencesRegex: RegExp = new RegExp("^\\s*(?:default|define)\\s+preferences\\.([a-zA-Z_]\\w*)\\s*=\\s*(.+)$");
+    private static configRegex: RegExp = /^\s*(?:default|define)\s+config\.([a-zA-Z_]\w*)\s*=\s*(.+)$/;
+    private static buildRegex: RegExp = /^\s*(?:default|define)\s+build\.([a-zA-Z_]\w*)\s*=\s*(.+)$/;
+    private static guiRegex: RegExp = /^\s*(?:default|define)\s+gui\.([a-zA-Z_]\w*)\s*=\s*(.+)$/;
+    private static bubbleRegex: RegExp = /^\s*(?:default|define)\s+bubble\.([a-zA-Z_]\w*)\s*=\s*(.+)$/;
+    private static preferencesRegex: RegExp = /^\s*(?:default|define)\s+preferences\.([a-zA-Z_]\w*)\s*=\s*(.+)$/;
 
     // Helpers
-    private static fileSplitRegex: RegExp = new RegExp("\\r?\\n");
+    private static fileSplitRegex: RegExp = /\r?\n/;
 
     public static parseFile(filePath: string): void
     {

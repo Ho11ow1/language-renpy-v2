@@ -1,12 +1,12 @@
 export class ParserUtils
 {
-    private static propertyDecoratorRegex: RegExp = new RegExp("^\\s*@(?:property|[a-zA-Z_]\\w*\\.setter)\\b");
-    private static setterDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\\w*\\.setter\\b");
-    private static variantDecoratorRegex: RegExp = new RegExp("^\\s*@[a-zA-Z_]\\w*\\.variant\\b");
+    private static propertyDecoratorRegex: RegExp = /^\s*@(?:property|[a-zA-Z_]\w*\.setter)\b/;
+    private static setterDecoratorRegex: RegExp = /^\s*@[a-zA-Z_]\w*\.setter\b/;
+    private static variantDecoratorRegex: RegExp = /^\s*@[a-zA-Z_]\w*\.variant\b/;
 
-    private static tabRegex: RegExp = new RegExp("\\t", "g");
-    private static whitespaceRegex: RegExp = new RegExp("^(\\s*)");
-    private static docStringStartRegex: RegExp = new RegExp("^(\"\"\")");
+    private static tabRegex: RegExp = /\t/g;
+    private static whitespaceRegex: RegExp = /^(\s*)/;
+    private static docStringStartRegex: RegExp = /^("""|''')/;
 
 
     public static getIndentLevel(line: string): number
