@@ -3,6 +3,7 @@ export class ParserUtils
     private static propertyDecoratorRegex: RegExp = /^\s*@(?:property|[a-zA-Z_]\w*\.setter)\b/;
     private static setterDecoratorRegex: RegExp = /^\s*@[a-zA-Z_]\w*\.setter\b/;
     private static variantDecoratorRegex: RegExp = /^\s*@[a-zA-Z_]\w*\.variant\b/;
+    private static constructorRegex: RegExp = /^\s*def\s+__init__\s*\(([^)]*)\)/;
 
     private static tabRegex: RegExp = /\t/g;
     private static whitespaceRegex: RegExp = /^(\s*)/;
@@ -146,5 +147,34 @@ export class ParserUtils
         }
 
         return docString;
+    }
+
+    public static getClassConstructor(lines: string[], lineIndex: number, lineIndent: number, className: string): string | undefined
+    {
+        let constructorDetail = undefined;
+
+        for (let i = lineIndex + 1; i < lines.length; i++)
+        {
+            const currentLine = lines[i];
+            if (!currentLine.trim()) 
+            {
+                continue;
+            }
+
+            const currentIndent = this.getIndentLevel(currentLine);
+            if (currentIndent <= lineIndent)
+            {
+                break;
+            }
+
+            const initMatch = currentLine.match(this.constructorRegex);
+            if (initMatch)
+            {
+                constructorDetail = `${className}(${initMatch[1]})`;
+                break;
+            }
+        }
+
+        return constructorDetail;
     }
 }

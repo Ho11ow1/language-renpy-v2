@@ -97,11 +97,13 @@ export class WorkspaceParser
                 if (classMatch)
                 {
                     const className = classMatch[1];
+
                     parserScopeState.currentClass = className;
                     parserScopeState.classIndent = lineIndent;
 
                     const parentScope = parserScopeState.currentNamespace ? [parserScopeState.currentNamespace] : [];
                     const fullClassName = parentScope.length > 0 ? `${parentScope.join(".")}.${className}` : className;
+                    const constructorDetail = ParserUtils.getClassConstructor(lines, lineIndex, lineIndent, className);
 
                     const decl = new Declaration(
                         fullClassName,
@@ -109,7 +111,9 @@ export class WorkspaceParser
                         fullStatement.trim(),
                         "class",
                         `User class declared in ${path.basename(filePath)}`,
-                        location
+                        location,
+                        true,
+                        constructorDetail
                     );
 
                     Store.registerUserSymbol([...parentScope, className], decl);

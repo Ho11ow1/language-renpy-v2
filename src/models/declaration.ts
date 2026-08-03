@@ -6,17 +6,19 @@ export class Declaration
     public name: string;                      // Holds the full name e.g. rentale.all_items
     public kind: vscode.CompletionItemKind;   // Holds the auto-completion type of this item, field, method, etc...
     public detail: string;                    // Holds auto-complete info
+    public constructorDetail?: string;        // Holds the __init__ params if this is a class
     private staticDetail: string;             // Holds the renpy.json detail as a fallback if no user-override is parsed
     public pythonType: string;                // Holds the python relative type of this item
     public locationInfo?: LocationInfo;       // Holds { filePath: "game/scripts/Characters/Characters.rpy", lineNumber: 4 }
     public documentation?: string;            // Holds a string that will be converted into a hover detail
     public isCustom: boolean;                 // Let's us know if we should delete the entry or just return to static
 
-    public constructor(name: string, kind: vscode.CompletionItemKind, detail: string, pythonType: string = "Any", documentation?: string, locationInfo?: LocationInfo, isCustom: boolean = true)
+    public constructor(name: string, kind: vscode.CompletionItemKind, detail: string, pythonType: string = "Any", documentation?: string, locationInfo?: LocationInfo, isCustom: boolean = true, constructorDetail?: string)
     {
         this.name = name;
         this.kind = kind;
         this.detail = detail;
+        this.constructorDetail = constructorDetail;
         this.staticDetail = detail;
         this.pythonType = pythonType;
         this.documentation = documentation;
@@ -24,10 +26,14 @@ export class Declaration
         this.isCustom = isCustom;
     }
 
-    public updateFromWorkspace(detail: string, locationInfo: LocationInfo, pythonType?: string): void
+    public updateFromWorkspace(detail: string, locationInfo: LocationInfo, pythonType?: string, constructorDetail?: string): void
     {
         this.detail = detail;
         this.locationInfo = locationInfo;
+        if (constructorDetail !== undefined)
+        {
+            this.constructorDetail = constructorDetail;
+        }
         if (pythonType && pythonType !== "Any")
         {
             this.pythonType = pythonType;
@@ -37,6 +43,7 @@ export class Declaration
     public Reset(): void
     {
         this.detail = this.staticDetail;
+        this.constructorDetail = undefined;
         this.locationInfo = undefined;
     }
 }
