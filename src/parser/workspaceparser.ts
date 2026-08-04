@@ -77,7 +77,7 @@ export class WorkspaceParser
                 }
 
                 lineIndex = lookAheadIndex - 1;
-                const location = new LocationInfo(filePath, lineIndex + 1);
+                const location = new LocationInfo(filePath, lineIndex + 1, (lines[lineIndex]).length);
 
                 const pythonBlockMatch = fullStatement.match(this.initPythonRegex);
                 if (pythonBlockMatch)

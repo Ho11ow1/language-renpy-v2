@@ -28,7 +28,7 @@ export class HoverItemProvider implements vscode.HoverProvider
             return undefined;
         }
 
-        return this.getHoverComponent(decl, wordRange);
+        return this.getHoverComponent(decl);
     }
 
     public getDisposable(): vscode.Disposable
@@ -36,7 +36,7 @@ export class HoverItemProvider implements vscode.HoverProvider
         return vscode.languages.registerHoverProvider("renpy", this);
     }
 
-    private getHoverComponent(decl: Declaration, wordRange: vscode.Range): vscode.Hover
+    private getHoverComponent(decl: Declaration): vscode.Hover
     {
         const str = new vscode.MarkdownString();
         str.isTrusted = true;
@@ -63,6 +63,14 @@ export class HoverItemProvider implements vscode.HoverProvider
             str.appendMarkdown(`\n\n${decl.documentation}`);
         }
 
-        return new vscode.Hover(str, wordRange);
+        if (decl.locationInfo)
+        {
+            const locationInfo = decl.locationInfo!;       
+            return new vscode.Hover(str, new vscode.Range(new vscode.Position(locationInfo.lineNumber - 1, 0), new vscode.Position(locationInfo.lineNumber - 1, locationInfo.lineEndLen)));
+        }
+        else
+        {
+            return new vscode.Hover(str);
+        }
     }
 }

@@ -5,6 +5,7 @@ import { SignatureHelpProvider } from "@src/signature";
 import { HoverItemProvider } from "@src/hover";
 import { Store } from "@src/store";
 import { WorkspaceParser } from "@parser/workspaceparser";
+import { DefinitionProvider } from "@src/definition";
 
 const RENPY_FILE_PATTERNS = "{**/*.rpy,**/*_ren.py}" as const;
 
@@ -22,6 +23,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(new CompletionItemProvider().getDisposable());
     context.subscriptions.push(new HoverItemProvider().getDisposable());
     context.subscriptions.push(new SignatureHelpProvider().getDisposable());
+    context.subscriptions.push(new DefinitionProvider().getDisposable())
 
     // File system watcher so we update what we know
     context.subscriptions.push(setupWatcher());
