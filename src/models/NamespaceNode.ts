@@ -37,25 +37,17 @@ export class NamespaceNode
 
         for (const [key, childNode] of this.children.entries())
         {
-            const kind = childNode.declaration?.kind ?? vscode.CompletionItemKind.Module;
-            const item = new vscode.CompletionItem(key, kind);
-
-            if (childNode.declaration?.kind === vscode.CompletionItemKind.Class && childNode.declaration.constructorDetail)
+            if (!childNode.declaration)
             {
-                item.insertText = new vscode.SnippetString(`${key}($1)`);
-                item.command = {
-                    command: "editor.action.triggerParameterHints",
-                    title: "Trigger Parameter hints"
-                };
-            }
+                const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Module);
+                item.detail = `Namespace: ${key}`;
 
-            item.detail = childNode.declaration?.detail ?? `namespace ${key}`;
-            if (childNode.declaration?.documentation)
+                items.push(item);
+            }
+            else
             {
-                item.documentation = new vscode.MarkdownString(childNode.declaration.documentation);
+                items.push(childNode.declaration.AsCompletionItem());
             }
-
-            items.push(item);
         }
 
         for (const [key, decl] of this.members.entries())
@@ -69,20 +61,7 @@ export class NamespaceNode
                 continue;
             }
 
-            const item = new vscode.CompletionItem(key, decl.kind);
-
-            item.detail = decl.detail;
-            item.documentation = new vscode.MarkdownString(decl.documentation);
-            if (item.kind === vscode.CompletionItemKind.Function || item.kind === vscode.CompletionItemKind.Method)
-            {
-                item.insertText = new vscode.SnippetString(`${key}($1)`);
-                item.command = {
-                    command: "editor.action.triggerParameterHints",
-                    title: "Trigger Parameter hints"
-                };
-            }
-
-            items.push(item);
+            items.push(decl.AsCompletionItem());
         }
 
         return items;

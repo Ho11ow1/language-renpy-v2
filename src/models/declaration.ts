@@ -46,4 +46,26 @@ export class Declaration
         this.constructorDetail = undefined;
         this.locationInfo = undefined;
     }
+
+    public AsCompletionItem(prefix?: RegExp): vscode.CompletionItem
+    {
+        const name = prefix !== undefined ? this.name.replace(prefix, "") : this.name.includes(".") ? this.name.split(".").pop()! : this.name
+        const item = new vscode.CompletionItem(name, this.kind ?? vscode.CompletionItemKind.Module)
+        item.detail = this.detail ?? `namespace ${this.name}`
+        item.documentation = this.documentation ? new vscode.MarkdownString(this.documentation) : undefined;
+
+        const isConstructableClass = this.kind === vscode.CompletionItemKind.Class && this.constructorDetail;
+        const isCallable = this.kind === vscode.CompletionItemKind.Function || this.kind === vscode.CompletionItemKind.Method;
+
+        if (isConstructableClass || isCallable)
+        {
+            item.insertText = new vscode.SnippetString(`${name}($1)`);
+            item.command = {
+                command: "editor.action.triggerParameterHints",
+                title: "Trigger Parameter hints"
+            };
+        }
+
+        return item;
+    }
 }

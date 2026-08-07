@@ -273,13 +273,7 @@ export class Store
         {
             if (decl.pythonType === wantedType || decl.name.startsWith(`${wantedType} `))
             {
-                const name = decl.name.replace(prefixRegex, "");
-                const item = new vscode.CompletionItem(name, decl.kind);
-
-                item.detail = decl.detail;
-                item.documentation = decl.documentation ? new vscode.MarkdownString(decl.documentation) : undefined;
-
-                items.push(item);
+                items.push(decl.AsCompletionItem(prefixRegex));
             }
         }
 
