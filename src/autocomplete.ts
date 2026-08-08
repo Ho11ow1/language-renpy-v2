@@ -7,10 +7,10 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
     // BASIC stuff
     private readonly varNameRegex: RegExp = /([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\.$/;
     private readonly callJumpRegex: RegExp = /(?:^|\s)(?:call|jump)\s+([a-zA-Z0-9_]*)$/;
-    private readonly callShowScreenRegex: RegExp = /(?:^|\s)(?:call|show)\s+screen\s+([a-zA-Z0-9_]*)$/;
+    private readonly callShowScreenRegex: RegExp = /(?:^|\s)(?:call|show|hide)\s+screen\s+([a-zA-Z0-9_]*)$/;
 
     // ATL stuff
-    private readonly showRegex: RegExp = /(?:^|\s)show\s+([a-zA-Z0-9_]*)$/;
+    private readonly showSceneHideRegex: RegExp = /(?:^|\s)(?:show|scene|hide)\s+([a-zA-Z0-9_]*)$/;
 
     // TBD stuff
     private readonly styleRegex: RegExp = /(?:^|\s)style\s+([a-zA-Z0-9_]*)$/;
@@ -27,28 +27,16 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // Handle the real auto-complete
         //
-        // Very hacky way to handle this but it works for now | will probably fail if we do something like x = renpy.store.Alice. but that's an issue for another day
-        //
         if (lineText.endsWith("."))
         {
-            if (lineText.endsWith("renpy.store."))
+            const match = lineText.match(this.varNameRegex);
+            if (match)
             {
-                Logger.logMessage("Autocomplete lookup for renpy.store");
-
-                const items = Store.getImmediateCompletions;
+                const targetPath = match[1];
+                Logger.logMessage(`Tree autocomplete lookup for: "${targetPath}"`);
+            
+                const items = Store.getCompletionsForPath(targetPath);
                 return items.length > 0 ? items : undefined;
-            }
-            else
-            {
-                const match = lineText.trim().substring(1, lineText.length).trim().startsWith("renpy.store.") ? lineText.trim().slice(14, lineText.length).match(this.varNameRegex) : lineText.match(this.varNameRegex);
-                if (match)
-                {
-                    const targetPath = match[1];
-                    Logger.logMessage(`Tree autocomplete lookup for: "${targetPath}"`);
-                
-                    const items = Store.getCompletionsForPath(targetPath);
-                    return items.length > 0 ? items : undefined;
-                }
             }
         }
         //
@@ -94,7 +82,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         //  show -> show anything typed as an image: Image(), "images/*", Movie(), etc...
         //
-        if (this.showRegex.test(lineText))
+        if (this.showSceneHideRegex.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for images");
 
