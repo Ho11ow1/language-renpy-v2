@@ -11,6 +11,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
 
     // ATL stuff
     private readonly showSceneHideRegex: RegExp = /(?:^|\s)(?:show|scene|hide)\s+([a-zA-Z0-9_]*)$/;
+    private readonly atRegex: RegExp = /(?:show|scene|hide)(?:\s+screen)?\s+\w+(?:\s+\w+)?\s+at\s+\w*$/;
 
     // TBD stuff
     private readonly styleRegex: RegExp = /(?:^|\s)style\s+([a-zA-Z0-9_]*)$/;
@@ -92,7 +93,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // show Jessica at -> show transforms
         //
-        if (lineText.trim().endsWith("at"))
+        if (this.atRegex.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for at transforms");
 
