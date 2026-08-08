@@ -1,6 +1,8 @@
+import { Logger } from "@utils/Logger";
+
 const intRegex: RegExp = /^-?\d+$/;
 const floatRegex: RegExp = /^-?\d+\.\d+$/;
-const stringRegex: RegExp = /^(?:"[\s\S]*"|'[\s\S]*')$/;
+const stringRegex: RegExp = /^(?:"[\s\S]*?"|'[\s\S]*?')\s*(?:#.*)?$/;
 const constructorRegex: RegExp = /^([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*\(/;
 
 export function hasUnclosedDelimiters(text: string): boolean
@@ -49,11 +51,11 @@ export function inferTypeFromExpression(rightHandExpr: string): string
         return constructorMatch[1];
     }
 
-    if (expr === "True" || expr === "False")
+    if (expr.startsWith("True") || expr.startsWith("False"))
     {
         return "bool";
     }
-    if (expr === "None")
+    if (expr.startsWith("None"))
     {
         return "None";
     }
@@ -65,7 +67,7 @@ export function inferTypeFromExpression(rightHandExpr: string): string
     {
         return "float";
     }
-    if (stringRegex.test(expr))
+    if (stringRegex.test(expr) || expr.startsWith("str("))
     {
         return "str";
     }
