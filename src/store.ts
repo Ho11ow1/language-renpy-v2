@@ -3,6 +3,7 @@ import { Declaration } from "@models/Declaration";
 import { NamespaceNode } from "@models/NamespaceNode";
 import { IStaticJsonItem } from "@interfaces/IStaticJsonItem";
 import { Logger } from "@utils/Logger";
+import { pythonTypeMethods, pythonRootFunctions } from "@data/python";
 import renpyJson from "@data/renpy.json";
 
 
@@ -25,6 +26,11 @@ export class Store
         const targetNode = this.rootNode.getNodeAtPath(resolvedSegments);
         if (!targetNode)
         {
+            if (resolvedSegments.length === 1 && pythonTypeMethods.has(resolvedSegments[0]))
+            {
+                return pythonTypeMethods.get(resolvedSegments[0])!.map((decl): vscode.CompletionItem => decl.AsCompletionItem());
+            }
+
             return [];
         }
 
@@ -42,6 +48,10 @@ export class Store
 
             this.rootNode.children.set(topLevelKey, nsNode);
             this.populateNodeRecursive(items, nsNode, topLevelKey);
+        }
+        for (const decl of pythonRootFunctions)
+        {
+            this.rootNode.members.set(decl.name, decl);
         }
     
         Logger.logMessage(`Store initialized. Root keys: ${Array.from(this.rootNode.children.keys()).join(", ")}`);
@@ -143,6 +153,11 @@ export class Store
         const parentNode = resolvedParents.length > 0 ? this.rootNode.getNodeAtPath(resolvedParents) : this.rootNode;
         if (!parentNode)
         {
+            if (resolvedParents.length === 1 && pythonTypeMethods.has(resolvedParents[0]))
+            {
+                return pythonTypeMethods.get(resolvedParents[0])!.find((d): boolean => d.name === leafName);
+            }
+
             return undefined;
         }
 
