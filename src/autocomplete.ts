@@ -25,6 +25,16 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         const lineText = document.lineAt(position).text.substring(0, position.character);
 
         //
+        // Just showing immediate intellisense for a python line or renpy.store. lookup because renpy.store is useful when you're in a new namespace :) | atleast i think it should show the same stuff. TBD really
+        //
+        if (lineText.trim().startsWith("$") || lineText.trim().endsWith("=") || lineText.trim().endsWith("renpy.store."))
+        {
+            Logger.logMessage("Autocomplete lookup for immediate");
+
+            const items = Store.getImmediateCompletions;
+            return items.length > 0 ? items : undefined;
+        }
+        //
         // Handle the real auto-complete
         //
         if (lineText.endsWith("."))
@@ -87,16 +97,6 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
             Logger.logMessage("Autocomplete lookup for at transforms");
 
             const items = Store.getTransformCompletions;
-            return items.length > 0 ? items : undefined;
-        }
-        //
-        // Just showing immediate intellisense for a python line
-        //
-        if (lineText.trim().startsWith("$") || lineText.trim().endsWith("="))
-        {
-            Logger.logMessage("Autocomplete lookup for immediate");
-
-            const items = Store.getImmediateCompletions;
             return items.length > 0 ? items : undefined;
         }
         //
