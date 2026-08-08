@@ -25,29 +25,41 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         const lineText = document.lineAt(position).text.substring(0, position.character);
 
         //
-        // Just showing immediate intellisense for a python line or renpy.store. lookup because renpy.store is useful when you're in a new namespace :) | atleast i think it should show the same stuff. TBD really
+        // Handle the real auto-complete
         //
-        if (lineText.trim().startsWith("$") || lineText.trim().endsWith("=") || lineText.trim().endsWith("renpy.store."))
+        // Very hacky way to handle this but it works for now | will probably fail if we do something like x = renpy.store.Alice. but that's an issue for another day
+        //
+        if (lineText.endsWith("."))
+        {
+            if (lineText.endsWith("renpy.store."))
+            {
+                Logger.logMessage("Autocomplete lookup for renpy.store");
+
+                const items = Store.getImmediateCompletions;
+                return items.length > 0 ? items : undefined;
+            }
+            else
+            {
+                const match = lineText.trim().substring(1, lineText.length).trim().startsWith("renpy.store.") ? lineText.trim().slice(14, lineText.length).match(this.varNameRegex) : lineText.match(this.varNameRegex);
+                if (match)
+                {
+                    const targetPath = match[1];
+                    Logger.logMessage(`Tree autocomplete lookup for: "${targetPath}"`);
+                
+                    const items = Store.getCompletionsForPath(targetPath);
+                    return items.length > 0 ? items : undefined;
+                }
+            }
+        }
+        //
+        // Just showing immediate intellisense for a python line or renpy.store.
+        //
+        if (lineText.trim().startsWith("$") || lineText.trim().endsWith("="))
         {
             Logger.logMessage("Autocomplete lookup for immediate");
 
             const items = Store.getImmediateCompletions;
             return items.length > 0 ? items : undefined;
-        }
-        //
-        // Handle the real auto-complete
-        //
-        if (lineText.endsWith("."))
-        {
-            const match = lineText.match(this.varNameRegex);
-            if (match)
-            {
-                const targetPath = match[1];
-                Logger.logMessage(`Tree autocomplete lookup for: "${targetPath}"`);
-
-                const items = Store.getCompletionsForPath(targetPath);
-                return items.length > 0 ? items : undefined;
-            }
         }
         //
         // Have to make this check to only activate if we are in a screen context later
