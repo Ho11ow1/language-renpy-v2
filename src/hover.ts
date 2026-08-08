@@ -6,7 +6,8 @@ import { Declaration } from "@models/Declaration";
 
 export class HoverItemProvider implements vscode.HoverProvider
 {
-    private fullVarRegex: RegExp = /[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*/;
+    private identifierPartRegex: RegExp = /^[a-zA-Z0-9_]*/;
+    private chainBeforeCursorRegex: RegExp = /[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*$/;
 
     public provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover>
     {
@@ -15,20 +16,27 @@ export class HoverItemProvider implements vscode.HoverProvider
             return undefined;
         }
 
-        // Specific regex because getWordRange only returns full.split(".").at(-1) giving us the last word
-        const wordRange = document.getWordRangeAtPosition(position, this.fullVarRegex);
-        if (!wordRange)
+        const PREFIX = "renpy.store.";
+        const line = document.lineAt(position.line).text;
+        const offset = position.character;
+
+        const backwardMatch = line.substring(0, offset).match(this.chainBeforeCursorRegex);
+        if (!backwardMatch)
         {
             return undefined;
         }
 
-        const decl = Store.getDeclarationAtPath(document.getText(wordRange).split("."));
+        const matchText = backwardMatch[0].startsWith(PREFIX) ? backwardMatch[0].substring(PREFIX.length) : backwardMatch[0];
+        const forwardMatch = line.substring(offset).match(this.identifierPartRegex);
+        const restOfWord = forwardMatch ? forwardMatch[0] : "";
+
+        const decl = Store.getDeclarationAtPath(`${matchText}${restOfWord}`.split("."));
         if (!decl)
         {
             return undefined;
         }
 
-        return this.getHoverComponent(decl);
+        return this.getHoverComponent(decl, new vscode.Range(position.line, ((offset - backwardMatch[0].length) + (backwardMatch[0].startsWith(PREFIX) ? PREFIX.length : 0)), position.line, (offset + restOfWord.length)));
     }
 
     public getDisposable(): vscode.Disposable
@@ -36,7 +44,7 @@ export class HoverItemProvider implements vscode.HoverProvider
         return vscode.languages.registerHoverProvider("renpy", this);
     }
 
-    private getHoverComponent(decl: Declaration): vscode.Hover
+    private getHoverComponent(decl: Declaration, wordRange: vscode.Range): vscode.Hover
     {
         const str = new vscode.MarkdownString();
         str.isTrusted = true;
@@ -63,14 +71,6 @@ export class HoverItemProvider implements vscode.HoverProvider
             str.appendMarkdown(`\n\n${decl.documentation}`);
         }
 
-        if (decl.locationInfo)
-        {
-            const locationInfo = decl.locationInfo!;       
-            return new vscode.Hover(str, new vscode.Range(new vscode.Position(locationInfo.lineNumber - 1, 0), new vscode.Position(locationInfo.lineNumber - 1, locationInfo.lineEndLen)));
-        }
-        else
-        {
-            return new vscode.Hover(str);
-        }
+        return new vscode.Hover(str, wordRange)
     }
 }
