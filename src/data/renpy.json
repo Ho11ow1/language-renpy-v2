@@ -1,5 +1,11 @@
 {
     "renpy": {
+        "store": {
+            "kind": "Module",
+            "detail": "namespace store",
+            "pythonType": "None",
+            "doc": ""
+        },
         "Choice": {
             "kind": "Class",
             "detail": "class renpy.Choice(value, /, *args, **kwargs)",
