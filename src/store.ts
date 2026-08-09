@@ -107,7 +107,7 @@ export class Store
         else
         {
             const existingDecl = currentNode.members.get(lastSegment);
-            if (existingDecl && !existingDecl.isCustom)
+            if (existingDecl && !existingDecl.isCustom && existingDecl.kind === declaration.kind)
             {
                 existingDecl.detail = declaration.detail;
                 existingDecl.documentation = declaration.documentation;
@@ -284,9 +284,10 @@ export class Store
         const items = [];
         const prefixRegex = new RegExp(`^${wantedType}\\s+`);
 
-        for (const [_, decl] of this.rootNode.members.entries())
+        const targetNode = this.rootNode.children.get(wantedType);
+        if (targetNode)
         {
-            if (decl.pythonType === wantedType || decl.name.startsWith(`${wantedType} `))
+            for (const [_, decl] of targetNode.members.entries())
             {
                 items.push(decl.AsCompletionItem(prefixRegex));
             }
