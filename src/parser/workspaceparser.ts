@@ -138,7 +138,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol(["label", labelName], decl);
+                    Store.registerUserSymbol([/*"label",*/ labelName], decl);
 
                     continue;
                 }
@@ -160,7 +160,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol(["screen", screenName], decl);
+                    Store.registerUserSymbol([/*"screen",*/ screenName], decl);
 
                     continue;
                 }
@@ -182,7 +182,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol(["transform", transformName], decl);
+                    Store.registerUserSymbol([/*"transform",*/ transformName], decl);
 
                     continue;
                 }
@@ -204,7 +204,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol(["style", styleName], decl);
+                    Store.registerUserSymbol([/*"style",*/ styleName], decl);
 
                     continue;
                 }
@@ -223,7 +223,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol(["image", imageName], decl);
+                    Store.registerUserSymbol([/*"image",*/ imageName], decl);
 
                     continue;
                 }

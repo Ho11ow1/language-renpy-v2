@@ -8,6 +8,9 @@ export class HoverItemProvider implements vscode.HoverProvider
 {
     private identifierPartRegex: RegExp = /^[a-zA-Z0-9_]*/;
     private chainBeforeCursorRegex: RegExp = /[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*$/;
+    private imageDeclRegex: RegExp = /^\s*image\s+([a-zA-Z0-9_\s]+?)\s*[:=]/;
+    private imageUsageRegex: RegExp = /\b(?:show|scene|hide)\s+(.+?)(?=\s+at\b|$)/;
+    private renpyStorePrefix: string = "renpy.store.";
 
     public provideHover(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Hover>
     {
@@ -16,9 +19,25 @@ export class HoverItemProvider implements vscode.HoverProvider
             return undefined;
         }
 
-        const PREFIX = "renpy.store.";
         const line = document.lineAt(position.line).text;
         const offset = position.character;
+
+        const imageDeclMatch = line.match(this.imageUsageRegex) ?? line.match(this.imageDeclRegex);
+        if (imageDeclMatch)
+        {
+            const imageName = imageDeclMatch[1].trim();
+            const imageStart = imageDeclMatch.index! + imageDeclMatch[0].indexOf(imageName);
+            const imageEnd = imageStart + imageName.length;
+
+            if (offset >= imageStart && offset <= imageEnd)
+            {
+                const decl = Store.getDeclarationAtPath([/*"image",*/ imageName]);
+                if (decl)
+                {
+                    return this.getHoverComponent(decl, new vscode.Range(position.line, imageStart, position.line, imageEnd));
+                }
+            }
+        }
 
         const backwardMatch = line.substring(0, offset).match(this.chainBeforeCursorRegex);
         if (!backwardMatch)
@@ -26,7 +45,7 @@ export class HoverItemProvider implements vscode.HoverProvider
             return undefined;
         }
 
-        const matchText = backwardMatch[0].startsWith(PREFIX) ? backwardMatch[0].substring(PREFIX.length) : backwardMatch[0];
+        const matchText = backwardMatch[0].startsWith(this.renpyStorePrefix) ? backwardMatch[0].substring(this.renpyStorePrefix.length) : backwardMatch[0];
         const forwardMatch = line.substring(offset).match(this.identifierPartRegex);
         const restOfWord = forwardMatch ? forwardMatch[0] : "";
 
@@ -36,7 +55,7 @@ export class HoverItemProvider implements vscode.HoverProvider
             return undefined;
         }
 
-        return this.getHoverComponent(decl, new vscode.Range(position.line, ((offset - backwardMatch[0].length) + (backwardMatch[0].startsWith(PREFIX) ? PREFIX.length : 0)), position.line, (offset + restOfWord.length)));
+        return this.getHoverComponent(decl, new vscode.Range(position.line, ((offset - backwardMatch[0].length) + (backwardMatch[0].startsWith(this.renpyStorePrefix) ? this.renpyStorePrefix.length : 0)), position.line, (offset + restOfWord.length)));
     }
 
     public getDisposable(): vscode.Disposable

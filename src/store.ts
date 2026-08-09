@@ -284,10 +284,18 @@ export class Store
         const items = [];
         const prefixRegex = new RegExp(`^${wantedType}\\s+`);
 
-        const targetNode = this.rootNode.children.get(wantedType);
-        if (targetNode)
+        // const targetNode = this.rootNode.children.get(wantedType);
+        // if (targetNode)
+        // {
+        //     for (const [_, decl] of targetNode.members.entries())
+        //     {
+        //         items.push(decl.AsCompletionItem(prefixRegex));
+        //     }
+        // }
+
+        for (const [_, decl] of this.rootNode.members.entries())
         {
-            for (const [_, decl] of targetNode.members.entries())
+            if (decl.name.startsWith(wantedType) || decl.pythonType == wantedType)
             {
                 items.push(decl.AsCompletionItem(prefixRegex));
             }
