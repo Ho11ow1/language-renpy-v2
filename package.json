@@ -3,6 +3,13 @@
     "displayName": "vscode-language-renpy-v2",
     "description": "An attempt at re-creating and improving the current official vscode renpy extension",
     "version": "0.0.1",
+    "publisher": "Hollow1",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Ho11ow1/language-renpy-v2.git"
+    },
+    "license": "MIT",
+    "icon": "./renpy.png",
     "engines": {
         "vscode": "^1.125.0"
     },
@@ -12,8 +19,7 @@
     "main": "./dist/extension.js",
     "activationEvents": [
         "workspaceContains:**/*.rpy",
-        "workspaceContains:**/*_ren.py",
-        "onDebugResolve:renpy"
+        "workspaceContains:**/*_ren.py"
     ],
     "contributes": {
         "languages": [
@@ -46,6 +52,37 @@
                 "editor.tabSize": 4,
                 "editor.detectIndentation": false
             }
+        },
+        "commands": [
+            { "command": "renpy.toUpper", "title": "To Uppercase" },
+            { "command": "renpy.toLower", "title": "To Lowercase" },
+            { "command": "renpy.addItalic", "title": "Add Italics" },
+            { "command": "renpy.addBold", "title": "Add Bold" },
+            { "command": "renpy.addColor", "title": "Add Color" },
+            { "command": "renpy.addCPS", "title": "Add CPS" }
+        ],
+        "submenus": [
+            {
+                "id": "renpy.submenu",
+                "label": "Ren'Py"
+            }
+        ],
+        "menus": {
+            "editor/context": [
+                {
+                    "submenu": "renpy.submenu",
+                    "group": "navigation@1",
+                    "when": "resourceLangId == renpy || resourceExtname == .rpy"
+                }
+            ],
+            "renpy.submenu": [
+                { "command": "renpy.toUpper" },
+                { "command": "renpy.toLower" },
+                { "command": "renpy.addItalic" },
+                { "command": "renpy.addBold" },
+                { "command": "renpy.addColor" },
+                { "command": "renpy.addCPS" }
+            ]
         }
     },
     "scripts": {

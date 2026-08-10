@@ -6,6 +6,7 @@ import { HoverItemProvider } from "@src/hover";
 import { Store } from "@src/store";
 import { WorkspaceParser } from "@parser/workspaceparser";
 import { DefinitionProvider } from "@src/definition";
+import { ContextMenuCommands } from "@src/contextmenu";
 
 const RENPY_FILE_PATTERNS = "{**/*.rpy,**/*_ren.py}" as const;
 
@@ -23,10 +24,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(new CompletionItemProvider().getDisposable());
     context.subscriptions.push(new HoverItemProvider().getDisposable());
     context.subscriptions.push(new SignatureHelpProvider().getDisposable());
-    context.subscriptions.push(new DefinitionProvider().getDisposable())
+    context.subscriptions.push(new DefinitionProvider().getDisposable());
 
     // File system watcher so we update what we know
     context.subscriptions.push(setupWatcher());
+
+    context.subscriptions.push(...ContextMenuCommands.getDisposables());
 
     Logger.logMessage("Successfully initialized and parsed all files");
     Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
