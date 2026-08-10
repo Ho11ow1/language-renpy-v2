@@ -53,7 +53,7 @@ export class Store
         {
             this.rootNode.members.set(decl.name, decl);
         }
-    
+
         Logger.logMessage(`Store initialized. Root keys: ${Array.from(this.rootNode.children.keys()).join(", ")}`);
     }
 

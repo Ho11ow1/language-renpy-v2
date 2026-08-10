@@ -75,7 +75,7 @@ export class ParserUtils
                 }
                 if (this.variantDecoratorRegex.test(prev))
                 {
-                    isVariant = true
+                    isVariant = true;
                 }
 
                 checkIndex -= 1;
@@ -85,7 +85,7 @@ export class ParserUtils
 
             break;
         }
-        
+
         return [isSetter, isVariant, isProperty];
     }
 
@@ -101,7 +101,7 @@ export class ParserUtils
         if (searchIndex < lines.length)
         {
             const first = lines[searchIndex].trim();
-            
+
             const quoteMatch = first.match(this.docStringStartRegex);
             if (quoteMatch)
             {
@@ -156,7 +156,7 @@ export class ParserUtils
         for (let i = lineIndex + 1; i < lines.length; i++)
         {
             const currentLine = lines[i];
-            if (!currentLine.trim()) 
+            if (!currentLine.trim())
             {
                 continue;
             }

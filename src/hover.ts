@@ -31,7 +31,7 @@ export class HoverItemProvider implements vscode.HoverProvider
 
             if (offset >= imageStart && offset <= imageEnd)
             {
-                const decl = Store.getDeclarationAtPath([/*"image",*/ imageName]);
+                const decl = Store.getDeclarationAtPath([/*"image",*/imageName]);
                 if (decl)
                 {
                     return this.getHoverComponent(decl, new vscode.Range(position.line, imageStart, position.line, imageEnd));
@@ -90,6 +90,6 @@ export class HoverItemProvider implements vscode.HoverProvider
             str.appendMarkdown(`\n\n${decl.documentation}`);
         }
 
-        return new vscode.Hover(str, wordRange)
+        return new vscode.Hover(str, wordRange);
     }
 }

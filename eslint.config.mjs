@@ -20,7 +20,7 @@ export default [
             // RETURN TYPES
             // =====================================================
             "@typescript-eslint/explicit-function-return-type": [
-                "warn",
+                "error",
                 {
                     allowExpressions: false,
                     allowTypedFunctionExpressions: false,
@@ -32,36 +32,28 @@ export default [
             // =====================================================
             // TYPESCRIPT SAFETY
             // =====================================================
-            "@typescript-eslint/no-unused-vars": [
-                "warn",
-                {
-                    argsIgnorePattern: "^_",
-                    varsIgnorePattern: "^_",
-                },
-            ],
-
             "@typescript-eslint/no-explicit-any": [
-                "warn",
+                "error",
             ],
 
             // =====================================================
             // GENERAL JAVASCRIPT SAFETY
             // =====================================================
             "no-unreachable": "error",
-            "no-duplicate-imports": "warn",
-            "no-useless-return": "warn",
+            "no-duplicate-imports": "error",
+            "no-useless-return": "error",
 
             // =====================================================
             // STYLE
             // =====================================================
 
             "semi": [
-                "warn",
+                "error",
                 "always",
             ],
 
             "quotes": [
-                "warn",
+                "error",
                 "double",
                 {
                     avoidEscape: true,
@@ -70,7 +62,7 @@ export default [
             ],
 
             "indent": [
-                "warn",
+                "error",
                 4,
                 {
                     SwitchCase: 1,
@@ -78,17 +70,17 @@ export default [
             ],
 
             "object-curly-spacing": [
-                "warn",
+                "error",
                 "always",
             ],
 
             "array-bracket-spacing": [
-                "warn",
-                "never",
+                "error",
+                "never"
             ],
 
             "comma-spacing": [
-                "warn",
+                "error",
                 {
                     before: false,
                     after: true,
@@ -96,28 +88,28 @@ export default [
             ],
 
             "space-before-blocks": [
-                "warn",
+                "error",
             ],
 
             "keyword-spacing": [
-                "warn",
+                "error",
             ],
 
             "space-infix-ops": [
-                "warn",
+                "error",
             ],
 
             "eol-last": [
-                "warn",
+                "error",
                 "always",
             ],
 
             "no-trailing-spaces": [
-                "warn",
+                "error",
             ],
 
             "no-multiple-empty-lines": [
-                "warn",
+                "error",
                 {
                     max: 2,
                     maxEOF: 1,
@@ -130,17 +122,17 @@ export default [
             // =====================================================
 
             "object-shorthand": [
-                "warn",
+                "error",
                 "always",
             ],
 
             "func-call-spacing": [
-                "warn",
+                "error",
                 "never",
             ],
 
             "space-before-function-paren": [
-                "warn",
+                "error",
                 {
                     anonymous: "never",
                     named: "never",

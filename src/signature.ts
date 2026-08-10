@@ -47,7 +47,7 @@ export class SignatureHelpProvider implements vscode.SignatureHelpProvider
 
     public getDisposable(): vscode.Disposable
     {
-        return vscode.languages.registerSignatureHelpProvider({scheme: "file", language: "renpy"}, this, "(", ",");
+        return vscode.languages.registerSignatureHelpProvider({ scheme: "file", language: "renpy" }, this, "(", ",");
     }
 
     private getSignatureComponent(activeParamIndex: number, decl: Declaration): vscode.SignatureHelp
@@ -60,11 +60,11 @@ export class SignatureHelpProvider implements vscode.SignatureHelpProvider
 
         const paramMatch = targetDetail.match(this.funcParamRegex);
         const rawParams = paramMatch ? paramMatch[1] : "";
-        const paramsArr = rawParams.split(",").map(p => p.trim()).filter(p => p !== "self" && p !== "cls" && p.length > 0);
+        const paramsArr = rawParams.split(",").map((p): string => p.trim()).filter((p): boolean => p !== "self" && p !== "cls" && p.length > 0);
 
 
         const signatureInfo = new vscode.SignatureInformation(targetDetail, decl.documentation ? new vscode.MarkdownString(decl.documentation) : undefined);
-        signatureInfo.parameters = paramsArr.map(p => new vscode.ParameterInformation(p));
+        signatureInfo.parameters = paramsArr.map((p): vscode.ParameterInformation => new vscode.ParameterInformation(p));
 
         const signatureHelp = new vscode.SignatureHelp();
         signatureHelp.signatures = [signatureInfo];

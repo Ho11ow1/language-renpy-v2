@@ -54,7 +54,7 @@ export class WorkspaceParser
 
             const fileContent = fs.readFileSync(filePath, "utf-8");
             const lines = fileContent.split(this.fileSplitRegex);
-            const parserScopeState = new ParserScopeState()
+            const parserScopeState = new ParserScopeState();
 
             for (let lineIndex = 0; lineIndex < lines.length; lineIndex++)
             {
@@ -66,7 +66,7 @@ export class WorkspaceParser
                 }
 
                 const lineIndent = ParserUtils.getIndentLevel(line);
-                parserScopeState.update(lineIndent, line.trim().length)
+                parserScopeState.update(lineIndent, line.trim().length);
 
                 let fullStatement = line;
                 let lookAheadIndex = lineIndex + 1;
@@ -138,7 +138,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"label",*/ labelName], decl);
+                    Store.registerUserSymbol([/*"label",*/labelName], decl);
 
                     continue;
                 }
@@ -160,7 +160,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"screen",*/ screenName], decl);
+                    Store.registerUserSymbol([/*"screen",*/screenName], decl);
 
                     continue;
                 }
@@ -182,7 +182,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"transform",*/ transformName], decl);
+                    Store.registerUserSymbol([/*"transform",*/transformName], decl);
 
                     continue;
                 }
@@ -204,7 +204,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"style",*/ styleName], decl);
+                    Store.registerUserSymbol([/*"style",*/styleName], decl);
 
                     continue;
                 }
@@ -223,7 +223,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"image",*/ imageName], decl);
+                    Store.registerUserSymbol([/*"image",*/imageName], decl);
 
                     continue;
                 }
@@ -259,7 +259,7 @@ export class WorkspaceParser
                     const functionName = defMatch[1];
                     parserScopeState.currentFunction = functionName;
                     parserScopeState.functionIndent = lineIndent;
-                    
+
                     if (functionName.startsWith("__") && functionName.endsWith("__") || functionName.startsWith("_"))
                     {
                         continue;
@@ -272,7 +272,7 @@ export class WorkspaceParser
                     }
 
                     const isMethod = parserScopeState.currentClass !== null;
-                    const kind = isProperty ? vscode.CompletionItemKind.Property : ( isMethod ? vscode.CompletionItemKind.Method : vscode.CompletionItemKind.Function)
+                    const kind = isProperty ? vscode.CompletionItemKind.Property : ( isMethod ? vscode.CompletionItemKind.Method : vscode.CompletionItemKind.Function);
                     const scopePath = ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, functionName);
                     const fullName = scopePath.join(".");
                     const declType = isProperty ? "Property" : (isMethod ? "Method" : "Function");

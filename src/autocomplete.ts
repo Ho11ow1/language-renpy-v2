@@ -35,7 +35,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
             {
                 const targetPath = match[1];
                 Logger.logMessage(`Tree autocomplete lookup for: "${targetPath}"`);
-            
+
                 const items = Store.getCompletionsForPath(targetPath);
                 return items.length > 0 ? items : undefined;
             }
