@@ -4,6 +4,7 @@ import { NamespaceNode } from "@models/NamespaceNode";
 import { IStaticJsonItem } from "@interfaces/IStaticJsonItem";
 import { Logger } from "@utils/Logger";
 import { pythonTypeMethods, pythonRootFunctions } from "@data/python";
+import { builtinTransforms } from "@data/transforms";
 import renpyJson from "@data/renpy.json";
 
 
@@ -52,6 +53,10 @@ export class Store
         for (const decl of pythonRootFunctions)
         {
             this.rootNode.members.set(decl.name, decl);
+        }
+        for (const decl of builtinTransforms)
+        {
+            this.registerUserSymbol(["transform", decl.name], decl);
         }
 
         Logger.logMessage(`Store initialized. Root keys: ${Array.from(this.rootNode.children.keys()).join(", ")}`);
@@ -284,22 +289,22 @@ export class Store
         const items = [];
         const prefixRegex = new RegExp(`^${wantedType}\\s+`);
 
-        // const targetNode = this.rootNode.children.get(wantedType);
-        // if (targetNode)
-        // {
-        //     for (const [_, decl] of targetNode.members.entries())
-        //     {
-        //         items.push(decl.AsCompletionItem(prefixRegex));
-        //     }
-        // }
-
-        for (const [_, decl] of this.rootNode.members.entries())
+        const targetNode = this.rootNode.children.get(wantedType);
+        if (targetNode)
         {
-            if (decl.name.startsWith(wantedType) || decl.pythonType == wantedType)
+            for (const [_, decl] of targetNode.members.entries())
             {
                 items.push(decl.AsCompletionItem(prefixRegex));
             }
         }
+
+        // for (const [_, decl] of this.rootNode.members.entries())
+        // {
+        //     if (decl.name.startsWith(wantedType) || decl.pythonType == wantedType)
+        //     {
+        //         items.push(decl.AsCompletionItem(prefixRegex));
+        //     }
+        // }
 
         return items;
     }

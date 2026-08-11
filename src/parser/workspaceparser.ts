@@ -130,7 +130,7 @@ export class WorkspaceParser
 
                     const labelName = labelMatch[1];
                     const decl = new Declaration(
-                        `label ${labelName}`,
+                        `${labelName}`,
                         vscode.CompletionItemKind.Property,
                         fullStatement.trim(),
                         "label",
@@ -138,7 +138,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"label",*/labelName], decl);
+                    Store.registerUserSymbol(["label", labelName], decl);
 
                     continue;
                 }
@@ -150,9 +150,8 @@ export class WorkspaceParser
                     parserScopeState.blockIndent = lineIndent;
 
                     const screenName = screenMatch[1];
-
                     const decl = new Declaration(
-                        `screen ${screenName}`,
+                        `${screenName}`,
                         vscode.CompletionItemKind.Property,
                         fullStatement.trim(),
                         "screen",
@@ -160,7 +159,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"screen",*/screenName], decl);
+                    Store.registerUserSymbol(["screen", screenName], decl);
 
                     continue;
                 }
@@ -174,7 +173,7 @@ export class WorkspaceParser
                     const transformName = transformMatch[1];
 
                     const decl = new Declaration(
-                        `transform ${transformName}`,
+                        `${transformName}`,
                         vscode.CompletionItemKind.Property,
                         fullStatement.trim(),
                         "transform",
@@ -182,7 +181,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"transform",*/transformName], decl);
+                    Store.registerUserSymbol(["transform", transformName], decl);
 
                     continue;
                 }
@@ -196,7 +195,7 @@ export class WorkspaceParser
                     const styleName = styleMatch[1];
 
                     const decl = new Declaration(
-                        `style ${styleName}`,
+                        `${styleName}`,
                         vscode.CompletionItemKind.Property,
                         fullStatement.trim(),
                         "style",
@@ -204,7 +203,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"style",*/styleName], decl);
+                    Store.registerUserSymbol(["style", styleName], decl);
 
                     continue;
                 }
@@ -213,9 +212,8 @@ export class WorkspaceParser
                 if (imageMatch)
                 {
                     const imageName = imageMatch[1].trim();
-
                     const decl = new Declaration(
-                        `image ${imageName}`,
+                        `${imageName}`,
                         vscode.CompletionItemKind.Value,
                         fullStatement.trim(),
                         "image",
@@ -223,7 +221,7 @@ export class WorkspaceParser
                         location
                     );
 
-                    Store.registerUserSymbol([/*"image",*/imageName], decl);
+                    Store.registerUserSymbol(["image", imageName], decl);
 
                     continue;
                 }
