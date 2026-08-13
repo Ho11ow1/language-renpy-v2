@@ -22,6 +22,7 @@ export class HoverItemProvider implements vscode.HoverProvider
     private screenDeclRegex: RegExp = /^\s*screen\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
     private screenUsage1Regex: RegExp = /\b(?:show|call|hide)\s+(?:screen)\s+([a-zA-Z0-9_]+)(?:\([^)]*\))?/;
     private screenUsage2Regex: RegExp = /\b(?:add)\s+([a-zA-Z0-9_]+)(?:\([^)]*\))?$/;
+    private styleDeclRegex: RegExp = /^\s*style\s+([a-zA-Z_]\w*)(?:\s+is\b[^:]*)?\s*:?\s*$/;
 
     private renpyStorePrefix: string = "renpy.store.";
 
@@ -99,6 +100,22 @@ export class HoverItemProvider implements vscode.HoverProvider
                 }
             }
         }
+        const styleDeclMatch = line.match(this.styleDeclRegex);
+        if (styleDeclMatch)
+        {
+            const styleName = styleDeclMatch[1].trim();
+            const screenStart = styleDeclMatch.index! + styleDeclMatch[0].indexOf(styleName);
+            const screenEnd = screenStart + styleName.length;
+
+            if (offset >= screenStart && offset <= screenEnd)
+            {
+                const decl = Store.getDeclarationAtPath(["style", styleName]);
+                if (decl)
+                {
+                    return this.getHoverComponent(decl, new vscode.Range(position.line, screenStart, position.line, screenEnd));
+                }
+            }
+        }
 
         const backwardMatch = line.substring(0, offset).match(this.chainBeforeCursorRegex);
         if (!backwardMatch)
@@ -110,10 +127,18 @@ export class HoverItemProvider implements vscode.HoverProvider
         const forwardMatch = line.substring(offset).match(this.identifierPartRegex);
         const restOfWord = forwardMatch ? forwardMatch[0] : "";
 
-        const decl = Store.getDeclarationAtPath(`${matchText}${restOfWord}`.split("."));
+        Logger.logMessage(`match: ${matchText} | rest: ${restOfWord}`);
+        Logger.logMessage("Joined + split: " + `${matchText}${restOfWord}`.split("."))
+
+        let decl = Store.getDeclarationAtPath(`${matchText}${restOfWord}`.split("."));
         if (!decl)
         {
-            return undefined;
+            const fullSplit = `${matchText}${restOfWord}`.split("."); // Should allow for ruby_style style.ruby_style lookup
+            decl = Store.getDeclarationAtPath([fullSplit[0], fullSplit[1]]);
+            if (!decl)
+            {
+                return undefined;
+            }
         }
 
         return this.getHoverComponent(decl, new vscode.Range(position.line, ((offset - backwardMatch[0].length) + (backwardMatch[0].startsWith(this.renpyStorePrefix) ? this.renpyStorePrefix.length : 0)), position.line, (offset + restOfWord.length)));
@@ -126,14 +151,11 @@ export class HoverItemProvider implements vscode.HoverProvider
 
     private getHoverComponent(decl: Declaration, wordRange: vscode.Range): vscode.Hover
     {
-        const str = new vscode.MarkdownString();
+        // May aswell support icons, might be nice to have in the future. Use empty constructor if not
+        const str = new vscode.MarkdownString(undefined, true);
         str.isTrusted = true;
 
-        if (!decl.isCustom || !decl.locationInfo)
-        {
-            str.appendMarkdown(`*(Internal)*\n\n`);
-        }
-        else
+        if (decl.locationInfo)
         {
             const { filePath, lineNumber } = decl.locationInfo;
             const openArgs = encodeURIComponent(JSON.stringify([
@@ -142,6 +164,10 @@ export class HoverItemProvider implements vscode.HoverProvider
             ]));
 
             str.appendMarkdown(`*(Custom)* | [${path.basename(filePath)}:${lineNumber}](${`command:vscode.open?${openArgs}`})\n\n`);
+        }
+        else
+        {
+            str.appendMarkdown(`*(Internal)*\n\n`);
         }
 
         str.appendCodeblock(decl.detail, "python");

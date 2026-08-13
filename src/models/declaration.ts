@@ -11,6 +11,7 @@ export class Declaration
     public pythonType: string;                // Holds the python relative type of this item
     public locationInfo?: LocationInfo;       // Holds { filePath: "game/scripts/Characters/Characters.rpy", lineNumber: 4 }
     public documentation?: string;            // Holds a string that will be converted into a hover detail
+    private staticDocumentation?: string;     // Holds the renpy.json doc as a fallback if no user-override is parsed or a user removes a declaration override
     public isCustom: boolean;                 // Let's us know if we should delete the entry or just return to static
 
     public constructor(name: string, kind: vscode.CompletionItemKind, detail: string, pythonType: string = "Any", documentation?: string, locationInfo?: LocationInfo, isCustom: boolean = true, constructorDetail?: string)
@@ -22,6 +23,7 @@ export class Declaration
         this.staticDetail = detail;
         this.pythonType = pythonType;
         this.documentation = documentation;
+        this.staticDocumentation = documentation;
         this.locationInfo = locationInfo;
         this.isCustom = isCustom;
     }
@@ -43,6 +45,7 @@ export class Declaration
     public Reset(): void
     {
         this.detail = this.staticDetail;
+        this.documentation = this.staticDocumentation;
         this.constructorDetail = undefined;
         this.locationInfo = undefined;
     }

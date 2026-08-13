@@ -5,8 +5,8 @@ import { IStaticJsonItem } from "@interfaces/IStaticJsonItem";
 import { Logger } from "@utils/Logger";
 import { pythonTypeMethods, pythonRootFunctions } from "@data/python";
 import { builtinTransforms } from "@data/transforms";
+import { renpyRootFunctions } from "@data/renpy";
 import renpyJson from "@data/renpy.json";
-
 
 export class Store
 {
@@ -51,6 +51,10 @@ export class Store
             this.populateNodeRecursive(items, nsNode, topLevelKey);
         }
         for (const decl of pythonRootFunctions)
+        {
+            this.rootNode.members.set(decl.name, decl);
+        }
+        for (const decl of renpyRootFunctions)
         {
             this.rootNode.members.set(decl.name, decl);
         }

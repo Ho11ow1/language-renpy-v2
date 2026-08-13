@@ -8,6 +8,8 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
     private readonly varNameRegex: RegExp = /([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\.$/;
     private readonly callJumpRegex: RegExp = /(?:^|\s)(?:call|jump)\s+([a-zA-Z0-9_]*)$/;
     private readonly callShowScreenRegex: RegExp = /(?:^|\s)(?:call|show|hide)\s+screen\s+([a-zA-Z0-9_]*)$/;
+    private readonly labelRegex: RegExp = /^\s*(?:label)\s+/; // Give users a hint for label\s+ so they know their current labels ex: Label_Home_Bedroom => Label_Home_Backyard is still needed to be implemented
+    private readonly screenRegex: RegExp = /^\s*(?:screen)\s+/; // Give users a hint for screen\s+ so they know their current screens ex: Navigation_Home_Bedroom => Navigation_Home_Backyard is still needed to be implemented
 
     // ATL stuff
     private readonly showSceneHideRegex: RegExp = /(?:^|\s)(?:show|scene|hide)\s+([a-zA-Z0-9_]*)$/;
@@ -15,6 +17,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
 
     // TBD stuff
     private readonly styleRegex: RegExp = /(?:^|\s)style\s+([a-zA-Z0-9_]*)$/;
+    private readonly styleRegex2: RegExp = /\b\s+style./;
 
     public provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CompletionItem[]>
     {
@@ -26,44 +29,19 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         const lineText = document.lineAt(position).text.substring(0, position.character);
 
         //
-        // Handle the real auto-complete
-        //
-        if (lineText.endsWith("."))
-        {
-            const match = lineText.match(this.varNameRegex);
-            if (match)
-            {
-                const targetPath = match[1];
-                Logger.logMessage(`Tree autocomplete lookup for: "${targetPath}"`);
-
-                const items = Store.getCompletionsForPath(targetPath);
-                return items.length > 0 ? items : undefined;
-            }
-        }
-        //
-        // Just showing immediate intellisense for a python line or renpy.store.
-        //
-        if (lineText.trim().startsWith("$") || lineText.trim().endsWith("="))
-        {
-            Logger.logMessage("Autocomplete lookup for immediate");
-
-            const items = Store.getImmediateCompletions;
-            return items.length > 0 ? items : undefined;
-        }
-        //
         // Have to make this check to only activate if we are in a screen context later
         //
-        if (this.styleRegex.test(lineText))
+        if (this.styleRegex.test(lineText) || this.styleRegex2.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for: style");
 
-            const items = Store.getStyleCompletions;
+            const items = Store.getStyleCompletions.filter(i => i.kind !== vscode.CompletionItemKind.Method); // We don't want style.rebuild to show for this
             return items.length > 0 ? items : undefined;
         }
         //
         // call | show screen -> show screens
         //
-        if (this.callShowScreenRegex.test(lineText))
+        if (this.callShowScreenRegex.test(lineText) || this.screenRegex.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for: call screen");
 
@@ -73,7 +51,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // jump | call -> show labels
         //
-        if (this.callJumpRegex.test(lineText))
+        if (this.callJumpRegex.test(lineText) || this.labelRegex.test(lineText))
         {
             Logger.logMessage("Autocomplete lookup for: jump | call");
 
@@ -98,6 +76,31 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
             Logger.logMessage("Autocomplete lookup for at transforms");
 
             const items = Store.getTransformCompletions;
+            return items.length > 0 ? items : undefined;
+        }
+        //
+        // Handle the real auto-complete
+        //
+        if (lineText.endsWith("."))
+        {
+            const match = lineText.match(this.varNameRegex);
+            if (match)
+            {
+                const targetPath = match[1];
+                Logger.logMessage(`Tree autocomplete lookup for: "${targetPath}"`);
+
+                const items = Store.getCompletionsForPath(targetPath);
+                return items.length > 0 ? items : undefined;
+            }
+        }
+        //
+        // Just showing immediate intellisense for a python line or renpy.store.
+        //
+        if (lineText.trim().startsWith("$") || lineText.trim().endsWith("="))
+        {
+            Logger.logMessage("Autocomplete lookup for immediate");
+
+            const items = Store.getImmediateCompletions;
             return items.length > 0 ? items : undefined;
         }
         //
