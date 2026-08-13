@@ -3211,7 +3211,7 @@
         "_ignore_action": {
             "kind": "Variable",
             "detail": "define _ignore_action = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "When this is not None, it's an action that is run after clicking Ignore\non the error handling screen. The action is usually Jump, to jump\nthe game to a place that can recover from an error. If None, control\ncontinues with the next Ren'Py statement."
         },
         "_in_replay": {
@@ -3241,7 +3241,7 @@
         "_quit_slot": {
             "kind": "Variable",
             "detail": "define _quit_slot = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a string giving the name of a file slot.\nWhen Ren'Py quits, the game will be saved in this slot."
         },
         "_rollback": {
@@ -3253,19 +3253,19 @@
         "_scene_show_hide_transition": {
             "kind": "Variable",
             "detail": "define _scene_show_hide_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is a transition that will be performed using the\nwith statement after a series of scene, show, and hide statements\nthat are not followed by a with statement, or by a window transition.\n\nSee also: scene-show-hide-transition"
         },
         "_screenshot_pattern": {
             "kind": "Variable",
             "detail": "define _screenshot_pattern = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this string is used in preference to config.screenshot_pattern\nto determine the filename of a screenshot. Please see the documentation for\nthat variable for the format of the string."
         },
         "_side_image_tag": {
             "kind": "Variable",
             "detail": "define _side_image_tag = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": ".. var:: config.side_image_tag = None\n\nIf _side_image_tag is not None, it takes precedence over config.side_image_tag.\n\nIf this is given, then the side image will track the given image tag,\nrather than the image associated with the currently speaking character. For example,\n\n\n\n```\ndefine e = Character(\"Eileen\", image=\"eileen\")\ndefine config.side_image_tag = \"eileen\"\n\n```\n\nWill make the side image track the \"eileen\" image tag, which is associated\nwith the ``e`` character.\n\n.. var:: config.side_image_only_not_showing = False\n\nWhen set to true, the side image will only show if an image with that tag\nis not already being shown on the screen.\n\n.. var:: _side_image_prefix_tag = None\n.. var:: config.side_image_prefix_tag = 'side'\n\nIf _side_image_prefix_tag is not None, it takes preference over\nconfig.side_image_prefix_tag.\n\nThe prefix that is used when searching for a side image.\n\n.. var:: config.side_image_null = Null()\n\nThe Null displayable to use when not displaying a side image. This can\nbe changed, but only to other Null objects. One reason for doing so\nwould be to set the side of the Null (eg. ``Null(width=200, height=150)``)\nto prevent dissolves from being cut off.\n\n.. var:: config.side_image_same_transform = None\n\nIf not None, a transform that is used when the new side image shares the\nsame image tag as the previous side image.\n\n.. var:: config.side_image_change_transform = None\n\nIf not None, a transform that is used when the new side image does not\nshare the name image tag (or one of the new or old side images does not\nexist).\n\n\nTransforms and Transitions\n--------------------------\n\nThe config.side_image_same_transform and\nconfig.side_image_change_transform transforms are called with two\narguments – old and new side image displayables – each time the side\nimage is displayed. These can be used to move around side images, or\nuse a transition to go between side images.\n\nThis causes the side image to slide in and out when the character\nassociated with that image changes\n\n```\ntransform change_transform(old, new):\n    contains:\n        old\n        yalign 1.0\n        xpos 0.0 xanchor 0.0\n        linear 0.2 xanchor 1.0\n    contains:\n        new\n        yalign 1.0\n        xpos 0.0 xanchor 1.0\n        linear 0.2 xanchor 0.0\n        \ndefine config.side_image_change_transform = change_transform\n\n```\n\nThis is used to dissolve between old and new side images when the\ncharacter remains the same. (For example, when the character changes\nemotion.) For the Dissolve to work correctly, both side images must\nbe the same size. \n\n```\ntransform same_transform(old, new):\n    old\n    new with Dissolve(0.2, alpha=True)\n    \ndefine config.side_image_same_transform = same_transform\n\n\n```\n\nWhen the SideImage is scaled down, it might make sense to enable\nmipmapping in the Dissolve\n\n```\ntransform same_transform(old, new):\n    old\n    new with Dissolve(0.2, alpha=True, mipmap=True)\n    \ndefine config.side_image_same_transform = same_transform\n\n```\n\nFunctions\n---------\n\n.. Automatically generated file - do not modify.\n\n.. function:: renpy.get_side_image(prefix_tag, image_tag=None, not_showing=None, layer=None)\n\nThis attempts to find an image to show as the side image.\n\nIt begins by determining a set of image attributes. If `image_tag` is\ngiven, it gets the image attributes from the tag. Otherwise, it gets\nthem from the image property suplied to the currently showing character.\nIf no attributes are available, this returns None.\n\nIt then looks up an image with the tag `prefix_tag`, and attributes\nconsisting of:\n\n* An image tag (either from `image_tag` or the image property supplied\nto the currently showing character).\n* The attributes.\n\nIf such an image exists, it's returned.\n\n`not_showing`\nIf not showing is True, this only returns a side image if an image\nwith the tag that the attributes are taken from is not currently\nbeing shown. If False, it will always return an image, if possible.\nIf None, takes the value from config.side_image_only_not_showing.\n\n`layer`\nIf given, the layer to look for the image tag and attributes on. If\nNone, uses the default layer for the tag.\n\n.. function:: renpy.set_tag_attributes(name, layer=None)\n\nThis sets the attributes associated with an image tag when that image\ntag is not showing. The main use of this would be to directly set the\nattributes used by a side image.\n\nFor example\n\n```\n$ renpy.set_tag_attributes(\"lucy mad\")\n$ renpy.say(l, \"I'm rather cross.\")\n\n```\n\nand\n\n```\nl mad \"I'm rather cross.\"\n\n```\n\nare equivalent."
         },
         "_skipping": {
@@ -3777,13 +3777,13 @@
         "adjust_view_size": {
             "kind": "Variable",
             "detail": "define config.adjust_view_size = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a function taking two arguments, the width\nand height of the physical window. It is expected to return a tuple\ngiving the width and height of the OpenGL viewport, the portion of the\nscreen that Ren'Py will draw pictures to.\n\nThis can be used to configure Ren'Py to only allow certain sizes of\nscreen. For example, the following allows only integer multiples\nof the original screen size\n\n```\ninit python:\n\n    def force_integer_multiplier(width, height):\n        multiplier = min(width / config.screen_width, height / config.screen_height)\n        multiplier = max(int(multiplier), 1)\n        return (multiplier * config.screen_width, multiplier * config.screen_height)\n        \n    config.adjust_view_size = force_integer_multiplier\n    \n```"
         },
         "adv_nvl_transition": {
             "kind": "Variable",
             "detail": "define config.adv_nvl_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "A transition that is used to show the NVL-mode window when\nshowing ADV-mode text directly after NVL-mode text."
         },
         "afm_bonus": {
@@ -3795,7 +3795,7 @@
         "afm_callback": {
             "kind": "Variable",
             "detail": "define config.afm_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a Python function that is called to determine if it\nis safe to auto-forward. If None, an internal function is used to\ndisable auto-forwarding when a voice is playing, unless preferences.wait_voice\nis set to False."
         },
         "afm_characters": {
@@ -3825,13 +3825,13 @@
         "after_load_transition": {
             "kind": "Variable",
             "detail": "define config.after_load_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "A transition that is used after loading, when entering the loaded\ngame."
         },
         "after_replay_callback": {
             "kind": "Variable",
             "detail": "define config.after_replay_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a function that is called with no arguments after a\nreplay completes."
         },
         "all_character_callbacks": {
@@ -3867,7 +3867,7 @@
         "audio_filename_callback": {
             "kind": "Variable",
             "detail": "define config.audio_filename_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is a function that is called with an audio filename,\nand is expected to return a second audio filename, the latter of which\nwill be played.\n\nThis is intended for use when an a games has audio file formats changed,\nbut it's not destired to update the game script."
         },
         "auto_channels": {
@@ -3879,13 +3879,13 @@
         "auto_choice_delay": {
             "kind": "Variable",
             "detail": "define config.auto_choice_delay = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this variable gives a number of seconds that Ren'Py\nwill pause at an in-game menu before picking a random choice from\nthat menu. We'd expect this variable to always be set to None in\nreleased games, but setting it to a number will allow for\nautomated demonstrations of games without much human interaction."
         },
         "auto_load": {
             "kind": "Variable",
             "detail": "define config.auto_load = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, the name of a save file to automatically load when\nRen'Py starts up. This is intended for developer use, rather than\nfor end users. Setting this to \"1\" will automatically load the\ngame in save slot 1."
         },
         "auto_movie_channel": {
@@ -3897,7 +3897,7 @@
         "auto_voice": {
             "kind": "Variable",
             "detail": "define config.auto_voice = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "This may be a string, a function, or None. If None, auto-voice is\ndisabled.\n\nIf a string, this is formatted with the ``id`` variable bound to the\nidentifier of the current line of dialogue. If this gives an existing\nfile, that file is played as voice audio.\n\nIf a function, the function is called with a single argument, the\nidentifier of the current line of dialogue. The function is expected to\nreturn a string. If this gives an existing file, that file is played as\nvoice audio.\n\nSee Automatic Voice for more details."
         },
         "automatic_oversampling": {
@@ -3915,7 +3915,7 @@
         "autosave_callback": {
             "kind": "Variable",
             "detail": "define config.autosave_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "A callback or list of callbacks or Actions that will be called after\neach time a background autosave happens. Although actions may be used,\nthe Return action will not function.\n\nIf a non-Action callback shows a displayable or screen,\nrenpy.restart_interaction should be called.\n\n\n\n```\ndefine config.autosave_callback = Notify(\"Autosaved.\")\n\n```"
         },
         "autosave_frequency": {
@@ -3945,7 +3945,7 @@
         "autosave_prefix_callback": {
             "kind": "Variable",
             "detail": "define config.autosave_prefix_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is a function that is called with no arguments, and\nreturn the prefix of autosave files. The default prefix used is \"auto-\",\nwhich means the autosave slots will be \"auto-1\", \"auto-2\", etc."
         },
         "autosave_slots": {
@@ -3981,7 +3981,7 @@
         "character_callback": {
             "kind": "Variable",
             "detail": "define config.character_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The default value of the `callback` parameter of Character."
         },
         "character_id_prefixes": {
@@ -3993,7 +3993,7 @@
         "choice_empty_window": {
             "kind": "Variable",
             "detail": "define config.choice_empty_window = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, and a choice menu (usually invoked with the ``menu``\nstatement) does not have a caption, this function is called with\nthe arguments (\"\", interact=False).\n\nThe expected use of this is\n\n```\ndefine config.choice_empty_window = extend\n\n```\n\nDoing this displays repeats the last line of dialogue as the\ncaption of the menu, if no other caption is given.\n\nOther implementations are possible, but it's assumed that this will\nalways display a dialogue window."
         },
         "choice_layer": {
@@ -4101,7 +4101,7 @@
         "default_language": {
             "kind": "Variable",
             "detail": "define config.default_language = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a string giving the default language\nthat the game is translated into by the translation framework.\n\nSee translation for more details."
         },
         "default_tag_layer": {
@@ -4191,37 +4191,37 @@
         "end_game_transition": {
             "kind": "Variable",
             "detail": "define config.end_game_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The transition that is used to display the main menu after the\ngame ends normally, either by invoking return with no place to\nreturn to, or by calling renpy.full_restart."
         },
         "end_splash_transition": {
             "kind": "Variable",
             "detail": "define config.end_splash_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The transition that is used to display the main menu after the end\nof the splashscreen."
         },
         "enter_replay_transition": {
             "kind": "Variable",
             "detail": "define config.enter_replay_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a transition that is used when entering a replay."
         },
         "enter_sound": {
             "kind": "Variable",
             "detail": "define config.enter_sound = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is a sound file that is played when entering the\ngame menu."
         },
         "enter_transition": {
             "kind": "Variable",
             "detail": "define config.enter_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this variable should give a transition that will be\nused when entering the game menu."
         },
         "enter_yesno_transition": {
             "kind": "Variable",
             "detail": "define config.enter_yesno_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a transition that is used when entering the yes/no\nprompt screen."
         },
         "ex_rollback_classes": {
@@ -4233,31 +4233,31 @@
         "exception_handler": {
             "kind": "Variable",
             "detail": "define config.exception_handler = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a function that takes three arguments:\n\n* A string giving the text of a traceback, abbreviated so that it only includes\ncreator-written files.\n* The full text of the traceback, including both creator-written and Ren'Py\nfiles.\n* The path to a file containing a traceback method.\n\nThis function can present the error to a user in any way fit. If it returns True,\nthe exception is ignored and control is transferred to the next statement. If it\nreturns False, the built-in exception handler is use. This function may also call\nrenpy.jump to transfer control to some other label."
         },
         "exit_replay_transition": {
             "kind": "Variable",
             "detail": "define config.exit_replay_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a transition that is used when exiting a replay."
         },
         "exit_sound": {
             "kind": "Variable",
             "detail": "define config.exit_sound = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is a sound file that is played when exiting the\ngame menu."
         },
         "exit_transition": {
             "kind": "Variable",
             "detail": "define config.exit_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this variable should give a transition that will be\nperformed when exiting the game menu."
         },
         "exit_yesno_transition": {
             "kind": "Variable",
             "detail": "define config.exit_yesno_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a transition that is used when exiting the yes/no\nprompt screen."
         },
         "fadeout_audio": {
@@ -4275,13 +4275,13 @@
         "file_open_callback": {
             "kind": "Variable",
             "detail": "define config.file_open_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is a function that is called with the file name\nwhen a file needs to be opened. It should return a file-like\nobject, or None to load the file using the usual Ren'Py\nmechanisms. Your file-like object must implement at least the\nread, seek, tell, and close methods.\n\nOne may want to also define a config.loadable_callback that\nmatches this."
         },
         "file_slotname_callback": {
             "kind": "Variable",
             "detail": "define config.file_slotname_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is a function that is used by the file actions\nto convert a page and name into a slot name that can be passed to\nthe save functions.\n\n`page`\nThis is a string containing the name of the page that is being\naccessed. This is a string, usually containing a number, but it\nalso may contain special values like \"quick\" or \"auto\".\n\n`name`\nThe is a string that contains the name of the slot on the page.\nIt may also contain a regular expression pattern\n(like r'\\d+'), in which  case the same pattern should be included\nin the result.\n\nThe default behavior is equivalent to\n\n```\ndef file_slotname_callback(page, name):\n    return page + \"-\" + name\n    \nconfig.file_slotname_callback = file_slotname_callback\n\n```\n\nOne use of this is to allow the game to apply a prefix to\nsave files.\n\nSee also config.autosave_prefix_callback."
         },
         "fix_rollback_without_choice": {
@@ -4323,13 +4323,13 @@
         "game_main_transition": {
             "kind": "Variable",
             "detail": "define config.game_main_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a transition that is used when returning to the main\nmenu from the game menu, using the MainMenu action."
         },
         "game_menu_music": {
             "kind": "Variable",
             "detail": "define config.game_menu_music = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a music file to play when at the game menu."
         },
         "gamedir": {
@@ -4407,7 +4407,7 @@
         "help": {
             "kind": "Variable",
             "detail": "define config.help = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The default value for the Help action."
         },
         "help_screen": {
@@ -4437,7 +4437,7 @@
         "history_length": {
             "kind": "Variable",
             "detail": "define config.history_length = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The number of entries of dialogue history Ren'Py keeps. This is\nset to 250 by the default gui."
         },
         "hyperlink_handlers": {
@@ -4461,7 +4461,7 @@
         "image_cache_size": {
             "kind": "Variable",
             "detail": "define config.image_cache_size = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is used to set the size of the image cache, as a\nmultiple of the screen size. This number is multiplied by the size of\nthe screen, in pixels, to get the size of the image cache in pixels.\n\nIf set too large, this can waste memory. If set too small, images\ncan be repeatedly loaded, hurting performance."
         },
         "image_cache_size_mb": {
@@ -4515,7 +4515,7 @@
         "intra_transition": {
             "kind": "Variable",
             "detail": "define config.intra_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The transition that is used between screens of the game and main\nmenu. (That is, when the screen is changed with ShowMenu.)"
         },
         "keep_running_transform": {
@@ -4605,13 +4605,13 @@
         "load_failed_label": {
             "kind": "Variable",
             "detail": "define config.load_failed_label = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If a string, this is a label that is jumped to when a load fails because\nthe script has changed so much that Ren'Py can't recover.\nBefore performing the load, Ren'Py will revert to the start of the\nlast statement, then it will clear the call stack.\n\nThis may also be a function. If it is, the function is called with\nno arguments, and is expected to return a string giving the label."
         },
         "loadable_callback": {
             "kind": "Variable",
             "detail": "define config.loadable_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "When not None, a function that's called with a filename. It should return\nTrue if the file is loadable, and False if not. This can be used with\nconfig.file_open_callback or config.missing_image_callback."
         },
         "locale_to_language_function": {
@@ -4629,7 +4629,7 @@
         "log": {
             "kind": "Variable",
             "detail": "define config.log = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is expected to be a filename. Much of the text\nshown to the user by say or :doc:`menu\n<menus>` statements will be logged to this file."
         },
         "log_events": {
@@ -4665,7 +4665,7 @@
         "main_menu_music": {
             "kind": "Variable",
             "detail": "define config.main_menu_music = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a music file to play when at the main menu."
         },
         "main_menu_music_fadein": {
@@ -4695,7 +4695,7 @@
         "menu_arguments_callback": {
             "kind": "Variable",
             "detail": "define config.menu_arguments_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a function that takes positional and/or\nkeyword arguments. It's called whenever a menu statement runs,\nwith the arguments to that menu statement.\n\nThis should return a pair, containing a tuple of positional arguments\n(almost always empty), and a dictionary of keyword arguments."
         },
         "menu_clear_layers": {
@@ -4749,25 +4749,25 @@
         "missing_image_callback": {
             "kind": "Variable",
             "detail": "define config.missing_image_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this function is called when an attempt to load an\nimage fails. The callback is passed the filename of the missing image.\nIt may return None, or it may return an image manipulator.\nIf an image manipulator is returned, that image\nmanipulator is loaded in the place of the missing image.\n\nOne may want to also define a config.loadable_callback,\nespecially if this is used with a DynamicImage."
         },
         "missing_label_callback": {
             "kind": "Variable",
             "detail": "define config.missing_label_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this function is called when Ren'Py attempts to access\na label that does not exist in the game. The callback should take a\nsingle parameter, the name of the missing label. It should return the\nname of a label to use as a replacement for the missing label, or None\nto cause Ren'Py to raise an exception."
         },
         "mouse": {
             "kind": "Variable",
             "detail": "define config.mouse = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "This variable controls the use of user-defined mouse cursors. If\nNone, the system mouse is used, which is usually a black-and-white\nmouse cursor.\n\nOtherwise, this should be a dictionary giving the\nmouse animations for various mouse types. Keys used by the default\nlibrary include ``default``, ``say``, ``with``, ``menu``, ``prompt``,\n``imagemap``, ``button``, ``pause``, ``mainmenu``, and\n``gamemenu``. The ``default`` key should always be present, as it is\nused when a more specific key is absent. Keys can have an optional\nprefix ``pressed_`` to indicate that the cursor will be used when the\nmouse is pressed.\n\nEach value in the dictionary should be a list of (`image`,\n`xoffset`, `yoffset`) tuples, representing frames.\n\n`image`\nThe mouse cursor image. The maximum size for this image\nvaries based on the player's hardware. 32x32 is guaranteed\nto work everywhere, while 64x64 works on most hardware. Larger\nimages may not work.\n\n`xoffset`\nThe offset of the hotspot pixel from the left side of the\ncursor.\n\n`yoffset`\nThe offset of the hotspot pixel from the top of the cursor.\n\nThe frames are played back at 20Hz, and the animation loops after\nall frames have been shown.\n\nSee mouse for more information and examples."
         },
         "mouse_displayable": {
             "kind": "Variable",
             "detail": "define config.mouse_displayable = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should either be a displayable, or a callable that\nreturns a displayable. The callable may return None, in which case\nRen'Py proceeds if the displayable is None.\n\nIf a displayable is given, the mouse cursor is hidden, and the\ndisplayable is shown above anything else. This displayable is\nresponsible for positioning and drawing a sythetic mouse\ncursor, and so should probably be a MouseDisplayable\nor something very similar.\n\nSee mouse for more information."
         },
         "mouse_focus_clickthrough": {
@@ -4827,7 +4827,7 @@
         "nvl_adv_transition": {
             "kind": "Variable",
             "detail": "define config.nvl_adv_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "A transition that is used to hide the NVL-mode window when\nshowing ADV-mode text directly after NVL-mode text."
         },
         "old_substitutions": {
@@ -4911,19 +4911,19 @@
         "persistent_callback": {
             "kind": "Variable",
             "detail": "define config.persistent_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "When not None, a function that's called with a persistent store whenever\na persistent save file is loaded. It should make any alterations in-place.\n\nThis must be set with either the define statement, or inside a ``python\nearly`` block. It should only reference other things typically available\nto ``python early`` blocks.\n\nThe callback can make use of persistent._version to determine when\nthe data was originated and, if managed properly, when it was last\nmigrated. A value of None implies that the data predates this feature being\nadded in Ren'Py 8.4.\n\nA extremely basic callback may look something like\n\n```\ndef migrate_persistent(data):\n    if data._version is None:\n        # Update values in data to be suitable for current version.\n        ...\n        \n        # Update originating version.\n        data._version = config.version\n        \n```"
         },
         "physical_height": {
             "kind": "Variable",
             "detail": "define config.physical_height = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If set, this is the default height of the window containing the Ren'Py\ngame, in pixels. If not set, the height of the window defaults to\nconfig.screen_height."
         },
         "physical_width": {
             "kind": "Variable",
             "detail": "define config.physical_width = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If set, this is the default height of the window containing the Ren'Py\ngame, in pixels. If not set, the height of the window defaults to\nconfig.screen_width."
         },
         "play_channel": {
@@ -5007,13 +5007,13 @@
         "raise_image_exceptions": {
             "kind": "Variable",
             "detail": "define config.raise_image_exceptions = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If True, Ren'Py will raise an exception when an image name is\nnot found. If False, Ren'Py will display a textual error message in place of the image.\n\nIf None, this takes on the value of config.developer.\n\nThis is set to False when Ren'Py ignores an exception."
         },
         "raise_image_load_exceptions": {
             "kind": "Variable",
             "detail": "define config.raise_image_load_exceptions = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If True, Ren'Py will raise an exception when an exception happens\nduring image loading. If False, Ren'Py will display a textual error\nmessage in place of the image.\n\nIf None, this takes on the value of config.developer.\n\nThis is set to False when Ren'Py ignore an exception."
         },
         "reload_modules": {
@@ -5025,7 +5025,7 @@
         "replace_text": {
             "kind": "Variable",
             "detail": "define config.replace_text = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a function that is called with a single argument, a text to\nbe displayed to the user. The function can return the same text it was\npassed, or a replacement text that will be displayed instead.\n\nThe function is called after substitutions have been performed and after\nthe text has been split on tags, so its argument contains nothing but\nactual text. All displayed text passes through the function: not only\ndialogue text, but also user interface text.\n\nThis can be used to replace specific ASCII sequences with corresponding\nUnicode characters, as demonstrated by the following\n\n```\ndef replace_text(s):\n    s = s.replace(\"'\", u'\\u2019') # apostrophe\n    s = s.replace('--', u'\\u2014') # em dash\n    s = s.replace('...', u'\\u2026') # ellipsis\n    return s\nconfig.replace_text = replace_text\n\n```\n\nSee also: config.say_menu_text_filter"
         },
         "replay_scope": {
@@ -5037,7 +5037,7 @@
         "return_not_found_label": {
             "kind": "Variable",
             "detail": "define config.return_not_found_label = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a label that is jumped to when a return site is not found.\nThe call stack is cleared before this jump occurs."
         },
         "rollback_enabled": {
@@ -5115,19 +5115,19 @@
         "say_allow_dismiss": {
             "kind": "Variable",
             "detail": "define config.say_allow_dismiss = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a function. The function is called\nwith no arguments when the user attempts to dismiss a :ref:`say\nstatement <say-statement>`. If this function returns True, the\ndismissal is allowed, otherwise it is ignored."
         },
         "say_arguments_callback": {
             "kind": "Variable",
             "detail": "define config.say_arguments_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a function that takes the speaking character,\nfollowed by positional and keyword arguments. It's called whenever a\nsay statement occurs, even when the statement doesn't explicitly pass\narguments. The arguments passed to the callback always include an `interact`\nargument, and include the others provided in the say statement (if any).\n\nThis should return a pair, containing a tuple of positional arguments\n(almost always empty), and a dictionary of keyword arguments (almost\nalways with at least `interact` in it). Those will replace the arguments\npassed to the callback.\n\nFor example\n\n```\ndef say_arguments_callback(who, interact=True, color=\"#fff\"):\n    return (), { \"interact\" : interact, \"what_color\" : color }\n    \nconfig.say_arguments_callback = say_arguments_callback\n\n```"
         },
         "say_attribute_transition": {
             "kind": "Variable",
             "detail": "define config.say_attribute_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a transition to use when the image is changed by a\nsay statement with image attributes."
         },
         "say_attribute_transition_callback": {
@@ -5139,7 +5139,7 @@
         "say_attribute_transition_layer": {
             "kind": "Variable",
             "detail": "define config.say_attribute_transition_layer = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this must be a string giving the name of a layer. (Almost always\n\"master\".) The say attribute is applied to the named layer, and Ren'Py\nwill not pause to wait for the transition to occur. This will have the\neffect of transitioning in the attribute as dialogue is shown."
         },
         "say_layer": {
@@ -5151,7 +5151,7 @@
         "say_menu_text_filter": {
             "kind": "Variable",
             "detail": "define config.say_menu_text_filter = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, then this is a function that is given the text found\nin strings in the say and :doc:`menu\n<menus>` statements. It is expected to return new\n(or the same) strings to replace them.\n\nThis runs very early in the say and menu statement processing, before\ntranslation and substitutions are applied. For a filter that runs later,\nsee config.replace_text."
         },
         "say_sustain_callbacks": {
@@ -5193,7 +5193,7 @@
         "screenshot_crop": {
             "kind": "Variable",
             "detail": "define config.screenshot_crop = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a (`x`, `y`, `height`, `width`)\ntuple. Screenshots are cropped to this rectangle before being\nsaved."
         },
         "screenshot_pattern": {
@@ -5205,7 +5205,7 @@
         "script_version": {
             "kind": "Variable",
             "detail": "define config.script_version = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is interpreted as a script version. Ren'Py\nuses the script version to enable some compatibility\nfeatures, if necessary. If None, we assume this is a\nlatest-version script.\n\nThis is normally set in a file added by the Ren'Py launcher when\ndistributions are built, and so generally shouldn't be set."
         },
         "search_prefixes": {
@@ -5217,7 +5217,7 @@
         "shader_part_filter": {
             "kind": "Variable",
             "detail": "define config.shader_part_filter = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is a function that is called with a tuple of\nshader part names. It should return a new tuple of shader parts\nthat will be used."
         },
         "show": {
@@ -5229,7 +5229,7 @@
         "single_movie_channel": {
             "kind": "Variable",
             "detail": "define config.single_movie_channel = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, and the `play` argument is give to Movie,\nthis is the name used for the channel the movie is played on.\nThis should not be \"movie\", as that name is reserved for\nRen'Py's internal use."
         },
         "skip_delay": {
@@ -5265,7 +5265,7 @@
         "speaking_attribute": {
             "kind": "Variable",
             "detail": "define config.speaking_attribute = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a string giving an image attribute,\nwhich is added to the character's image tag when the character\nis speaking, and removed when the character stops.\n\nThis is applied to the image on the default layer for the tag,\nwhich can be set using config.tag_layer.\n\nThis is very similar to temporary attributes shown using @ in dialogue\nlines. The attribute is not removed when the text apparition animation\nends, but when the dialogue window gets dismissed."
         },
         "start_callbacks": {
@@ -5385,7 +5385,7 @@
         "tts_voice": {
             "kind": "Variable",
             "detail": "define config.tts_voice = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, a string giving a non-default voice that is used to\nplay back text-to-speech for self voicing. The possible choices are\nplatform specific, and so this should be set in a platform-specific\nmanner. (It may make sense to change this in translations, as well.)"
         },
         "variants": {
@@ -5421,7 +5421,7 @@
         "web_unload_music": {
             "kind": "Variable",
             "detail": "define config.web_unload_music = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be an number of seconds. Music downloaded as part of\nprogressive downloading will be unloaded after this number of seconds."
         },
         "web_video_base": {
@@ -5439,7 +5439,7 @@
         "window": {
             "kind": "Variable",
             "detail": "define config.window = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "This controls the default method of dialogue window management. If\nnot None, this should be one of \"show\", \"hide\", or \"auto\".\n\nWhen set to \"show\", the dialogue window is shown at all times.\nWhen set to \"hide\", the dialogue window is hidden when not in a\nsay statement or other statement that displays dialogue. When set\nto \"auto\", the dialogue window is hidden before scene statements,\nand shown again when dialogue is shown.\n\nThis sets the default. Once set, the default can be changed using the\n``window show``, ``window hide`` and ``window auto`` statements. See\ndialogue-window-management for more information."
         },
         "window_auto_hide": {
@@ -5457,31 +5457,31 @@
         "window_hide_transition": {
             "kind": "Variable",
             "detail": "define config.window_hide_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The transition used by the window hide statement when no\ntransition has been explicitly specified."
         },
         "window_icon": {
             "kind": "Variable",
             "detail": "define config.window_icon = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is expected to be the filename of an image\ngiving an icon that is used for the game's main window. This does\nnot set the icon used by windows executables and mac apps, as\nthose are controlled by special-files."
         },
         "window_show_transition": {
             "kind": "Variable",
             "detail": "define config.window_show_transition = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The transition used by the window show statement when no\ntransition has been explicitly specified."
         },
         "window_title": {
             "kind": "Variable",
             "detail": "define config.window_title = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The static portion of the title of the window containing the\nRen'Py game. _window_subtitle is appended to this to get\nthe full title of the window.\n\nIf None, the default, this defaults to the value of config.name."
         },
         "with_callback": {
             "kind": "Variable",
             "detail": "define config.with_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a function that is called when a with statement\noccurs. This function can be responsible for\nputting up transient things on the screen during the transition. The\nfunction is called with two arguments: the transition that is occurring,\nand the transition it is paired with. The latter is None except in the case\nof the implicit None transition produced by an inline with statement, in\nwhich case it is the inline transition that produced the with None. It is\nexpected to return a transition, which may or may not be the transition\nsupplied as its argument."
         },
         "automatic_steam_timeline": {
@@ -5499,7 +5499,7 @@
         "descriptive_text_character": {
             "kind": "Variable",
             "detail": "define config.descriptive_text_character = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a character object that is used to\ndisplay the descriptive text, instead of the narrator."
         },
         "dispatch_gesture": {
@@ -5523,7 +5523,7 @@
         "language": {
             "kind": "Variable",
             "detail": "define config.language = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, sets the language to use at game launch, overriding\nany memorized choice made by the user."
         },
         "log_gl_shaders": {
@@ -5547,13 +5547,13 @@
         "nvl_list_length": {
             "kind": "Variable",
             "detail": "define config.nvl_list_length = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, the maximum length of the list of NVL dialogue.\nThis can be set (often in conjunction with forcing the dialogue to\nhave a fixed height) in order to emulate an infinite scrolling\nNVL window."
         },
         "nvl_page_ctc": {
             "kind": "Variable",
             "detail": "define config.nvl_page_ctc = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this is the click-to-continue indicator that is used for NVL mode\ncharacters that are at the end of a page. (That is, immediately\nfollowed by an nvl clear statement.) This replaces the ctc parameter\nof Character."
         },
         "nvl_page_ctc_position": {
@@ -5583,8 +5583,14 @@
         "steam_appid": {
             "kind": "Variable",
             "detail": "define config.steam_appid = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be the Steam appid. Ren'Py will automatically\nset this appid when it starts. This needs to be set using the define\nstatement\n\n```\ndefine config.steam_appid = 12345\n\n```"
+        },
+        "default_textshader": {
+            "kind": "Variable",
+            "detail": "define config.default_textshader = \"\"",
+            "pythonType": "None",
+            "doc": "Determines the default shader that will be used for the text displayable, set this to 'dissolve' if you want to use a custom shader via renpy.register_textshader()"
         }
     },
     "build": {
@@ -5699,7 +5705,7 @@
         "itch_project": {
             "kind": "Variable",
             "detail": "define build.itch_project = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "Setting this allows the Ren'Py launcher to upload your project to\nitch.io. This should be set to the name of a project registered\nwith itch. (For example, \"renpytom/the-question\").\n\nOnce this is set, after the distributions have been built, you can\nclick \"Build distributions\", \"Upload to itch.io\" to cause an upload\nto occur."
         },
         "mac_info_plist": {
@@ -5723,7 +5729,7 @@
         "time": {
             "kind": "Variable",
             "detail": "define build.time = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "This variable defaults to None, but if your game has been built,\nit will be set to the time the game was built, in seconds since\nJanuary 1, 1970."
         },
         "update_formats": {
@@ -5735,7 +5741,7 @@
         "version": {
             "kind": "Variable",
             "detail": "define build.version = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "Gives a version of the build used by the build process. If None, this defaults to config.version. The main use\nof this is to allow config.version to have characters that are not valid in file or directory names."
         }
     },
@@ -6217,7 +6223,7 @@
         "steam_position": {
             "kind": "Variable",
             "detail": "define achievement.steam_position = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this sets the position of the steam notification popup.\nThis must be a string, one of \"top left\", \"top right\", \"bottom left\",\nor \"bottom right\"."
         },
         "sync": {
@@ -6273,7 +6279,7 @@
         "properties_callback": {
             "kind": "Variable",
             "detail": "define bubble.properties_callback = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "If not None, this should be a function that takes an image tag, and returns\na list or tuple of property names that should be used for that image tag, in\nthe order those names should be cycled through. This takes precedence over\nbubble.properties_order, and can be used to customize the list of bubble\nproperties by character."
         },
         "properties_order": {
@@ -6589,7 +6595,7 @@
         "predict_all": {
             "kind": "Variable",
             "detail": "define layeredimage.predict_all = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "Sets the value of `predict_all` for the ConditionSwitches produced\nby layeredimages' ``if`` statements."
         }
     },
@@ -6761,7 +6767,7 @@
         "gl_framerate": {
             "kind": "Variable",
             "detail": "define preferences.gl_framerate = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "This is either an integer, or None. If not None, it's a target framerate\nthat Ren'Py will attempt to achieve. If this is set low (for example, to\n30), on a monitor with a high framerate (say, 60 frames per second),\nRen'Py will only draw on every other frame.\n\nIf None, Ren'Py will attempt to draw at the monitor's full framerate."
         },
         "gl_powersave": {
@@ -6779,7 +6785,7 @@
         "language": {
             "kind": "Variable",
             "detail": "define preferences.language = None",
-            "pythonType": "NoneType",
+            "pythonType": "None",
             "doc": "The language that the player has selected to use when running the game.\nThis is None for the default language or a string containing a language\nthe game is translated to.\n\nThis can be used to set the default language, and can be read to determine\nthe current language. The Language action can be used to change\nthe language.\n\nSee translation for more information."
         },
         "mobile_rollback_side": {

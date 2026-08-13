@@ -12,5 +12,5 @@ export const builtinTransforms: Array<Declaration> = new Array<Declaration>(
     new Declaration("center", vscode.CompletionItemKind.Property, "transform center", "transform", "Ren'Py builtin transform", undefined, false),
     new Declaration("default", vscode.CompletionItemKind.Property, "transform default", "transform", "Ren'Py builtin transform", undefined, false),
     new Declaration("right", vscode.CompletionItemKind.Property, "transform right", "transform", "Ren'Py builtin transform", undefined, false),
-    new Declaration("offscreenright", vscode.CompletionItemKind.Property, "transform offscreenright", "transform", "Ren'Py builtin transform", undefined, false)
+    new Declaration("offscreenright", vscode.CompletionItemKind.Property, "transform offscreenright", "transform", "Ren'Py builtin transform", undefined, false),
 );
