@@ -1,6 +1,5 @@
-1. Re-structure JSON
-2. Somehow structure things in a way where in screen language we get screen stuff but outside of screen lang we get what we get now
-3. Figure out why screen help is showing up as a function (Parser) and why it's being detected as internal when it also shows the definition file (Yep, parser again)
-4. Figure out why default quick_menu isn't detected as a var but the screen quick_menu() does get detected as a screen (Parser once again)
-5. Do a complete test run once everything is working and get's detected properly, maybe also get another person to test but we'll see how that goes
-6. After all that either start working on diagnostics or syntax highlighting. Probably diagnostics though
+1. Update data/renpy.json to show everything available, depth: TBD probably just the basic documented API but we'll see if i want to just use the docs or create an actual script for extraction
+2. Implement some basic diagnostics: Tabs vs Space | Misspelled default or define | reserved renpy stuff | bad var names | bad indent level | etc...
+3. Implement definition.ts to use the same thing hover does so turn that into the contextparser at some point.
+4. Maybe also add the color picker the OG had, we'll see if people want that though
+5. Dreaded syntax highlighting
