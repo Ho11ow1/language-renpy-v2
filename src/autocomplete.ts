@@ -35,7 +35,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         {
             Logger.logMessage("Autocomplete lookup for: style");
 
-            const items = Store.getStyleCompletions.filter(i => i.kind !== vscode.CompletionItemKind.Method); // We don't want style.rebuild to show for this
+            const items = Store.getStyleCompletions.filter((i): boolean => i.kind !== vscode.CompletionItemKind.Method);
             return items.length > 0 ? items : undefined;
         }
         //

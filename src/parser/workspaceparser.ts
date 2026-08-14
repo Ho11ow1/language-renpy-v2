@@ -234,7 +234,7 @@ export class WorkspaceParser
                     const inferredType = inferTypeFromExpression(rightHandExpr);
 
                     const decl = new Declaration(
-                        `persistent.${varName}`,
+                        `${varName}`,
                         vscode.CompletionItemKind.Variable,
                         fullStatement.trim(),
                         inferredType,

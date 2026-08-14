@@ -127,13 +127,10 @@ export class HoverItemProvider implements vscode.HoverProvider
         const forwardMatch = line.substring(offset).match(this.identifierPartRegex);
         const restOfWord = forwardMatch ? forwardMatch[0] : "";
 
-        Logger.logMessage(`match: ${matchText} | rest: ${restOfWord}`);
-        Logger.logMessage("Joined + split: " + `${matchText}${restOfWord}`.split("."))
-
         let decl = Store.getDeclarationAtPath(`${matchText}${restOfWord}`.split("."));
         if (!decl)
         {
-            const fullSplit = `${matchText}${restOfWord}`.split("."); // Should allow for ruby_style style.ruby_style lookup
+            const fullSplit = `${matchText}${restOfWord}`.split(".");
             decl = Store.getDeclarationAtPath([fullSplit[0], fullSplit[1]]);
             if (!decl)
             {
