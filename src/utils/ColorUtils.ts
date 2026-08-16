@@ -18,15 +18,16 @@ export class ColorUtils
         return new vscode.Color(r, g, b, a);
     }
 
-    public static rgbToColor(rgb: string): vscode.Color
+    public static rgbToColor(rgb: string, alpha?: string): vscode.Color
     {
         const [rStr, gStr, bStr] = rgb.trim().split(",");
 
         const r = parseFloat(rStr);
         const g = parseFloat(gStr);
         const b = parseFloat(bStr);
+        const a = alpha !== undefined ? parseFloat(alpha) : 1;
 
-        return new vscode.Color(r, g, b, 1);
+        return new vscode.Color(r, g, b, a);
     }
 
     private static hueToRgb(p: number, q: number, t: number): number
@@ -55,13 +56,14 @@ export class ColorUtils
         return p;
     };
 
-    public static hlsToColor(hls: string): vscode.Color
+    public static hlsToColor(hls: string, alpha?: string): vscode.Color
     {
         const [hStr, lStr, sStr] = hls.trim().split(",");
 
         const h = parseFloat(hStr);
         const l = parseFloat(lStr);
         const s = parseFloat(sStr);
+        const a = alpha !== undefined ? parseFloat(alpha) : 1;
 
         if (s === 0)
         {
@@ -75,16 +77,17 @@ export class ColorUtils
         const g = this.hueToRgb(p, q, h);
         const b = this.hueToRgb(p, q, h - (1 / 3));
 
-        return new vscode.Color(r, g, b, 1);
+        return new vscode.Color(r, g, b, a);
     }
 
-    public static hsvToColor(hsv: string): vscode.Color
+    public static hsvToColor(hsv: string, alpha?: string): vscode.Color
     {
         const [hStr, sStr, vStr] = hsv.trim().split(",");
 
         const h = parseFloat(hStr);
         const s = parseFloat(sStr);
         const v = parseFloat(vStr);
+        const a = alpha !== undefined ? parseFloat(alpha) : 1;
 
         const i = Math.floor(h * 6);
         const f = h * 6 - i;
@@ -136,22 +139,28 @@ export class ColorUtils
                 break;
         }
 
-        return new vscode.Color(r, g, b, 1);
+        return new vscode.Color(r, g, b, a);
     }
 
-    public static tupleToColor(tuple: string): vscode.Color
+    public static tupleToColor(tuple: string, alpha?: string): vscode.Color
     {
         const parts = tuple.split(",");
 
         const rStr = parts[0];
         const gStr = parts[1];
         const bStr = parts[2];
-        const aStr = parts.length === 4 ? parts[3] : "255";
+        // (r, g, b, a)?
+        // True && alpha => a / 255 => byte * alpha byte => byte
+        // True && !alpha => a / 255 => byte
+        // False && alpha => alpha byte
+        // False && !alpha => 1
+        const a = parts.length === 4 ? 
+        ((alpha !== undefined) ? ((parseInt(parts[3]) / 255) * parseFloat(alpha)) : parseInt(parts[3]) / 255) : 
+        (alpha !== undefined) ? parseFloat(alpha) : 1;
 
         const r = parseInt(rStr) / 255;
         const g = parseInt(gStr) / 255;
         const b = parseInt(bStr) / 255;
-        const a = parseInt(aStr) / 255;
 
         return new vscode.Color(r, g, b, a);
     }
@@ -202,7 +211,7 @@ export class ColorUtils
             h /= 6;
         }
 
-        return `Color(hls=(${h.toFixed(2)}, ${l.toFixed(2)}, ${s.toFixed(2)}))`;
+        return `Color(hls=(${h.toFixed(2)}, ${l.toFixed(2)}, ${s.toFixed(2)})${this.getAlphaSuffix(color)})`;
     }
 
     public static colorToHSV(color: vscode.Color): string
@@ -249,12 +258,12 @@ export class ColorUtils
             h /= 6;
         }
 
-        return `Color(hsv=(${h.toFixed(2)}, ${s.toFixed(2)}, ${v.toFixed(2)}))`;
+        return `Color(hsv=(${h.toFixed(2)}, ${s.toFixed(2)}, ${v.toFixed(2)})${this.getAlphaSuffix(color)})`;
     }
 
     public static colorToRGB(color: vscode.Color): string
     {
-        return `Color(rgb=(${color.red.toFixed(2)}, ${color.green.toFixed(2)}, ${color.blue.toFixed(2)}))`;
+        return `Color(rgb=(${color.red.toFixed(2)}, ${color.green.toFixed(2)}, ${color.blue.toFixed(2)})${this.getAlphaSuffix(color)})`;
     }
 
     public static colorToTuple(color: vscode.Color): string
@@ -265,5 +274,10 @@ export class ColorUtils
         const a = color.alpha < 1 ? `, ${Math.round(color.alpha * 255)}` : "";
 
         return `Color((${r}, ${g}, ${b}${a}))`;
+    }
+
+    private static getAlphaSuffix(color: vscode.Color): string
+    {
+        return color.alpha < 1 ? `, alpha=${color.alpha.toFixed(2)}` : "";
     }
 }

@@ -9,17 +9,15 @@ export class ColorProvider implements vscode.DocumentColorProvider
     private readonly unit: string = "(?:0(?:\\.\\d+)?|1(?:\\.0+)?|\\.\\d+)";
     private readonly color: string = "Color";
 
-    // So turn out regex also has \(n) which backreferences the nth group
-
-    // Just pure "#3/6/8"
-    private readonly rawHex = new RegExp(`(["'\`])(${this.hex})\\1`, "g");
-    // Color constructor args
-    private readonly colorHLS = new RegExp(`${this.color}\\(\\s*hls=\\((${this.unit}\\s*,\\s*${this.unit}\\s*,\\s*${this.unit})\\)\\)`, "g");
-    private readonly colorHSV = new RegExp(`${this.color}\\(\\s*hsv=\\((${this.unit}\\s*,\\s*${this.unit}\\s*,\\s*${this.unit})\\)\\)`, "g");
-    private readonly colorRGB = new RegExp(`${this.color}\\(\\s*rgb=\\((${this.unit}\\s*,\\s*${this.unit}\\s*,\\s*${this.unit})\\)\\)`, "g");
-    private readonly colorTuple = new RegExp(`${this.color}\\(\\s*\\((${this.byte}\\s*,\\s*${this.byte}\\s*,\\s*${this.byte}(?:\\s*,\\s*${this.byte})?)\\s*\\)\\)`, "g");
-    // Character dialogue tag
-    private readonly textTag = new RegExp(`{color=(${this.hex})}`, "g");
+    private readonly groupedRegex = new RegExp(
+        `(?<RAWHEX_QUOTE>["'\`])(?<RAWHEX>${this.hex})\\k<RAWHEX_QUOTE>` +
+        `|${this.color}\\(\\s*hls=\\((?<HLS>${this.unit}\\s*,\\s*${this.unit}\\s*,\\s*${this.unit})\\)(?:\\s*,\\s*alpha\\s*=\\s*(?<ALPHA_HLS>${this.unit})\\s*)?\\)` +
+        `|${this.color}\\(\\s*hsv=\\((?<HSV>${this.unit}\\s*,\\s*${this.unit}\\s*,\\s*${this.unit})\\)(?:\\s*,\\s*alpha\\s*=\\s*(?<ALPHA_HSV>${this.unit})\\s*)?\\)` +
+        `|${this.color}\\(\\s*rgb=\\((?<RGB>${this.unit}\\s*,\\s*${this.unit}\\s*,\\s*${this.unit})\\)(?:\\s*,\\s*alpha\\s*=\\s*(?<ALPHA_RGB>${this.unit})\\s*)?\\)` +
+        `|${this.color}\\(\\s*\\((?<TUPLE>${this.byte}\\s*,\\s*${this.byte}\\s*,\\s*${this.byte}(?:\\s*,\\s*${this.byte})?)\\s*\\)(?:\\s*,\\s*alpha\\s*=\\s*(?<ALPHA_TUPLE>${this.unit})\\s*)?\\)` +
+        `|{color=(?<TAG>${this.hex})}`,
+        "g"
+    );
 
     public provideDocumentColors(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.ColorInformation[]>
     {
@@ -32,64 +30,33 @@ export class ColorProvider implements vscode.DocumentColorProvider
         const text = document.getText();
         let match: RegExpExecArray | null = null;
 
-        while ((match = this.rawHex.exec(text)) !== null)
+        while ((match = this.groupedRegex.exec(text)) !== null && match.groups)
         {
-            const hex = match[2];
-            const color = ColorUtils.hexToColor(hex);
+            const groups = match.groups;
 
+            if (groups.TAG)
+            {
+                const hex = groups.TAG;
+                const color = ColorUtils.hexToColor(hex);
+
+                const startOffset = match.index + match[0].indexOf(hex);
+                const start = document.positionAt(startOffset);
+                const end = document.positionAt(startOffset + hex.length);
+
+                results.push(new vscode.ColorInformation(new vscode.Range(start, end), color));
+                continue;
+            }
+
+            // Turns out that pre-calculating these is slightly better than doing them inline for whatever reason so yeah
             const start = document.positionAt(match.index);
             const end = document.positionAt(match.index + match[0].length);
 
-            results.push(new vscode.ColorInformation(new vscode.Range(start, end), color));
-        }
-        while ((match = this.colorHLS.exec(text)) !== null)
-        {
-            const hls = match[1];
-            const color = ColorUtils.hlsToColor(hls);
-
-            const start = document.positionAt(match.index);
-            const end = document.positionAt(match.index + match[0].length);
-
-            results.push(new vscode.ColorInformation(new vscode.Range(start, end), color));
-        }
-        while ((match = this.colorHSV.exec(text)) !== null)
-        {
-            const hsv = match[1];
-            const color = ColorUtils.hsvToColor(hsv);
-
-            const start = document.positionAt(match.index);
-            const end = document.positionAt(match.index + match[0].length);
-
-            results.push(new vscode.ColorInformation(new vscode.Range(start, end), color));
-        }
-        while ((match = this.colorRGB.exec(text)) !== null)
-        {
-            const rgb = match[1];
-            const color = ColorUtils.rgbToColor(rgb);
-
-            const start = document.positionAt(match.index);
-            const end = document.positionAt(match.index + match[0].length);
-
-            results.push(new vscode.ColorInformation(new vscode.Range(start, end), color));
-        }
-        while ((match = this.textTag.exec(text)) !== null)
-        {
-            const hex = match[1];
-            const color = ColorUtils.hexToColor(hex);
-
-            const startOffset = match.index + match[0].indexOf(hex);
-            const start = document.positionAt(startOffset);
-            const end = document.positionAt(startOffset + hex.length);
-
-            results.push(new vscode.ColorInformation(new vscode.Range(start, end), color));
-        }
-        while ((match = this.colorTuple.exec(text)) !== null)
-        {
-            const tuple = match[1];
-            const color = ColorUtils.tupleToColor(tuple);
-
-            const start = document.positionAt(match.index);
-            const end = document.positionAt(match.index + match[0].length);
+            const color =
+                groups.RAWHEX !== undefined ? ColorUtils.hexToColor(groups.RAWHEX) :
+                groups.HLS !== undefined ? ColorUtils.hlsToColor(groups.HLS, groups.ALPHA_HLS) :
+                groups.HSV !== undefined ? ColorUtils.hsvToColor(groups.HSV, groups.ALPHA_HSV) :
+                groups.RGB !== undefined ? ColorUtils.rgbToColor(groups.RGB, groups.ALPHA_RGB) :
+                ColorUtils.tupleToColor(groups.TUPLE, groups.ALPHA_TUPLE);
 
             results.push(new vscode.ColorInformation(new vscode.Range(start, end), color));
         }
