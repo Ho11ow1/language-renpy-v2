@@ -6611,6 +6611,12 @@
             "detail": "def persistent._hasattr(field_name)",
             "pythonType": "function",
             "doc": "Tests whether the `field_name` persistent field has been set or not.\nThis allows you to distinguish fields that have been explicitly set\nto None from fields that have never been set."
+        },
+        "_file_page": {
+            "kind": "Variable",
+            "detail": "default persistent._file_page = 1",
+            "pythonType": "None",
+            "doc": "Holds the current save/load page (auto, quick, 1, etc...)"
         }
     },
     "style": {
