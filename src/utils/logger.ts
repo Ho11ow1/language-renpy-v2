@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 
-
 export class Logger
 {
     public static outputChannel: vscode.LogOutputChannel = vscode.window.createOutputChannel("Ren'Py Language Extension", { log: true });

@@ -1,5 +1,5 @@
-import { LocationInfo } from "@models/LocationInfo";
 import * as vscode from "vscode";
+import * as Models from "@models/index";
 
 export class Declaration
 {
@@ -9,12 +9,13 @@ export class Declaration
     public constructorDetail?: string;        // Holds the __init__ params if this is a class
     private staticDetail: string;             // Holds the renpy.json detail as a fallback if no user-override is parsed
     public pythonType: string;                // Holds the python relative type of this item
-    public locationInfo?: LocationInfo;       // Holds { filePath: "game/scripts/Characters/Characters.rpy", lineNumber: 4 }
+    public locationInfo?: Models.LocationInfo;       // Holds { filePath: "game/scripts/Characters/Characters.rpy", lineNumber: 4 }
     public documentation?: string;            // Holds a string that will be converted into a hover detail
     private staticDocumentation?: string;     // Holds the renpy.json doc as a fallback if no user-override is parsed or a user removes a declaration override
     public isCustom: boolean;                 // Let's us know if we should delete the entry or just return to static
+    public alias?: string;
 
-    public constructor(name: string, kind: vscode.CompletionItemKind, detail: string, pythonType: string = "Any", documentation?: string, locationInfo?: LocationInfo, isCustom: boolean = true, constructorDetail?: string)
+    public constructor(name: string, kind: vscode.CompletionItemKind, detail: string, pythonType: string = "Any", documentation?: string, locationInfo?: Models.LocationInfo, isCustom: boolean = true, constructorDetail?: string, alias?: string)
     {
         this.name = name;
         this.kind = kind;
@@ -26,9 +27,10 @@ export class Declaration
         this.staticDocumentation = documentation;
         this.locationInfo = locationInfo;
         this.isCustom = isCustom;
+        this.alias = alias;
     }
 
-    public updateFromWorkspace(detail: string, locationInfo: LocationInfo, pythonType?: string, constructorDetail?: string): void
+    public updateFromWorkspace(detail: string, locationInfo: Models.LocationInfo, pythonType?: string, constructorDetail?: string): void
     {
         this.detail = detail;
         this.locationInfo = locationInfo;
@@ -57,17 +59,17 @@ export class Declaration
         item.detail = this.detail ?? `namespace ${this.name}`;
         item.documentation = this.documentation ? new vscode.MarkdownString(this.documentation) : undefined;
 
-        const isConstructableClass = this.kind === vscode.CompletionItemKind.Class && this.constructorDetail;
-        const isCallable = this.kind === vscode.CompletionItemKind.Function || this.kind === vscode.CompletionItemKind.Method;
+        // const isConstructableClass = this.kind === vscode.CompletionItemKind.Class && this.constructorDetail;
+        // const isCallable = this.kind === vscode.CompletionItemKind.Function || this.kind === vscode.CompletionItemKind.Method;
 
-        if (isConstructableClass || isCallable)
-        {
-            item.insertText = new vscode.SnippetString(`${name}($1)`);
-            item.command = {
-                command: "editor.action.triggerParameterHints",
-                title: "Trigger Parameter hints"
-            };
-        }
+        // if (isConstructableClass || isCallable)
+        // {
+        //     item.insertText = new vscode.SnippetString(`${name}($1)$0`);
+        //     item.command = {
+        //         command: "editor.action.triggerParameterHints",
+        //         title: "Trigger Parameter hints"
+        //     };
+        // }
 
         return item;
     }

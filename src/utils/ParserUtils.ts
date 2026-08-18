@@ -1,24 +1,34 @@
+import * as vscode from "vscode";
+
 export class ParserUtils
 {
-    private static propertyDecoratorRegex: RegExp = /^\s*@(?:property|[a-zA-Z_]\w*\.setter)\b/;
-    private static setterDecoratorRegex: RegExp = /^\s*@[a-zA-Z_]\w*\.setter\b/;
-    private static variantDecoratorRegex: RegExp = /^\s*@[a-zA-Z_]\w*\.variant\b/;
-    private static constructorRegex: RegExp = /^\s*def\s+__init__\s*\(([^)]*)\)/;
+    private static readonly _propertyDecoratorRegex: RegExp = /^\s*@(?:property|[a-zA-Z_]\w*\.setter)\b/;
+    private static readonly _setterDecoratorRegex: RegExp = /^\s*@[a-zA-Z_]\w*\.setter\b/;
+    private static readonly _variantDecoratorRegex: RegExp = /^\s*@[a-zA-Z_]\w*\.variant\b/;
+    private static readonly _constructorRegex: RegExp = /^\s*def\s+__init__\s*\(([^)]*)\)/;
+    private static readonly _docStringStartRegexa: RegExp = /^("""|''')/;
 
-    private static tabRegex: RegExp = /\t/g;
-    private static whitespaceRegex: RegExp = /^(\s*)/;
-    private static docStringStartRegex: RegExp = /^("""|''')/;
-
-
-    public static getIndentLevel(line: string): number
+    public static getIndentLevel(line: string, tabSize: number): number
     {
-        const match = line.match(this.whitespaceRegex);
-        if (!match)
+        let indentation = 0;
+
+        for (const character of line)
         {
-            return 0;
+            if (character === " ")
+            {
+                indentation++;
+            }
+            else if (character === "\t")
+            {
+                indentation += tabSize;
+            }
+            else
+            {
+                break;
+            }
         }
 
-        return match[1].replace(this.tabRegex, "    ").length;
+        return indentation;
     }
 
     public static getScopePath(currentNamespace: string | null, currentClass: string | null, ...subPaths: string[]): string[]
@@ -47,7 +57,7 @@ export class ParserUtils
         return typeStr;
     };
 
-    public static getMethodDecorators(lines: string[], lineIndex: number): [boolean, boolean, boolean]
+    public static getMethodDecorators(document: vscode.TextDocument, lineIndex: number): [boolean, boolean, boolean]
     {
         let isProperty = false;
         let isSetter = false;
@@ -56,7 +66,7 @@ export class ParserUtils
 
         while (checkIndex >= 0)
         {
-            const prev = lines[checkIndex].trim();
+            const prev = document.lineAt(checkIndex).text.trim();
             if (prev.length === 0 || prev.startsWith("#"))
             {
                 checkIndex--;
@@ -65,15 +75,15 @@ export class ParserUtils
 
             if (prev.startsWith("@"))
             {
-                if (this.propertyDecoratorRegex.test(prev))
+                if (this._propertyDecoratorRegex.test(prev))
                 {
                     isProperty = true;
-                    if (this.setterDecoratorRegex.test(prev))
+                    if (this._setterDecoratorRegex.test(prev))
                     {
                         isSetter = true;
                     }
                 }
-                if (this.variantDecoratorRegex.test(prev))
+                if (this._variantDecoratorRegex.test(prev))
                 {
                     isVariant = true;
                 }
@@ -89,92 +99,90 @@ export class ParserUtils
         return [isSetter, isVariant, isProperty];
     }
 
-    public static getMethodDoc(lines: string[], lineIndex: number): string
+    public static getMethodDoc(document: vscode.TextDocument, lineIndex: number): string
     {
         let docString = "";
         let searchIndex = lineIndex + 1;
-        while (searchIndex < lines.length && lines[searchIndex].trim().length === 0)
+
+        while (searchIndex < document.lineCount && document.lineAt(searchIndex).text.trim().length === 0)
         {
             searchIndex++;
         }
 
-        if (searchIndex < lines.length)
+        if (searchIndex >= document.lineCount)
         {
-            const first = lines[searchIndex].trim();
-
-            const quoteMatch = first.match(this.docStringStartRegex);
-            if (quoteMatch)
-            {
-                const quoteSymbol = quoteMatch[1];
-                const firstContent = first.slice(quoteSymbol.length);
-
-                if (firstContent.endsWith(quoteSymbol) && firstContent.length >= quoteSymbol.length)
-                {
-                    docString = firstContent.slice(0, -quoteSymbol.length).trim();
-                }
-                else
-                {
-                    const docLines = [];
-                    if (firstContent.length > 0)
-                    {
-                        docLines.push(firstContent);
-                    }
-
-                    searchIndex += 1;
-                    while (searchIndex < lines.length)
-                    {
-                        const currentLine = lines[searchIndex].trim();
-
-                        if (currentLine.endsWith(quoteSymbol))
-                        {
-                            const content = currentLine.slice(0, -quoteSymbol.length).trim();
-                            if (content.length > 0)
-                            {
-                                docLines.push(content);
-                            }
-
-                            break;
-                        }
-
-                        docLines.push(currentLine);
-
-                        searchIndex += 1;
-                    }
-
-                    docString = docLines.join("\n").trim();
-                }
-            }
+            return "";
         }
 
-        return docString;
+        const first = document.lineAt(searchIndex).text.trim();
+        const quoteMatch = first.match(this._docStringStartRegexa);
+        if (!quoteMatch)
+        {
+            return "";
+        }
+
+        const quoteSymbol = quoteMatch[1];
+        const firstContent = first.slice(quoteSymbol.length);
+
+        if (firstContent.endsWith(quoteSymbol) && firstContent.length >= quoteSymbol.length)
+        {
+            return firstContent.slice(0, -quoteSymbol.length).trim();
+        }
+
+        const docLines: string[] = [];
+
+        if (firstContent.length > 0)
+        {
+            docLines.push(firstContent);
+        }
+
+        searchIndex++;
+        while (searchIndex < document.lineCount)
+        {
+            const currentLine = document.lineAt(searchIndex).text.trim();
+
+            if (currentLine.endsWith(quoteSymbol))
+            {
+                const content = currentLine.slice(0, -quoteSymbol.length).trim();
+
+                if (content.length > 0)
+                {
+                    docLines.push(content);
+                }
+
+                break;
+            }
+
+            docLines.push(currentLine);
+            searchIndex++;
+        }
+
+        return docLines.join("\n").trim();
     }
 
-    public static getClassConstructor(lines: string[], lineIndex: number, lineIndent: number, className: string): string | undefined
+    public static getClassConstructor(document: vscode.TextDocument, lineIndex: number, lineIndent: number, className: string, tabSize: number): string | undefined
     {
-        let constructorDetail = undefined;
-
-        for (let i = lineIndex + 1; i < lines.length; i++)
+        for (let i = lineIndex + 1; i < document.lineCount; i++)
         {
-            const currentLine = lines[i];
+            const currentLine = document.lineAt(i).text;
             if (!currentLine.trim())
             {
                 continue;
             }
 
-            const currentIndent = this.getIndentLevel(currentLine);
+            const currentIndent = this.getIndentLevel(currentLine, tabSize);
             if (currentIndent <= lineIndent)
             {
                 break;
             }
 
-            const initMatch = currentLine.match(this.constructorRegex);
+            const initMatch = currentLine.match(this._constructorRegex);
             if (initMatch)
             {
-                constructorDetail = `${className}(${initMatch[1]})`;
-                break;
+                return `${className}(${initMatch[1]})`;
             }
         }
 
-        return constructorDetail;
+        return undefined;
     }
 }

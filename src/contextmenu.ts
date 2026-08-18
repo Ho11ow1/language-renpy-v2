@@ -1,7 +1,5 @@
 import * as vscode from "vscode";
-import { Logger } from "@utils/Logger";
-import { ISelectionContext } from "@interfaces/ISelectionContext";
-
+import * as Interfaces from "@interfaces/index";
 export class ContextMenuCommands
 {
     public static getDisposables(): vscode.Disposable[]
@@ -104,7 +102,7 @@ export class ContextMenuCommands
         this.replaceSelection(ctx.editor, ctx.selection, `{cps=${cps}}${ctx.text}{/cps}`);
     }
 
-    private static getSelectionContext(): ISelectionContext | undefined
+    private static getSelectionContext(): Interfaces.ISelectionContext | undefined
     {
         const editor = vscode.window.activeTextEditor;
         if (!editor)

@@ -1,35 +1,57 @@
 import * as vscode from "vscode";
-import { Declaration } from "@models/Declaration";
-import { NamespaceNode } from "@models/NamespaceNode";
-import { IStaticJsonItem } from "@interfaces/IStaticJsonItem";
-import { Logger } from "@utils/Logger";
-import { pythonTypeMethods, pythonRootFunctions } from "@data/python";
-import { builtinTransforms } from "@data/transforms";
-import { renpyRootFunctions } from "@data/renpy";
-import renpyJson from "@data/renpy.json";
+import * as Models from "@models/index";
+import * as Data from "@data/index";
+import * as Interfaces from "@interfaces/index";
+import * as Utils from "@utils/index";
 
 export class Store
 {
-    private static rootNode: NamespaceNode = new NamespaceNode("root");
+    private static rootNode: Models.NamespaceNode = new Models.NamespaceNode("root");
     private static typeAliasMap: Map<string, string> = new Map<string, string>();
 
     public static get getImmediateCompletions(): vscode.CompletionItem[] { return this.rootNode.getImmediateCompletions(); }
     public static get getLabelCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("label"); }
     public static get getScreenCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("screen"); }
     public static get getTransformCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("transform"); }
+    public static get getTransitionCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("transition"); }
     public static get getStyleCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("style"); }
     public static get getImageCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("image"); }
-    public static getCompletionsForPath(dottedPath: string): vscode.CompletionItem[]
+    public static get getActionCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("action"); }
+    public static get getPersistentKeys(): Set<string>
     {
+        const items = new Set<string>();
+
+        const targetNode = this.rootNode.children.get("persistent");
+        if (targetNode)
+        {
+            for (const [key, _] of targetNode.members)
+            {
+                items.add(key);
+            }
+        }
+
+        return items;
+    }
+    public static getCompletionsForPath(dottedPath: string, aliased: boolean = false): vscode.CompletionItem[]
+    {
+        if (aliased && dottedPath === "root")
+        {
+            return this.getImmediateCompletions;
+        }
         const segments = dottedPath.split(".").filter((s): boolean => s.length > 0);
 
         const resolvedSegments = this.resolvePathAliases(segments);
         const targetNode = this.rootNode.getNodeAtPath(resolvedSegments);
         if (!targetNode)
         {
-            if (resolvedSegments.length === 1 && pythonTypeMethods.has(resolvedSegments[0]))
+            const decl = this.getDeclarationAtPath(dottedPath.split("."));
+            if (decl && decl.alias)
             {
-                return pythonTypeMethods.get(resolvedSegments[0])!.map((decl): vscode.CompletionItem => decl.AsCompletionItem());
+                return this.getCompletionsForPath(decl.alias, true);
+            }
+            if (resolvedSegments.length === 1 && Data.pythonTypeMethods.has(resolvedSegments[0]))
+            {
+                return Data.pythonTypeMethods.get(resolvedSegments[0])!.map((decl): vscode.CompletionItem => decl.AsCompletionItem());
             }
 
             return [];
@@ -42,28 +64,56 @@ export class Store
     {
         this.typeAliasMap.clear();
 
-        const data = renpyJson as Record<string, Record<string, IStaticJsonItem>>;
+        const data = Data.renpyJson as Record<string, Record<string, Interfaces.IStaticJsonItem>>;
         for (const [topLevelKey, items] of Object.entries(data))
         {
-            const nsNode = new NamespaceNode(topLevelKey);
+            const nsNode = new Models.NamespaceNode(topLevelKey);
 
             this.rootNode.children.set(topLevelKey, nsNode);
             this.populateNodeRecursive(items, nsNode, topLevelKey);
         }
-        for (const decl of pythonRootFunctions)
+
+        // Just fire it, don't block, we don't care when it finishes just don't block thread
+        setTimeout((): void => {
+            this.initStore();
+        }, 0);
+    }
+
+    private static initStore(): void
+    {
+        for (const decl of Data.pythonRootFunctions)
         {
             this.rootNode.members.set(decl.name, decl);
         }
-        for (const decl of renpyRootFunctions)
+
+        for (const decl of Data.renpyRootFunctions)
         {
             this.rootNode.members.set(decl.name, decl);
         }
-        for (const decl of builtinTransforms)
+        for (const decl of Data.renpyRootClasses)
+        {
+            this.rootNode.members.set(decl.name, decl);
+        }
+        for (const decl of Data.renpyRootActions)
+        {
+            this.rootNode.members.set(decl.name, decl);
+        }
+        for (const decl of Data.renpyRootMatrixes)
+        {
+            this.rootNode.members.set(decl.name, decl);
+        }
+        for (const decl of Data.renpyTransforms)
         {
             this.registerUserSymbol(["transform", decl.name], decl);
         }
-
-        Logger.logMessage(`Store initialized. Root keys: ${Array.from(this.rootNode.children.keys()).join(", ")}`);
+        for (const decl of Data.renpyTransitions)
+        {
+            this.registerUserSymbol(["transition", decl.name], decl);
+        }
+        for (const decl of Data.renpyImages)
+        {
+            this.registerUserSymbol(["image", decl.name], decl);
+        }
     }
 
     public static removeDeclarationsFromFile(filePath: string): void
@@ -76,7 +126,7 @@ export class Store
         this.typeAliasMap.set(variablePath, classTypePath);
     }
 
-    public static registerUserSymbol(pathSegments: string[], declaration: Declaration): void
+    public static registerUserSymbol(pathSegments: string[], declaration: Models.Declaration): void
     {
         if (pathSegments.length === 0)
         {
@@ -91,7 +141,7 @@ export class Store
             let childNode = currentNode.children.get(segment);
             if (!childNode)
             {
-                childNode = new NamespaceNode(segment);
+                childNode = new Models.NamespaceNode(segment);
                 currentNode.children.set(segment, childNode);
             }
 
@@ -105,7 +155,7 @@ export class Store
             let classNode = currentNode.children.get(lastSegment);
             if (!classNode)
             {
-                classNode = new NamespaceNode(lastSegment, declaration);
+                classNode = new Models.NamespaceNode(lastSegment, declaration);
                 currentNode.children.set(lastSegment, classNode);
             }
             else
@@ -130,7 +180,7 @@ export class Store
         }
     }
 
-    public static ensurePathExists(pathSegments: string[]): NamespaceNode
+    public static ensurePathExists(pathSegments: string[]): Models.NamespaceNode
     {
         let currentNode = this.rootNode;
 
@@ -139,7 +189,7 @@ export class Store
             let childNode = currentNode.children.get(segment);
             if (!childNode)
             {
-                childNode = new NamespaceNode(segment);
+                childNode = new Models.NamespaceNode(segment);
                 currentNode.children.set(segment, childNode);
             }
             currentNode = childNode;
@@ -148,7 +198,7 @@ export class Store
         return currentNode;
     }
 
-    public static getDeclarationAtPath(pathSegments: string[]): Declaration | undefined
+    public static getDeclarationAtPath(pathSegments: string[]): Models.Declaration | undefined
     {
         if (pathSegments.length === 0)
         {
@@ -162,9 +212,19 @@ export class Store
         const parentNode = resolvedParents.length > 0 ? this.rootNode.getNodeAtPath(resolvedParents) : this.rootNode;
         if (!parentNode)
         {
-            if (resolvedParents.length === 1 && pythonTypeMethods.has(resolvedParents[0]))
+            // Essentially handle the same as below but from the explicit store | maybe hacky but i have no better idea right now and renpy probably won't change. Famous last words before v8.6
+            if (pathSegments.length > 2 && pathSegments[0] === "renpy" && pathSegments[1] === "store")
             {
-                return pythonTypeMethods.get(resolvedParents[0])!.find((d): boolean => d.name === leafName);
+                return this.getDeclarationAtPath(pathSegments.slice(2));
+            }
+            // Essentially handle the specific of renpy.namespace cutting
+            if (pathSegments.length > 1 && pathSegments[0] === "renpy")
+            {
+                return this.getDeclarationAtPath(pathSegments.slice(1));
+            }
+            if (resolvedParents.length === 1 && Data.pythonTypeMethods.has(resolvedParents[0]))
+            {
+                return Data.pythonTypeMethods.get(resolvedParents[0])!.find((d): boolean => d.name === leafName);
             }
 
             return undefined;
@@ -177,6 +237,14 @@ export class Store
         if (parentNode.children.has(leafName))
         {
             return parentNode.children.get(leafName)?.declaration;
+        }
+        if (pathSegments.length > 2 && pathSegments[0] === "renpy" && pathSegments[1] === "store")
+        {
+            return this.getDeclarationAtPath(pathSegments.slice(2));
+        }
+        if (pathSegments.length > 1 && pathSegments[0] === "renpy")
+        {
+            return this.getDeclarationAtPath(pathSegments.slice(1));
         }
 
         return undefined;
@@ -201,18 +269,18 @@ export class Store
         }
     }
 
-    private static populateNodeRecursive(items: Record<string, IStaticJsonItem>, parentNode: NamespaceNode, currentPath: string): void
+    private static populateNodeRecursive(items: Record<string, Interfaces.IStaticJsonItem>, parentNode: Models.NamespaceNode, currentPath: string): void
     {
         for (const [key, item] of Object.entries(items))
         {
             const fullPath = `${currentPath}.${key}`;
             const kind = this.resolveKind(item.kind ?? "");
 
-            const decl = new Declaration(fullPath, kind, item.detail ?? "", item.pythonType ?? "Any", item.doc ?? "", undefined, false);
+            const decl = new Models.Declaration(fullPath, kind, item.detail ?? "", item.pythonType ?? "Any", item.doc ?? "", undefined, false, undefined, item.alias ?? "");
 
             if (item.children && Object.keys(item.children).length > 0)
             {
-                const childNode = new NamespaceNode(key, decl);
+                const childNode = new Models.NamespaceNode(key, decl);
 
                 parentNode.children.set(key, childNode);
                 this.populateNodeRecursive(item.children, childNode, fullPath);
@@ -228,7 +296,7 @@ export class Store
     {
         const resolved = [];
         let currentPath = "";
-        let currentNode: NamespaceNode | undefined = this.rootNode;
+        let currentNode: Models.NamespaceNode | undefined = this.rootNode;
 
         for (const seg of segments)
         {

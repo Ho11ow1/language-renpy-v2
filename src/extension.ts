@@ -1,80 +1,116 @@
 import * as vscode from "vscode";
-import { Logger } from "@utils/Logger";
-import { CompletionItemProvider } from "@src/autocomplete";
-import { SignatureHelpProvider } from "@src/signature";
-import { HoverItemProvider } from "@src/hover";
-import { Store } from "@src/store";
-import { Diagnostics } from "@src/diagnostics";
-import { WorkspaceParser } from "@parser/workspaceparser";
-import { DefinitionProvider } from "@src/definition";
-import { ContextMenuCommands } from "@src/contextmenu";
-import { ColorProvider } from "./color";
-
-const RENPY_FILE_PATTERNS = "{**/*.rpy,**/*_ren.py}" as const;
+import * as Src from "@src/index";
+import * as Utils from "@utils/index";
+import * as Parsers from "@parser/index";
+import * as Config from "@config/index";
+import * as Common from "@common/index";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
     // Setup static store & parse all wanted files
-    Logger.updateStatusBar("Initializing Ren'Py v2", `$(loading~spin)`);
+    Utils.Logger.updateStatusBar("Initializing Ren'Py v2", `$(loading~spin)`);
+
+    // Just fire, don't care about it
+    setTimeout((): void => {
+        Utils.EditorUtils.createSettingsJson(vscode.workspace.workspaceFolders?.[0]);
+    }, 0);
     await init();
 
     // Register debug subscriptions
-    context.subscriptions.push(Logger.outputChannel);
-    context.subscriptions.push(Logger.statusBar);
+    context.subscriptions.push(Utils.Logger.outputChannel);
+    context.subscriptions.push(Utils.Logger.statusBar);
 
     // Register intellisense providers
-    context.subscriptions.push(new CompletionItemProvider().getDisposable());
-    context.subscriptions.push(new HoverItemProvider().getDisposable());
-    context.subscriptions.push(new SignatureHelpProvider().getDisposable());
-    context.subscriptions.push(new DefinitionProvider().getDisposable());
-    context.subscriptions.push(new ColorProvider().getDisposable());
-    // context.subscriptions.push(Diagnostics.getCollection());
+    context.subscriptions.push(new Src.CompletionItemProvider().getDisposable());
+    context.subscriptions.push(new Src.HoverItemProvider().getDisposable());
+    context.subscriptions.push(new Src.SignatureHelpProvider().getDisposable());
+    context.subscriptions.push(new Src.DefinitionProvider().getDisposable());
+    context.subscriptions.push(new Src.ColorProvider().getDisposable());
+    context.subscriptions.push(Src.Diagnostics.getCollection());
 
     // File system watcher so we update what we know
-    context.subscriptions.push(setupWatcher());
+    context.subscriptions.push(getFsWatcher());
+    context.subscriptions.push(getDocWatcher());
+    context.subscriptions.push(getConfigWatcher());
 
-    context.subscriptions.push(...ContextMenuCommands.getDisposables());
+    context.subscriptions.push(...Src.ContextMenuCommands.getDisposables());
 
-    Logger.logMessage("Successfully initialized and parsed all files");
-    Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
+    Utils.Logger.logDebug("Successfully initialized and parsed all files");
+    Utils.Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
 }
 
 export function deactivate(): void {}
 
 async function init(): Promise<void>
 {
-    Logger.clear();
+    Utils.Logger.clear();
 
-    Store.init();
+    Src.Store.init();
 
-    Logger.logMessage("Finished indexing renpy.json tree");
+    Utils.Logger.logDebug("Finished indexing renpy.json tree");
 
-    const files = await vscode.workspace.findFiles(RENPY_FILE_PATTERNS, "**/node_modules/**"); // We shouldn't need to exclude node_modules but just in case so we don't even try looking
-    for (const fileUri of files)
+    const documents = await Utils.EditorUtils.getRenpyDocuments();
+    for (const doc of documents)
     {
-        WorkspaceParser.parseFile(fileUri.fsPath);
-        // Diagnostics.generateDiagnostics(fileUri.fsPath);
+        Parsers.WorkspaceParser.parseFile(doc);
+    }
+    for (const doc of documents)
+    {
+        Src.Diagnostics.generateDiagnostics(doc);
     }
 
-    Logger.logMessage("Finished parsing all renpy files");
+    Utils.Logger.logDebug("Finished parsing all renpy files");
 }
 
-function setupWatcher(): vscode.FileSystemWatcher
+function getFsWatcher(): vscode.FileSystemWatcher
 {
-    const watcher = vscode.workspace.createFileSystemWatcher(RENPY_FILE_PATTERNS);
+    const watcher = vscode.workspace.createFileSystemWatcher(Common.filenamePatters);
 
-    watcher.onDidChange((uri): void => {
-        WorkspaceParser.parseFile(uri.fsPath);
-        // Diagnostics.generateDiagnostics(uri.fsPath);
-    });
     watcher.onDidCreate((uri): void => {
-        WorkspaceParser.parseFile(uri.fsPath);
-        // Diagnostics.generateDiagnostics(uri.fsPath);
+        if (Config.WorkspaceConfig.diagnosticsEnabled)
+        {
+            const diag = Src.Diagnostics.diagnoseFilename(uri.fsPath);
+            Src.Diagnostics.getCollection().set(uri, diag ? [diag] : []);
+        }
     });
     watcher.onDidDelete((uri): void => {
-        Store.removeDeclarationsFromFile(uri.fsPath);
-        // Diagnostics.removeNotifications(uri.fsPath);
+        Src.Store.removeDeclarationsFromFile(uri.fsPath);
+        Src.Diagnostics.removeNotifications(uri.fsPath);
     });
 
     return watcher;
+}
+
+function getDocWatcher(): vscode.Disposable
+{
+    return vscode.workspace.onDidChangeTextDocument((e): void => {
+        if (e.document.languageId !== "renpy")
+        {
+            return;
+        }
+
+        Parsers.WorkspaceParser.parseFile(e.document);
+
+        if (Config.WorkspaceConfig.diagnosticsEnabled)
+        {
+            Src.Diagnostics.generateDiagnostics(e.document);
+        }
+    });
+}
+
+function getConfigWatcher(): vscode.Disposable
+{
+    return vscode.workspace.onDidChangeConfiguration((e): void => {
+        if (e.affectsConfiguration("renpy.diagnosticsEnabled"))
+        {
+            if (Config.WorkspaceConfig.diagnosticsEnabled)
+            {
+                Src.Diagnostics.generateDiagnostics();
+            }
+            else
+            {
+                Src.Diagnostics.removeNotifications();
+            }
+        }
+    });
 }

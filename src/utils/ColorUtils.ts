@@ -70,7 +70,7 @@ export class ColorUtils
             return new vscode.Color(l, l, l, 1);
         }
 
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const q = (l < 0.5) ? l * (1 + s) : (l + s) - l * s;
         const p = 2 * l - q;
 
         const r = this.hueToRgb(p, q, h + (1 / 3));
@@ -154,9 +154,9 @@ export class ColorUtils
         // True && !alpha => a / 255 => byte
         // False && alpha => alpha byte
         // False && !alpha => 1
-        const a = parts.length === 4 ? 
-        ((alpha !== undefined) ? ((parseInt(parts[3]) / 255) * parseFloat(alpha)) : parseInt(parts[3]) / 255) : 
-        (alpha !== undefined) ? parseFloat(alpha) : 1;
+        const a = parts.length === 4 ?
+            ((alpha !== undefined) ? ((parseInt(parts[3]) / 255) * parseFloat(alpha)) : parseInt(parts[3]) / 255)
+            : (alpha !== undefined) ? parseFloat(alpha) : 1;
 
         const r = parseInt(rStr) / 255;
         const g = parseInt(gStr) / 255;

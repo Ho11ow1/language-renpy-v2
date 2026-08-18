@@ -4,5 +4,6 @@ export interface IStaticJsonItem
     detail?: string;
     pythonType?: string;
     doc?: string;
+    alias?: string;
     children?: Record<string, IStaticJsonItem>;
 }

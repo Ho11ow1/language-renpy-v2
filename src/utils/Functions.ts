@@ -1,5 +1,3 @@
-import { Logger } from "@utils/Logger";
-
 const intRegex: RegExp = /^-?\d+$/;
 const floatRegex: RegExp = /^-?\d+\.\d+$/;
 const stringRegex: RegExp = /^(?:"[\s\S]*?"|'[\s\S]*?')\s*(?:#.*)?$/;
