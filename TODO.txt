@@ -1,5 +1,4 @@
-1. Update data/renpy.json to show everything available, depth: TBD probably just the basic documented API but we'll see if i want to just use the docs or create an actual script for extraction
-2. Implement some basic diagnostics: Tabs vs Space | Misspelled default or define | reserved renpy stuff | bad var names | bad indent level | etc...
-3. Implement definition.ts to use the same thing hover does so turn that into the contextparser at some point.
-4. Maybe also add the color picker the OG had, we'll see if people want that though
-5. Dreaded syntax highlighting
+1. Figure out a better auto-complete solution (Probably just look a prev word, if in list => Do something, else => undefined)
+2. At some point get the ContextParser to lookup for auto-complete to provide local vars & support screen lang props
+3. Improve diagnostics further via also using the ContextParser too lookup so we know if this is the correct indent, if a var is out of scope, etc... (This may actually be good for namespaces where you need to access renpy.store.() and not just direct naming but most people don't need it)
+4. Get some testers
