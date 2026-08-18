@@ -1,0 +1,1 @@
+export { WorkspaceConfig } from "./WorkspaceConfig";
