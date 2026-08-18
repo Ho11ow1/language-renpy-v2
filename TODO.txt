@@ -1,4 +1,5 @@
 1. Figure out a better auto-complete solution (Probably just look a prev word, if in list => Do something, else => undefined)
+1.1. Additionally when we are in a class we should check the self. and cls. intellisense specifically so we get self stuff. self/cls. => look up for namespaces.class, return that stuff
 2. At some point get the ContextParser to lookup for auto-complete to provide local vars & support screen lang props
 3. Improve diagnostics further via also using the ContextParser too lookup so we know if this is the correct indent, if a var is out of scope, etc... (This may actually be good for namespaces where you need to access renpy.store.() and not just direct naming but most people don't need it)
 4. Get some testers
