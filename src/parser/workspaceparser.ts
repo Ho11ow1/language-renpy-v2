@@ -260,7 +260,7 @@ export class WorkspaceParser
                     const scopePath = Utils.ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, functionName);
                     const fullName = scopePath.join(".");
                     const declType = isProperty ? "Property" : (isMethod ? "Method" : "Function");
-                    const docString = Utils.ParserUtils.getMethodDoc(document, lineIndex);
+                    const [docString, nextIndex] = Utils.ParserUtils.getMethodDoc(document, lineIndex);
 
                     const decl = new Models.Declaration(
                         fullName,
@@ -272,7 +272,7 @@ export class WorkspaceParser
                     );
 
                     Src.Store.registerUserSymbol(scopePath, decl);
-
+                    lineIndex = nextIndex;
                     continue;
                 }
 

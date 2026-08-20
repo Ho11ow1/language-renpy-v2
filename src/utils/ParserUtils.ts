@@ -99,9 +99,8 @@ export class ParserUtils
         return [isSetter, isVariant, isProperty];
     }
 
-    public static getMethodDoc(document: vscode.TextDocument, lineIndex: number): string
+    public static getMethodDoc(document: vscode.TextDocument, lineIndex: number): [string, number]
     {
-        let docString = "";
         let searchIndex = lineIndex + 1;
 
         while (searchIndex < document.lineCount && document.lineAt(searchIndex).text.trim().length === 0)
@@ -111,14 +110,14 @@ export class ParserUtils
 
         if (searchIndex >= document.lineCount)
         {
-            return "";
+            return ["", lineIndex];
         }
 
         const first = document.lineAt(searchIndex).text.trim();
         const quoteMatch = first.match(this._docStringStartRegexa);
         if (!quoteMatch)
         {
-            return "";
+            return ["", searchIndex];
         }
 
         const quoteSymbol = quoteMatch[1];
@@ -126,7 +125,7 @@ export class ParserUtils
 
         if (firstContent.endsWith(quoteSymbol) && firstContent.length >= quoteSymbol.length)
         {
-            return firstContent.slice(0, -quoteSymbol.length).trim();
+            return [firstContent.slice(0, -quoteSymbol.length).trim(), searchIndex];
         }
 
         const docLines: string[] = [];
@@ -157,7 +156,7 @@ export class ParserUtils
             searchIndex++;
         }
 
-        return docLines.join("\n").trim();
+        return [docLines.join("\n").trim(), searchIndex];
     }
 
     public static getClassConstructor(document: vscode.TextDocument, lineIndex: number, lineIndent: number, className: string, tabSize: number): string | undefined
