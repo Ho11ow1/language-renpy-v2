@@ -3,7 +3,7 @@ import * as fs from "fs";
 export class HTMLParser
 {
     private static readonly _htmlUnderscoreTag: string = "<tr class=\"cap\" id=\"cap-_\">";
-    private static readonly _htmlXrefOpeningTag: string = "<code class=\"xref\">"
+    private static readonly _htmlXrefOpeningTag: string = "<code class=\"xref\">";
     private static readonly _htmlXrefClosingTag: string = "</code>";
 
     private static readonly _xrefRegex: RegExp = new RegExp(`${this._htmlXrefOpeningTag}(.+?)${this._htmlXrefClosingTag}`, "g");
@@ -21,7 +21,7 @@ export class HTMLParser
 
         const section = htmlContent.slice(startIndex + this._htmlUnderscoreTag.length);
 
-        let match: RegExpExecArray | null;
+        let match: RegExpExecArray | null = null;
         while ((match = this._xrefRegex.exec(section)) !== null)
         {
             underscoreVars.push(match[1]);

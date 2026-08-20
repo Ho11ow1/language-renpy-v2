@@ -41,7 +41,7 @@ export class Diagnostics
         "_window",
         "_window_auto",
         "_window_subtitle"
-    ]
+    ];
 
     public static diagnoseFilename(filePath: string): vscode.Diagnostic | undefined
     {

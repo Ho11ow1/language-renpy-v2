@@ -65,6 +65,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Dictates whether or not the immediate python functions should be limited to a common subset or not"
+                },
+                "renpy.sdkPath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Should be an absolute path to your renpy sdk | Example: E:\\renpy-8.5.0-sdk"
                 }
             }
         },
