@@ -2,6 +2,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import * as Utils from "@utils/index";
 import * as Src from "@src/index";
+import * as Config from "@config/index";
 
 export class Diagnostics
 {
@@ -19,6 +20,28 @@ export class Diagnostics
     private static readonly _validFileNameRegex: RegExp = /^[a-zA-Z0-9][a-zA-Z0-9_.]*(?:_ren\.py|\.rpy)$/;
     private static readonly _invalidDefaultDefineRegex: RegExp = /^\s*(?:default|define)\s+(?<NAME>(?![a-zA-Z])[^\s=]+)/gmd;
     private static readonly _persistentUsageRegex: RegExp = /\bpersistent\.(?<KEY>[a-zA-Z0-9_]+)/g;
+
+    // Fallback from docs, Outdated but it is what it is, we get the local sdk from path if provided for better stuff
+    private static readonly _renpyReservedNamesListStatic: string[] = [
+        "_autosave",
+        "_confirm_quit",
+        "_constant",
+        "_dismiss_pause",
+        "_game_menu_screen",
+        "_greedy_rollback",
+        "_history",
+        "_history_list",
+        "_ignore_action",
+        "_menu",
+        "_quit_slot",
+        "_rollback",
+        "_scene_show_hide_transition",
+        "_screenshot_pattern",
+        "_skipping",
+        "_window",
+        "_window_auto",
+        "_window_subtitle"
+    ]
 
     public static diagnoseFilename(filePath: string): vscode.Diagnostic | undefined
     {
@@ -76,9 +99,12 @@ export class Diagnostics
             this._invalidDefaultDefineRegex.lastIndex = 0;
             while ((match = this._invalidDefaultDefineRegex.exec(fileContent)) !== null && match.groups)
             {
-                const [nameStart, nameEnd] = match.indices!.groups!.NAME!;
+                if (!match.groups.NAME.startsWith("__") && (Config.WorkspaceConfig.renpySdkReserved_Names.length > 0 ? !Config.WorkspaceConfig.renpySdkReserved_Names.includes(match.groups.NAME) : !this._renpyReservedNamesListStatic.includes(match.groups.NAME)))
+                {
+                    const [nameStart, nameEnd] = match.indices!.groups!.NAME!;
 
-                diagnostics.push(new vscode.Diagnostic(new vscode.Range(document.positionAt(nameStart), document.positionAt(nameEnd)), `Variable names should start with a letter`, vscode.DiagnosticSeverity.Error));
+                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(document.positionAt(nameStart), document.positionAt(nameEnd)), `Variable names should start with a letter`, vscode.DiagnosticSeverity.Error));
+                }
             }
 
             for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex++)

@@ -4,6 +4,7 @@ import * as Utils from "@utils/index";
 import * as Parsers from "@parser/index";
 import * as Config from "@config/index";
 import * as Common from "@common/index";
+import * as path from "path";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
@@ -49,6 +50,14 @@ async function init(): Promise<void>
 
     Utils.Logger.logDebug("Finished indexing renpy.json tree");
 
+    if (Config.WorkspaceConfig.sdkPath)
+    {
+        const reservedDoc = (await Utils.EditorUtils.getSdkDocPaths()).filter((fsPath): boolean => path.basename(fsPath) === Common.renpyStdVarIndexPath);
+        if (reservedDoc.length > 0)
+        {
+            Config.WorkspaceConfig.renpySdkReserved_Names = Parsers.HTMLParser.parseIndexFileForUnderscore(reservedDoc[0]);
+        }
+    }
     const documents = await Utils.EditorUtils.getRenpyDocuments();
     for (const doc of documents)
     {
