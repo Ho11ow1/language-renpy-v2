@@ -1,5 +1,9 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import * as Common from "@common/index";
+import * as Config from "@config/WorkspaceConfig";
+import * as Utils from "@utils/index";
 
 export class EditorUtils
 {
@@ -40,6 +44,31 @@ export class EditorUtils
         };
 
         await vscode.workspace.fs.writeFile(settingsPath, Buffer.from(JSON.stringify(settings, null, 4) + "\n"));
+    }
+
+    public static async getSdkDocPaths(): Promise<string[]>
+    {
+        let renpyDocs: string[] = [];
+
+        try
+        {
+            const docDir = await fs.promises.opendir(path.join(Config.WorkspaceConfig.sdkPath, "doc"));
+
+            for await (const entry of docDir) // Learned something new today | for await (var (async iterable))
+            {
+                if (entry.isFile())
+                {
+                    renpyDocs.push(path.join(docDir.path, entry.name));
+                }
+            }
+        }
+        catch (ex)
+        {
+            Utils.Logger.logDebug(`ex: ${ex}`);
+            return renpyDocs;
+        }
+
+        return renpyDocs;
     }
 
     public static async getRenpyFileUris(): Promise<vscode.Uri[]>

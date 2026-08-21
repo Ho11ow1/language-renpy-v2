@@ -4,6 +4,7 @@ import * as Utils from "@utils/index";
 import * as Parsers from "@parser/index";
 import * as Config from "@config/index";
 import * as Common from "@common/index";
+import * as path from "path";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
@@ -26,6 +27,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(new Src.SignatureHelpProvider().getDisposable());
     context.subscriptions.push(new Src.DefinitionProvider().getDisposable());
     context.subscriptions.push(new Src.ColorProvider().getDisposable());
+    context.subscriptions.push(new Src.DebugAdapterFactory().getDisposable());
     context.subscriptions.push(Src.Diagnostics.getCollection());
 
     // File system watcher so we update what we know
@@ -34,6 +36,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(getConfigWatcher());
 
     context.subscriptions.push(...Src.ContextMenuCommands.getDisposables());
+    context.subscriptions.push(Src.DebugAdapterFactory.getDebugCommandDisposable());
 
     Utils.Logger.logDebug("Successfully initialized and parsed all files");
     Utils.Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
@@ -49,14 +52,25 @@ async function init(): Promise<void>
 
     Utils.Logger.logDebug("Finished indexing renpy.json tree");
 
+    if (Config.WorkspaceConfig.sdkPath)
+    {
+        const reservedDoc = (await Utils.EditorUtils.getSdkDocPaths()).filter((fsPath): boolean => path.basename(fsPath) === Common.renpyStdVarIndexPath);
+        if (reservedDoc.length > 0)
+        {
+            Config.WorkspaceConfig.renpySdkReserved_Names = Parsers.HTMLParser.parseIndexFileForUnderscore(reservedDoc[0]);
+        }
+    }
     const documents = await Utils.EditorUtils.getRenpyDocuments();
     for (const doc of documents)
     {
         Parsers.WorkspaceParser.parseFile(doc);
     }
-    for (const doc of documents)
+    if (Config.WorkspaceConfig.diagnosticsEnabled)
     {
-        Src.Diagnostics.generateDiagnostics(doc);
+        for (const doc of documents)
+        {
+            Src.Diagnostics.generateDiagnostics(doc);
+        }
     }
 
     Utils.Logger.logDebug("Finished parsing all renpy files");
