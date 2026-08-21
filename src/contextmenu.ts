@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import * as Interfaces from "@interfaces/index";
+
 export class ContextMenuCommands
 {
     public static getDisposables(): vscode.Disposable[]

@@ -6,3 +6,4 @@ export { Diagnostics } from "./diagnostics";
 export { DefinitionProvider } from "./definition";
 export { ContextMenuCommands } from "./contextmenu";
 export { ColorProvider } from "./color";
+export { DebugAdapter, DebugAdapterFactory } from "./debug";

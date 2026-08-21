@@ -393,9 +393,9 @@ export class WorkspaceParser
                 }
             }
         }
-        catch (error)
+        catch (ex)
         {
-            Utils.Logger.logDebug(`Error parsing file ${filePath}: ${error}`);
+            Utils.Logger.logDebug(`Error parsing file ${filePath}: ${ex}`);
         }
     }
 

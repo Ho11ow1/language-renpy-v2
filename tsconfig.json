@@ -19,6 +19,7 @@
             "@interfaces/*": ["./src/interfaces/*"],
             "@models/*": ["./src/models/*"],
             "@parser/*": ["./src/parser/*"],
+            "@services/*": ["./src/services/*"],
             "@utils/*": ["./src/utils/*"]
         }
     }

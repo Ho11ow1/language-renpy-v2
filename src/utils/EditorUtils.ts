@@ -64,7 +64,7 @@ export class EditorUtils
         }
         catch (ex)
         {
-            Utils.Logger.logMessage(`ex: ${ex}`);
+            Utils.Logger.logDebug(`ex: ${ex}`);
             return renpyDocs;
         }
 

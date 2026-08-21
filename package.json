@@ -70,16 +70,50 @@
                     "type": "string",
                     "default": "",
                     "description": "Should be an absolute path to your renpy sdk | Example: E:\\renpy-8.5.0-sdk"
+                },
+                "renpy.debuggerEnabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates whether or not a simple debugger is enabled | Allows you to launch, restart & close your game from vscode"
                 }
             }
         },
         "commands": [
-            { "command": "renpy.toUpper", "title": "To Uppercase" },
-            { "command": "renpy.toLower", "title": "To Lowercase" },
-            { "command": "renpy.addItalic", "title": "Add Italics" },
-            { "command": "renpy.addBold", "title": "Add Bold" },
-            { "command": "renpy.addColor", "title": "Add Color" },
-            { "command": "renpy.addCPS", "title": "Add CPS" }
+            {
+                "command": "renpy.toUpper",
+                "title": "To Uppercase"
+            },
+            {
+                "command": "renpy.toLower",
+                "title": "To Lowercase"
+            },
+            {
+                "command": "renpy.addItalic",
+                "title": "Add Italics"
+            },
+            {
+                "command": "renpy.addBold",
+                "title": "Add Bold"
+            },
+            {
+                "command": "renpy.addColor",
+                "title": "Add Color"
+            },
+            {
+                "command": "renpy.addCPS",
+                "title": "Add CPS"
+            },
+            {
+                "command": "renpy.processRun",
+                "title": "Spawn game process"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "renpy.processRun",
+                "key": "F5",
+                "when": "resourceLangId == renpy"
+            }
         ],
         "submenus": [
             {
@@ -96,14 +130,35 @@
                 }
             ],
             "renpy.submenu": [
-                { "command": "renpy.toUpper" },
-                { "command": "renpy.toLower" },
-                { "command": "renpy.addItalic" },
-                { "command": "renpy.addBold" },
-                { "command": "renpy.addColor" },
-                { "command": "renpy.addCPS" }
+                {
+                    "command": "renpy.toUpper"
+                },
+                {
+                    "command": "renpy.toLower"
+                },
+                {
+                    "command": "renpy.addItalic"
+                },
+                {
+                    "command": "renpy.addBold"
+                },
+                {
+                    "command": "renpy.addColor"
+                },
+                {
+                    "command": "renpy.addCPS"
+                }
             ]
         },
+        "debuggers": [
+            {
+                "type": "renpy",
+                "label": "Ren'Py",
+                "languages": [
+                    "renpy"
+                ]
+            }
+        ],
         "grammars": [
             {
                 "language": "renpy",
@@ -178,6 +233,7 @@
         "@types/mocha": "^10.0.10",
         "@types/node": "24.x",
         "@types/vscode": "^1.125.0",
+        "@vscode/debugprotocol": "^1.68.0",
         "@vscode/test-cli": "^0.0.15",
         "@vscode/test-electron": "^3.0.0",
         "@vscode/vsce": "^3.9.2",

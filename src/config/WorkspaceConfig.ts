@@ -23,4 +23,9 @@ export class WorkspaceConfig
     {
         return vscode.workspace.getConfiguration("renpy").get<string>("sdkPath", "");
     }
+
+    public static get debuggerEnabled(): boolean
+    {
+        return vscode.workspace.getConfiguration("renpy").get<boolean>("debuggerEnabled", true);
+    }
 }
