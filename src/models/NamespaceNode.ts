@@ -7,6 +7,7 @@ export class NamespaceNode
 {
     public name: string;
     public declaration?: Models.Declaration;
+    public occurences?: Models.LocationInfo[];              // For the outline view we need to exist but a declaration doesn't actually need to be there
     public children: Map<string, NamespaceNode> = new Map();// Holds continuous node chains: classes, namespaces
     public members: Map<string, Models.Declaration> = new Map();   // Holds direct objects: property, variable, method
 

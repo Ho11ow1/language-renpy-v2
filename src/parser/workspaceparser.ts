@@ -42,6 +42,12 @@ export class WorkspaceParser
 
             const parserScopeState = new Models.ParserScopeState();
             const tabSize = Utils.EditorUtils.getTabSize(document);
+            //
+            //  Temporary fix, find a better solution later. Probably just a private function which does the exact same thing honestly
+            //  Overall we should refactor this entire methods as most of it is the same thing over and over again but with slightly different strings
+            //  Also this would make changing the vscode.CompletionItemKind enum easier | Most of them are also wrong since i just threw out Property
+            //
+            const tempHash = new Set<string>();
 
             for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex++)
             {
@@ -73,7 +79,8 @@ export class WorkspaceParser
                         parserScopeState.currentNamespace = pythonBlockMatch[1];
                         parserScopeState.namespaceIndent = lineIndent;
 
-                        Src.Store.ensurePathExists([parserScopeState.currentNamespace]);
+                        const ns = Src.Store.ensurePathExists([parserScopeState.currentNamespace]);
+                        ns.occurences === undefined ? ns.occurences = [location] : ns.occurences.push(location);
                     }
 
                     continue;
@@ -220,7 +227,7 @@ export class WorkspaceParser
                     const inferredType = Utils.inferTypeFromExpression(rightHandExpr);
 
                     const decl = new Models.Declaration(
-                        `${varName}`,
+                        `persistent.${varName}`,
                         vscode.CompletionItemKind.Variable,
                         fullStatement.trim(),
                         inferredType,
@@ -290,7 +297,12 @@ export class WorkspaceParser
                         const rightHandExpr = selfMatch[2].trim();
                         const inferredType = Utils.inferTypeFromExpression(rightHandExpr);
                         const scopePath = Utils.ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, fieldName);
+
                         const fullName = scopePath.join(".");
+                        if (tempHash.has(fullName))
+                        {
+                            continue;
+                        }
 
                         const decl = new Models.Declaration(
                             fullName,
@@ -302,6 +314,7 @@ export class WorkspaceParser
                         );
 
                         Src.Store.registerUserSymbol(scopePath, decl);
+                        tempHash.add(fullName);
 
                         continue;
                     }
@@ -342,6 +355,11 @@ export class WorkspaceParser
                     const scopePath = Utils.ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, ...varSegments);
                     const fullName = scopePath.join(".");
 
+                    if (parserScopeState.currentClass !== null && tempHash.has(fullName))
+                    {
+                        continue;
+                    }
+
                     const decl = new Models.Declaration(
                         fullName,
                         targetKind,
@@ -352,6 +370,11 @@ export class WorkspaceParser
                     );
 
                     Src.Store.registerUserSymbol(scopePath, decl);
+
+                    if (parserScopeState.currentClass !== null)
+                    {
+                        tempHash.add(fullName);
+                    }
 
                     if (inferredType !== "Any")
                     {
@@ -372,6 +395,11 @@ export class WorkspaceParser
                     const scopePath = Utils.ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, varName);
                     const fullName = scopePath.join(".");
 
+                    if (parserScopeState.currentClass !== null && tempHash.has(fullName))
+                    {
+                        continue;
+                    }
+
                     const decl = new Models.Declaration(
                         fullName,
                         parserScopeState.currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable,
@@ -382,6 +410,11 @@ export class WorkspaceParser
                     );
 
                     Src.Store.registerUserSymbol(scopePath, decl);
+
+                    if (parserScopeState.currentClass !== null)
+                    {
+                        tempHash.add(fullName);
+                    }
 
                     if (inferredType !== "Any")
                     {

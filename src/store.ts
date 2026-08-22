@@ -2,13 +2,13 @@ import * as vscode from "vscode";
 import * as Models from "@models/index";
 import * as Data from "@data/index";
 import * as Interfaces from "@interfaces/index";
-import * as Utils from "@utils/index";
 
 export class Store
 {
     private static rootNode: Models.NamespaceNode = new Models.NamespaceNode("root");
     private static typeAliasMap: Map<string, string> = new Map<string, string>();
 
+    public static get getTree(): Readonly<Models.NamespaceNode> { return this.rootNode; };
     public static get getImmediateCompletions(): vscode.CompletionItem[] { return this.rootNode.getImmediateCompletions(); }
     public static get getLabelCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("label"); }
     public static get getScreenCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("screen"); }
