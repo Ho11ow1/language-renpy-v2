@@ -171,6 +171,29 @@ export class WorkspaceParser
 
                     continue;
                 }
+                else if (menuMatch && parserScopeState.currentLabel === null)
+                {
+                    if (menuMatch[1] === undefined)
+                    {
+                        continue;
+                    }
+                    const menuName = menuMatch[1];
+
+                    parserScopeState.currentMenuPath = ["label", menuName];
+                    parserScopeState.menuIndent = lineIndent;
+                    parserScopeState.menuOptionIndent = -1;
+
+                    const decl = new Models.Declaration(
+                        menuName,
+                        vscode.CompletionItemKind.Class,
+                        fullStatement.trim(),
+                        "menu",
+                        `Menu defined in ${path.basename(filePath)}`,
+                        location
+                    );
+
+                    Src.Store.registerUserSymbol(parserScopeState.currentMenuPath, decl);
+                }
 
                 const menuOptionMatch = fullStatement.match(this._menuOptionRegex);
                 if (menuOptionMatch && parserScopeState.currentMenuPath !== null)
