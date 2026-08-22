@@ -14,6 +14,11 @@ export class WorkspaceParser
 
     // General use-case stuff
     private static readonly _labelRegex: RegExp = /^\s*label\s+(?!_\s*\()([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
+    private static readonly _menuRegex: RegExp = /^\s*menu(?:\s+([a-zA-Z_]\w*))?\s*:/;
+    //
+    //  Fix menuOptionRegex with a backCheck \1 like in colors to allow for any text inside but outer quotes need to match instead of forcing " "
+    //
+    private static readonly _menuOptionRegex: RegExp = /^\s*"((?:[^"\\]|\\.)*)"\s*(?:if\b[^:]*)?:\s*$/;
     private static readonly _screenRegex: RegExp = /^\s*screen\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
     private static readonly _transformRegex: RegExp = /^\s*transform\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
     private static readonly _styleRegex: RegExp = /^\s*style\s+([a-zA-Z_]\w*)(?:\s+is\b[^:]*)?\s*:?\s*$/;
@@ -122,9 +127,16 @@ export class WorkspaceParser
                     parserScopeState.blockIndent = lineIndent;
 
                     const labelName = labelMatch[1];
+
+                    parserScopeState.currentLabel = labelName;
+                    parserScopeState.labelIndent = lineIndent;
+
+                    //
+                    //  Change to class kind for now so outline can nest children if they exist, will change when i make new models
+                    //
                     const decl = new Models.Declaration(
                         `${labelName}`,
-                        vscode.CompletionItemKind.Property,
+                        vscode.CompletionItemKind.Class,
                         fullStatement.trim(),
                         "label",
                         `User-defined label in ${path.basename(filePath)}`,
@@ -132,6 +144,59 @@ export class WorkspaceParser
                     );
 
                     Src.Store.registerUserSymbol(["label", labelName], decl);
+
+                    continue;
+                }
+
+                const menuMatch = fullStatement.match(this._menuRegex);
+                if (menuMatch && parserScopeState.currentLabel !== null)
+                {
+                    const menuName = menuMatch[1] ?? "menu";
+                    const menuKey = `${menuName}@${lineIndex + 1}`;
+
+                    parserScopeState.currentMenuPath = ["label", parserScopeState.currentLabel, menuKey];
+                    parserScopeState.menuIndent = lineIndent;
+                    parserScopeState.menuOptionIndent = -1;
+
+                    const decl = new Models.Declaration(
+                        menuName,
+                        vscode.CompletionItemKind.Class,
+                        fullStatement.trim(),
+                        "menu",
+                        `Menu inside label ${parserScopeState.currentLabel} in ${path.basename(filePath)}`,
+                        location
+                    );
+
+                    Src.Store.registerUserSymbol(parserScopeState.currentMenuPath, decl);
+
+                    continue;
+                }
+
+                const menuOptionMatch = fullStatement.match(this._menuOptionRegex);
+                if (menuOptionMatch && parserScopeState.currentMenuPath !== null)
+                {
+                    if (parserScopeState.menuOptionIndent === -1)
+                    {
+                        parserScopeState.menuOptionIndent = lineIndent;
+                    }
+
+                    if (lineIndent === parserScopeState.menuOptionIndent)
+                    {
+                        const optionText = menuOptionMatch[1].trim();
+                        const optionKey = `${optionText}@${lineIndex + 1}`;
+                        const menuName = parserScopeState.currentMenuPath[parserScopeState.currentMenuPath.length - 1];
+
+                        const decl = new Models.Declaration(
+                            optionText,
+                            vscode.CompletionItemKind.Property,
+                            fullStatement.trim(),
+                            "menu_option",
+                            `Menu option of ${menuName} in ${path.basename(filePath)}`,
+                            location
+                        );
+
+                        Src.Store.registerUserSymbol([...parserScopeState.currentMenuPath, optionKey], decl);
+                    }
 
                     continue;
                 }

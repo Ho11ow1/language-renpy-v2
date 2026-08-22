@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as Models from "@models/index";
 import * as Data from "@data/index";
 import * as Interfaces from "@interfaces/index";
+import * as Utils from "@utils/index";
 
 export class Store
 {
@@ -367,6 +368,22 @@ export class Store
             for (const [_, decl] of targetNode.members.entries())
             {
                 items.push(decl.AsCompletionItem(prefixRegex));
+            }
+
+            for (const [_, childNode] of targetNode.children.entries())
+            {
+                if (childNode.declaration)
+                {
+                    items.push(childNode.declaration.AsCompletionItem(prefixRegex));
+
+                    for (const [_, menu] of childNode.children.entries())
+                    {
+                        if (menu.declaration && menu.declaration.name.length > 4) // Should do a different check later on but a menu name needs to be larger than 4 to actually be named
+                        {
+                            items.push(menu.declaration.AsCompletionItem());
+                        }
+                    }
+                }
             }
         }
 
