@@ -28,7 +28,7 @@ export class WorkspaceParser
     private static readonly _persistentRegex: RegExp = /^\s*(?:default|define)\s+persistent\.([a-zA-Z_]\w*)\s*=\s*([\s\S]+)$/;
 
     // Explicit variable statements
-    private static readonly _renpyVarRegex: RegExp = /^\s*(?:default|define)\s+([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*=\s*([\s\S]+)$/;
+    private static readonly _renpyVarRegex: RegExp = /^\s*(?:default|define)(?:\s+-?\d+)?\s+([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*=\s*([\s\S]+)$/;
     private static readonly _plainVarRegex: RegExp = /^\s*([a-zA-Z_]\w*)\s*=\s*([\s\S]+)$/;
 
     // Built-in overrides

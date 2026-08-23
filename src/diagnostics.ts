@@ -18,7 +18,7 @@ export class Diagnostics
 
     // ERROR stuff
     private static readonly _validFileNameRegex: RegExp = /^[a-zA-Z0-9][a-zA-Z0-9_.]*(?:_ren\.py|\.rpy)$/;
-    private static readonly _invalidDefaultDefineRegex: RegExp = /^\s*(?:default|define)\s+(?<NAME>(?![a-zA-Z])[^\s=]+)/gmd;
+    private static readonly _invalidDefaultDefineRegex: RegExp = /^\s*(?:default|define)(?:\s+(?<OFFSET>-?\d+))?\s+(?<NAME>(?![a-zA-Z])[^\s=]+)\s*=\s*[\s\S]+$/gmd;
     private static readonly _persistentUsageRegex: RegExp = /\bpersistent\.(?<KEY>[a-zA-Z0-9_]+)/g;
 
     // Fallback from docs, Outdated but it is what it is, we get the local sdk from path if provided for better stuff
@@ -103,7 +103,13 @@ export class Diagnostics
                 {
                     const [nameStart, nameEnd] = match.indices!.groups!.NAME!;
 
-                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(document.positionAt(nameStart), document.positionAt(nameEnd)), `Variable names should start with a letter`, vscode.DiagnosticSeverity.Error));
+                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(document.positionAt(nameStart), document.positionAt(nameEnd)), `Variable names should start with a letter`, vscode.DiagnosticSeverity.Warning));
+                }
+                if (match.groups.OFFSET && match.groups.OFFSET.replace("-", "").length > 3)
+                {
+                    const [offsetStart, offsetEnd] = match.indices!.groups!.OFFSET!;
+
+                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(document.positionAt(offsetStart), document.positionAt(offsetEnd)), `Variable offset range should be between -999 and 999`, vscode.DiagnosticSeverity.Warning));
                 }
             }
 
