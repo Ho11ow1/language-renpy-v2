@@ -28,6 +28,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
     context.subscriptions.push(new Src.DefinitionProvider().getDisposable());
     context.subscriptions.push(new Src.ColorProvider().getDisposable());
     context.subscriptions.push(new Src.DebugAdapterFactory().getDisposable());
+    context.subscriptions.push(new Src.DocumentSymbolProvider().getDisposable());
     context.subscriptions.push(Src.Diagnostics.getCollection());
 
     // File system watcher so we update what we know

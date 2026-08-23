@@ -9,6 +9,7 @@ export class Store
     private static rootNode: Models.NamespaceNode = new Models.NamespaceNode("root");
     private static typeAliasMap: Map<string, string> = new Map<string, string>();
 
+    public static get getTree(): Readonly<Models.NamespaceNode> { return this.rootNode; };
     public static get getImmediateCompletions(): vscode.CompletionItem[] { return this.rootNode.getImmediateCompletions(); }
     public static get getLabelCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("label"); }
     public static get getScreenCompletions(): vscode.CompletionItem[] { return this.getKeywordCompletions("screen"); }
@@ -367,6 +368,22 @@ export class Store
             for (const [_, decl] of targetNode.members.entries())
             {
                 items.push(decl.AsCompletionItem(prefixRegex));
+            }
+
+            for (const [_, childNode] of targetNode.children.entries())
+            {
+                if (childNode.declaration)
+                {
+                    items.push(childNode.declaration.AsCompletionItem(prefixRegex));
+
+                    for (const [_, menu] of childNode.children.entries())
+                    {
+                        if (menu.declaration && menu.declaration.name.length > 4) // Should do a different check later on but a menu name needs to be larger than 4 to actually be named
+                        {
+                            items.push(menu.declaration.AsCompletionItem());
+                        }
+                    }
+                }
             }
         }
 

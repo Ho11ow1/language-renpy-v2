@@ -14,6 +14,11 @@ export class WorkspaceParser
 
     // General use-case stuff
     private static readonly _labelRegex: RegExp = /^\s*label\s+(?!_\s*\()([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
+    private static readonly _menuRegex: RegExp = /^\s*menu(?:\s+([a-zA-Z_]\w*))?\s*:/;
+    //
+    //  Fix menuOptionRegex with a backCheck \1 like in colors to allow for any text inside but outer quotes need to match instead of forcing " "
+    //
+    private static readonly _menuOptionRegex: RegExp = /^\s*"((?:[^"\\]|\\.)*)"\s*(?:if\b[^:]*)?:\s*$/;
     private static readonly _screenRegex: RegExp = /^\s*screen\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
     private static readonly _transformRegex: RegExp = /^\s*transform\s+([a-zA-Z_]\w*)\s*(?:\([^)]*\))?\s*:/;
     private static readonly _styleRegex: RegExp = /^\s*style\s+([a-zA-Z_]\w*)(?:\s+is\b[^:]*)?\s*:?\s*$/;
@@ -42,6 +47,12 @@ export class WorkspaceParser
 
             const parserScopeState = new Models.ParserScopeState();
             const tabSize = Utils.EditorUtils.getTabSize(document);
+            //
+            //  Temporary fix, find a better solution later. Probably just a private function which does the exact same thing honestly
+            //  Overall we should refactor this entire methods as most of it is the same thing over and over again but with slightly different strings
+            //  Also this would make changing the vscode.CompletionItemKind enum easier | Most of them are also wrong since i just threw out Property
+            //
+            const tempHash = new Set<string>();
 
             for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex++)
             {
@@ -73,7 +84,8 @@ export class WorkspaceParser
                         parserScopeState.currentNamespace = pythonBlockMatch[1];
                         parserScopeState.namespaceIndent = lineIndent;
 
-                        Src.Store.ensurePathExists([parserScopeState.currentNamespace]);
+                        const ns = Src.Store.ensurePathExists([parserScopeState.currentNamespace]);
+                        ns.occurences === undefined ? ns.occurences = [location] : ns.occurences.push(location);
                     }
 
                     continue;
@@ -115,9 +127,16 @@ export class WorkspaceParser
                     parserScopeState.blockIndent = lineIndent;
 
                     const labelName = labelMatch[1];
+
+                    parserScopeState.currentLabel = labelName;
+                    parserScopeState.labelIndent = lineIndent;
+
+                    //
+                    //  Change to class kind for now so outline can nest children if they exist, will change when i make new models
+                    //
                     const decl = new Models.Declaration(
                         `${labelName}`,
-                        vscode.CompletionItemKind.Property,
+                        vscode.CompletionItemKind.Class,
                         fullStatement.trim(),
                         "label",
                         `User-defined label in ${path.basename(filePath)}`,
@@ -125,6 +144,82 @@ export class WorkspaceParser
                     );
 
                     Src.Store.registerUserSymbol(["label", labelName], decl);
+
+                    continue;
+                }
+
+                const menuMatch = fullStatement.match(this._menuRegex);
+                if (menuMatch && parserScopeState.currentLabel !== null)
+                {
+                    const menuName = menuMatch[1] ?? "menu";
+                    const menuKey = `${menuName}@${lineIndex + 1}`;
+
+                    parserScopeState.currentMenuPath = ["label", parserScopeState.currentLabel, menuKey];
+                    parserScopeState.menuIndent = lineIndent;
+                    parserScopeState.menuOptionIndent = -1;
+
+                    const decl = new Models.Declaration(
+                        menuName,
+                        vscode.CompletionItemKind.Class,
+                        fullStatement.trim(),
+                        "menu",
+                        `Menu inside label ${parserScopeState.currentLabel} in ${path.basename(filePath)}`,
+                        location
+                    );
+
+                    Src.Store.registerUserSymbol(parserScopeState.currentMenuPath, decl);
+
+                    continue;
+                }
+                else if (menuMatch && parserScopeState.currentLabel === null)
+                {
+                    if (menuMatch[1] === undefined)
+                    {
+                        continue;
+                    }
+                    const menuName = menuMatch[1];
+
+                    parserScopeState.currentMenuPath = ["label", menuName];
+                    parserScopeState.menuIndent = lineIndent;
+                    parserScopeState.menuOptionIndent = -1;
+
+                    const decl = new Models.Declaration(
+                        menuName,
+                        vscode.CompletionItemKind.Class,
+                        fullStatement.trim(),
+                        "menu",
+                        `Menu defined in ${path.basename(filePath)}`,
+                        location
+                    );
+
+                    Src.Store.registerUserSymbol(parserScopeState.currentMenuPath, decl);
+                }
+
+                const menuOptionMatch = fullStatement.match(this._menuOptionRegex);
+                if (menuOptionMatch && parserScopeState.currentMenuPath !== null)
+                {
+                    if (parserScopeState.menuOptionIndent === -1)
+                    {
+                        parserScopeState.menuOptionIndent = lineIndent;
+                    }
+
+                    if (lineIndent === parserScopeState.menuOptionIndent)
+                    {
+                        const optionText = menuOptionMatch[1].trim();
+                        const optionKey = `${optionText}@${lineIndex + 1}`;
+                        const menuName = parserScopeState.currentMenuPath[parserScopeState.currentMenuPath.length - 1];
+
+                        const decl = new Models.Declaration(
+                            optionText,
+                            vscode.CompletionItemKind.Property,
+                            fullStatement.trim(),
+                            "menu_option",
+                            `Menu option of ${menuName} in ${path.basename(filePath)}`,
+                            location
+                        );
+
+                        Src.Store.registerUserSymbol([...parserScopeState.currentMenuPath, optionKey], decl);
+                    }
 
                     continue;
                 }
@@ -220,7 +315,7 @@ export class WorkspaceParser
                     const inferredType = Utils.inferTypeFromExpression(rightHandExpr);
 
                     const decl = new Models.Declaration(
-                        `${varName}`,
+                        `persistent.${varName}`,
                         vscode.CompletionItemKind.Variable,
                         fullStatement.trim(),
                         inferredType,
@@ -290,7 +385,12 @@ export class WorkspaceParser
                         const rightHandExpr = selfMatch[2].trim();
                         const inferredType = Utils.inferTypeFromExpression(rightHandExpr);
                         const scopePath = Utils.ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, fieldName);
+
                         const fullName = scopePath.join(".");
+                        if (tempHash.has(fullName))
+                        {
+                            continue;
+                        }
 
                         const decl = new Models.Declaration(
                             fullName,
@@ -302,6 +402,7 @@ export class WorkspaceParser
                         );
 
                         Src.Store.registerUserSymbol(scopePath, decl);
+                        tempHash.add(fullName);
 
                         continue;
                     }
@@ -342,6 +443,11 @@ export class WorkspaceParser
                     const scopePath = Utils.ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, ...varSegments);
                     const fullName = scopePath.join(".");
 
+                    if (parserScopeState.currentClass !== null && tempHash.has(fullName))
+                    {
+                        continue;
+                    }
+
                     const decl = new Models.Declaration(
                         fullName,
                         targetKind,
@@ -352,6 +458,11 @@ export class WorkspaceParser
                     );
 
                     Src.Store.registerUserSymbol(scopePath, decl);
+
+                    if (parserScopeState.currentClass !== null)
+                    {
+                        tempHash.add(fullName);
+                    }
 
                     if (inferredType !== "Any")
                     {
@@ -372,6 +483,11 @@ export class WorkspaceParser
                     const scopePath = Utils.ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, varName);
                     const fullName = scopePath.join(".");
 
+                    if (parserScopeState.currentClass !== null && tempHash.has(fullName))
+                    {
+                        continue;
+                    }
+
                     const decl = new Models.Declaration(
                         fullName,
                         parserScopeState.currentClass !== null ? vscode.CompletionItemKind.Property : vscode.CompletionItemKind.Variable,
@@ -382,6 +498,11 @@ export class WorkspaceParser
                     );
 
                     Src.Store.registerUserSymbol(scopePath, decl);
+
+                    if (parserScopeState.currentClass !== null)
+                    {
+                        tempHash.add(fullName);
+                    }
 
                     if (inferredType !== "Any")
                     {

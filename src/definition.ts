@@ -54,6 +54,15 @@ export class DefinitionProvider implements vscode.DefinitionProvider
     {
         const locationInfo = decl.locationInfo!;
 
-        return new vscode.Location(vscode.Uri.file(locationInfo.filePath), new vscode.Range(new vscode.Position(locationInfo.lineNumber - 1, 0), new vscode.Position(locationInfo.lineNumber - 1, locationInfo.lineEndLen)));
+        const split = decl.detail.split("\n");
+
+        const range = new vscode.Range(
+            (locationInfo.lineNumber - split.length),
+            0,
+            (locationInfo.lineNumber - split.length),
+            (locationInfo.lineEndLen + split[0].length)
+        );
+
+        return new vscode.Location(vscode.Uri.file(locationInfo.filePath), range);
     }
 }
