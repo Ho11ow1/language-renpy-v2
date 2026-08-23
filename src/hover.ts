@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import * as Models from "@models/index";
 import * as Src from "@src/index";
 import * as Parsers from "@parser/index";
+import * as Utils from "@utils/index";
 
 export class HoverItemProvider implements vscode.HoverProvider
 {
@@ -44,19 +45,10 @@ export class HoverItemProvider implements vscode.HoverProvider
         const forwardMatch = line.substring(offset).match(this._identifierPartRegex);
         const restOfWord = forwardMatch ? forwardMatch[0] : "";
 
-        let decl = Src.Store.getDeclarationAtPath(`${matchText}${restOfWord}`.split("."));
+        const decl = Src.Store.getDeclarationAtPath(`${matchText}${restOfWord}`.split("."));
         if (!decl)
         {
-            const fullSplit = `${matchText}${restOfWord}`.split(".");
-            decl = Src.Store.getDeclarationAtPath([fullSplit[0], fullSplit[1]]);
-            if (!decl)
-            {
-                decl = Src.Store.getDeclarationAtPath([matchText]);
-                if (!decl)
-                {
-                    return undefined;
-                }
-            }
+            return undefined;
         }
 
         return this.getHoverComponent(decl, new vscode.Range(position.line, ((offset - backwardMatch[0].length) + (backwardMatch[0].startsWith(this._renpyStorePrefix) ? this._renpyStorePrefix.length : 0)), position.line, (offset + restOfWord.length)));
