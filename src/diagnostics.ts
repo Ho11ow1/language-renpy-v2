@@ -18,7 +18,9 @@ export class Diagnostics
 
     // ERROR stuff
     private static readonly _validFileNameRegex: RegExp = /^[a-zA-Z0-9][a-zA-Z0-9_.]*(?:_ren\.py|\.rpy)$/;
-    private static readonly _invalidDefaultDefineRegex: RegExp = /^\s*(?:default|define)(?:\s+(?<OFFSET>-?\d+))?\s+(?<NAME>(?![a-zA-Z])[^\s=]+)\s*=\s*[\s\S]+$/gmd;
+    private static readonly _invalidDefaultDefineRegex: RegExp = /^\s*(?:default|define)\s+(?:(?<OFFSET>-?\d+)\s+(?<NAME_OFFSET>[^\s=]+)|(?<NAME_NOOFFSET>[^\s=]+))\s*=/gmd;
+    private static readonly _isValidNameRegex: RegExp = /^[a-zA-Z]/;
+    private static readonly _startsWithNumber: RegExp = /^\d/;
     private static readonly _persistentUsageRegex: RegExp = /\bpersistent\.(?<KEY>[a-zA-Z0-9_]+)/g;
 
     // Fallback from docs, Outdated but it is what it is, we get the local sdk from path if provided for better stuff
@@ -99,13 +101,26 @@ export class Diagnostics
             this._invalidDefaultDefineRegex.lastIndex = 0;
             while ((match = this._invalidDefaultDefineRegex.exec(fileContent)) !== null && match.groups)
             {
-                if (!match.groups.NAME.startsWith("__") && (Config.WorkspaceConfig.renpySdkReserved_Names.length > 0 ? !Config.WorkspaceConfig.renpySdkReserved_Names.includes(match.groups.NAME) : !this._renpyReservedNamesListStatic.includes(match.groups.NAME)))
-                {
-                    const [nameStart, nameEnd] = match.indices!.groups!.NAME!;
+                const name = match.groups.NAME_OFFSET ?? match.groups.NAME_NOOFFSET;
+                const nameIndices = match.indices!.groups!.NAME_OFFSET ?? match.indices!.groups!.NAME_NOOFFSET;
 
-                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(document.positionAt(nameStart), document.positionAt(nameEnd)), `Variable names should start with a letter`, vscode.DiagnosticSeverity.Warning));
+                if (!this._isValidNameRegex.test(name) && !name.startsWith("__") && (Config.WorkspaceConfig.renpySdkReserved_Names.length > 0 ? !Config.WorkspaceConfig.renpySdkReserved_Names.includes(name) : !this._renpyReservedNamesListStatic.includes(name)))
+                {
+                    const [nameStart, nameEnd] = nameIndices!;
+
+                    //
+                    //  Probably redundant and i'll probably remove it later but error is a compilation error so i guess it's also kind of good
+                    //
+                    if (this._startsWithNumber.test(name))
+                    {
+                        diagnostics.push(new vscode.Diagnostic(new vscode.Range(document.positionAt(nameStart), document.positionAt(nameEnd)), `Variable names should start with a letter`, vscode.DiagnosticSeverity.Error));
+                    }
+                    else
+                    {
+                        diagnostics.push(new vscode.Diagnostic(new vscode.Range(document.positionAt(nameStart), document.positionAt(nameEnd)), `Variable names should start with a letter`, vscode.DiagnosticSeverity.Warning));
+                    }
                 }
-                if (match.groups.OFFSET && match.groups.OFFSET.replace("-", "").length > 3)
+                if (match.groups.OFFSET !== undefined && match.groups.OFFSET.replace("-", "").length > 3)
                 {
                     const [offsetStart, offsetEnd] = match.indices!.groups!.OFFSET!;
 

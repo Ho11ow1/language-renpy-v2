@@ -20,7 +20,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
     private readonly _styleRegex: RegExp = /(?:^|\s)style\s+([a-zA-Z0-9_]*)$/;
     private readonly _styleRegex2: RegExp = /\b\s+style./;
 
-    private readonly _prefixSliceArray: Array<string> = new Array<string>("renpy.config.", "renpy.gui", "renpy.achievement.", "renpy.build.");
+    private readonly _prefixSliceArray: Array<string> = new Array<string>("renpy.config", "renpy.gui", "renpy.achievement", "renpy.build");
     private readonly _noqaComment: vscode.CompletionItem = new vscode.CompletionItem("@NOQA", vscode.CompletionItemKind.Constant);
 
     // private readonly _baseStyleProperties = new Set<string>([
@@ -274,7 +274,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
 
     public getDisposable(): vscode.Disposable
     {
-        return vscode.languages.registerCompletionItemProvider("renpy", this, ".", " ", "(");
+        return vscode.languages.registerCompletionItemProvider("renpy", this, ".", " ");
     }
 
     // Kind of a clunky way to do this but due to renpys complexity of:
@@ -285,9 +285,9 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
     // There's probably more but these are really the most important because of the intellisense lookup
     private normalizeCompletionPath(targetPath: string): string
     {
-        if (targetPath.startsWith("renpy.Src.Store."))
+        if (targetPath.startsWith("renpy.store."))
         {
-            return targetPath.substring("renpy.Src.Store.".length);
+            return targetPath.substring("renpy.Store.".length);
         }
         if (this._prefixSliceArray.some((str): boolean => targetPath.startsWith(str)))
         {

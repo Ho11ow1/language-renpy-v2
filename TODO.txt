@@ -3,12 +3,10 @@ auto-complete improvements:
     2. Generally return undefined because the current approach is far too agressive however first lookup for any local vars.
 
 diagnostics improvements:
-    1. Improve diagnostics further via also using the ContextParser too lookup so we know if this is the correct indent, if a var is out of scope, etc... (This may actually be good for namespaces where you need to access renpy.store.() and not just direct naming but most people don't need it)
+    1. Improve diagnostics further via also using the ContextParser to lookup so we know if this is the correct indent, if a var is out of scope, etc... (This may actually be good for namespaces where you need to access renpy.store.() and not just direct naming but most people don't need it)
 
-build:
-    1. Modify build pipeline so we don't have unwanted files being kept:
-        - TODO.txt
-        - scripts/
+hover:
+    1. Change hover behaviour to stop hovering over entry at n to return e character eileen as it's before.
 
 readme:
     1. Update it at some point
