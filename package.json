@@ -81,31 +81,43 @@
         "commands": [
             {
                 "command": "renpy.toUpper",
-                "title": "To Uppercase"
+                "title": "To Uppercase",
+                "category": "Renpy-v2"
             },
             {
                 "command": "renpy.toLower",
-                "title": "To Lowercase"
+                "title": "To Lowercase",
+                "category": "Renpy-v2"
             },
             {
                 "command": "renpy.addItalic",
-                "title": "Add Italics"
+                "title": "Add Italics",
+                "category": "Renpy-v2"
             },
             {
                 "command": "renpy.addBold",
-                "title": "Add Bold"
+                "title": "Add Bold",
+                "category": "Renpy-v2"
             },
             {
                 "command": "renpy.addColor",
-                "title": "Add Color"
+                "title": "Add Color",
+                "category": "Renpy-v2"
             },
             {
                 "command": "renpy.addCPS",
-                "title": "Add CPS"
+                "title": "Add CPS",
+                "category": "Renpy-v2"
             },
             {
                 "command": "renpy.processRun",
-                "title": "Spawn game process"
+                "title": "Spawn game process",
+                "category": "Renpy-v2"
+            },
+            {
+                "command": "renpy.crawlDocs",
+                "title": "Crawl sdk path docs",
+                "category": "Renpy-v2"
             }
         ],
         "keybindings": [
