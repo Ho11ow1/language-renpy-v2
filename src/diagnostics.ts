@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import * as Utils from "@utils/index";
 import * as Src from "@src/index";
 import * as Config from "@config/index";
+import * as Interfaces from "@interfaces/index";
 
 export class Diagnostics
 {
@@ -10,7 +11,7 @@ export class Diagnostics
     private static readonly _diagnosticCollection: vscode.DiagnosticCollection = vscode.languages.createDiagnosticCollection("renpy");
 
     // INFORMATION stuff
-    private static readonly _diagnosticGroupRegex: RegExp = /^[ \t]*#+[ \t]*(?<KIND>todo|warn|note|bug|fixme|fix|performance|perf)(?=\s|:|$)(?<TEXT>[ \t]*:?[ \t]*.*$)/gim;
+    private static readonly _diagnosticGroupRegex: RegExp = /[ \t]*#+[ \t]*(?<KIND>todo|warn|note|bug|fixme|fix|performance|perf)(?=\s|:|$)(?<TEXT>[ \t]*:?[ \t]*.*$)/gim;
 
     // SINGLE stuff
     private static readonly _tabRegex: RegExp = /\t+/;
@@ -73,7 +74,6 @@ export class Diagnostics
             const diagnostics: Array<vscode.Diagnostic> = [];
             this._diagnosticsMap.set(filePath, diagnostics);
 
-            const persistentKeys = Src.Store.getPersistentKeys;
             let match: RegExpExecArray | null = null;
 
             const fileNameDiagnostic = this.diagnoseFilename(document.uri.fsPath);
@@ -128,6 +128,16 @@ export class Diagnostics
                 }
             }
 
+            const indentationState: Interfaces.IDiagnosticIndentState = {
+                indentStack: [0],
+                bracketDepth: 0,
+                isContinuedLine: false,
+                pendingBlockOpen: false,
+                pendingBlockIndent: -1,
+                pendingBlockLineIndex: -1,
+                currentLogicLineIndent: 0
+            };
+
             for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex++)
             {
                 const line = document.lineAt(lineIndex).text;
@@ -136,30 +146,9 @@ export class Diagnostics
                     continue;
                 }
 
-                if (this._tabRegex.test(line))
-                {
-                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(lineIndex, 0, lineIndex, line.length), "Ren'Py does not allow tabs, use Spaces", vscode.DiagnosticSeverity.Error));
-                }
-
-                //
-                //  Very primitive indent check just watching out for a bad level rather than actually expected indent but it's ok for now
-                //
-                const lineIndent = line.length - line.trimStart().length;
-                if (lineIndent % tabSize !== 0)
-                {
-                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(lineIndex, 0, lineIndex, lineIndent + 1), "Inconsistent indent level", vscode.DiagnosticSeverity.Error));
-                }
-
-                const stray = this.checkStrayDollarSigns(line, lineIndex);
-                if (stray)
-                {
-                    diagnostics.push(stray);
-                }
-                const persistentUsage = this.checkPersistentUsages(line, lineIndex, persistentKeys);
-                if (persistentUsage)
-                {
-                    diagnostics.push(persistentUsage);
-                }
+                diagnostics.push(...this.checkIndentationLine(lineIndex, line, tabSize, indentationState));
+                diagnostics.push(...this.checkStrayDollarSigns(line, lineIndex));   // No real reason to make these destructure an array but style consistency
+                diagnostics.push(...this.checkPersistentUsages(line, lineIndex));   // No real reason to make these destructure an array but style consistency
             }
 
             this._diagnosticCollection.set(vscode.Uri.file(filePath), diagnostics);
@@ -191,8 +180,89 @@ export class Diagnostics
         return this._diagnosticCollection;
     }
 
-    private static checkStrayDollarSigns(line: string, lineIndex: number): vscode.Diagnostic | undefined
+    //
+    //  Ident logic based off of: https://github.com/python/cpython/blob/main/Lib/tokenize.py
+    //  With the additon of mismatched indentation while not strictly needed it's nice to keep style consistent
+    //
+    private static checkIndentationLine(lineIndex: number, line: string, tabSize: number, state: Interfaces.IDiagnosticIndentState): vscode.Diagnostic[]
     {
+        const diagnostics: vscode.Diagnostic[] = [];
+
+        if (this._tabRegex.test(line))
+        {
+            diagnostics.push(new vscode.Diagnostic(new vscode.Range(lineIndex, 0, lineIndex, line.length), "Ren'Py does not allow tabs, use Spaces", vscode.DiagnosticSeverity.Error));
+        }
+
+        const isLogicalLineStart = state.bracketDepth === 0 && !state.isContinuedLine;
+        const masked = this.maskStringsAndComments(line);
+
+        if (isLogicalLineStart)
+        {
+            const lineIndent = line.length - line.trimStart().length;
+            state.currentLogicLineIndent = lineIndent;
+
+            if (state.pendingBlockOpen)
+            {
+                if (lineIndent <= state.pendingBlockIndent)
+                {
+                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(lineIndex, 0, lineIndex, lineIndent), `Expected an indented block after line ${state.pendingBlockLineIndex + 1}`, vscode.DiagnosticSeverity.Error));
+                }
+                state.pendingBlockOpen = false;
+            }
+
+            const currentLevel = state.indentStack[state.indentStack.length - 1];
+
+            if (lineIndent > currentLevel)
+            {
+                state.indentStack.push(lineIndent);
+
+                const delta = lineIndent - currentLevel;
+                if (delta % tabSize !== 0)
+                {
+                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(lineIndex, 0, lineIndex, lineIndent), `Indent is ${delta} space(s) deep, which doesn't match the configured indent size of ${tabSize}`, vscode.DiagnosticSeverity.Warning));
+                }
+            }
+            else if (lineIndent < currentLevel)
+            {
+                while (state.indentStack.length > 1 && state.indentStack[state.indentStack.length - 1] > lineIndent)
+                {
+                    state.indentStack.pop();
+                }
+
+                if (state.indentStack[state.indentStack.length - 1] !== lineIndent)
+                {
+                    diagnostics.push(new vscode.Diagnostic(new vscode.Range(lineIndex, 0, lineIndex, lineIndent), "Unindent does not match any outer indentation level", vscode.DiagnosticSeverity.Error));
+                    state.indentStack.push(lineIndent);
+                }
+            }
+        }
+
+        for (const ch of masked)
+        {
+            if (ch === "(" || ch === "[" || ch === "{")
+            {
+                state.bracketDepth++;
+            }
+            else if (ch === ")" || ch === "]" || ch === "}")
+            {
+                state.bracketDepth = Math.max(0, state.bracketDepth - 1);
+            }
+        }
+        state.isContinuedLine = masked.trimEnd().endsWith("\\");
+
+        if (state.bracketDepth === 0 && !state.isContinuedLine && masked.trimEnd().endsWith(":"))
+        {
+            state.pendingBlockOpen = true;
+            state.pendingBlockIndent = state.currentLogicLineIndent;
+            state.pendingBlockLineIndex = lineIndex;
+        }
+
+        return diagnostics;
+    }
+
+    private static checkStrayDollarSigns(line: string, lineIndex: number): vscode.Diagnostic[]
+    {
+        const diagnostics: vscode.Diagnostic[] = [];
         const trimmed = line.trimStart();
         const leadingWhitespace = line.length - trimmed.length;
 
@@ -231,9 +301,11 @@ export class Diagnostics
 
             if (c === "$" && i !== leadingWhitespace)
             {
-                return new vscode.Diagnostic(new vscode.Range(lineIndex, i, lineIndex, i + 1), "You can't use a $ in the middle of a line", vscode.DiagnosticSeverity.Error);
+                diagnostics.push(new vscode.Diagnostic(new vscode.Range(lineIndex, i, lineIndex, i + 1), "You can't use a $ in the middle of a line", vscode.DiagnosticSeverity.Error));
             }
         }
+
+        return diagnostics;
     }
 
     private static maskStringsAndComments(line: string): string
@@ -282,8 +354,10 @@ export class Diagnostics
         return masked;
     }
 
-    private static checkPersistentUsages(line: string, lineIndex: number, persistentKeys: Set<string>): vscode.Diagnostic | undefined
+    private static checkPersistentUsages(line: string, lineIndex: number): vscode.Diagnostic[]
     {
+        const diagnostics: vscode.Diagnostic[] = [];
+        const persistentKeys = Src.Store.getPersistentKeys;
         const masked = this.maskStringsAndComments(line);
         let match: RegExpExecArray | null = null;
 
@@ -299,7 +373,9 @@ export class Diagnostics
             const keyStart = match.index + "persistent.".length;
             const range = new vscode.Range(lineIndex, keyStart, lineIndex, keyStart + key.length);
 
-            return new vscode.Diagnostic(range, `"persistent.${key}" is not defined anywhere.`, vscode.DiagnosticSeverity.Warning);
+            diagnostics.push(new vscode.Diagnostic(range, `"persistent.${key}" is not defined anywhere.`, vscode.DiagnosticSeverity.Warning));
         }
+
+        return diagnostics;
     }
 }

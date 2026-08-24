@@ -13,7 +13,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
 
     // Just fire, don't care about it
     setTimeout((): void => {
-        Utils.EditorUtils.createSettingsJson(vscode.workspace.workspaceFolders?.[0]);
+        const cwd = vscode.workspace.workspaceFolders;
+        if (cwd)
+        {
+            Utils.EditorUtils.createSettingsJson(cwd[0]);
+        }
     }, 0);
     await init();
 
@@ -38,6 +42,36 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
 
     context.subscriptions.push(...Src.ContextMenuCommands.getDisposables());
     context.subscriptions.push(Src.DebugAdapterFactory.getDebugCommandDisposable());
+    context.subscriptions.push(vscode.commands.registerCommand("renpy.crawlDocs", async (): Promise<void> => {
+        if (!Config.WorkspaceConfig.sdkPath)
+        {
+            vscode.window.showErrorMessage("SDK Path is not set", "Open Settings").then((selection): void => {
+                if (selection === "Open Settings")
+                {
+                    vscode.commands.executeCommand("workbench.action.openSettings", "renpy.sdkPath");
+                }
+            });
+
+            return;
+        }
+        const fsPaths = await Utils.EditorUtils.getSdkDocPaths();
+        if (fsPaths.length < 1)
+        {
+            vscode.window.showErrorMessage("No docs found at provided SDK path", "Open Settings").then((selection): void => {
+                if (selection === "Open Settings")
+                {
+                    vscode.commands.executeCommand("workbench.action.openSettings", "renpy.sdkPath");
+                }
+            });
+
+            return;
+        }
+
+        for (const fsPath of fsPaths)
+        {
+            Utils.Logger.logMessage(`fs: ${fsPath} | base: ${path.basename(fsPath)}`);
+        }
+    }));
 
     Utils.Logger.logDebug("Successfully initialized and parsed all files");
     Utils.Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
@@ -103,12 +137,20 @@ function getDocWatcher(): vscode.Disposable
         {
             return;
         }
-
-        Parsers.WorkspaceParser.parseFile(e.document);
-
-        if (Config.WorkspaceConfig.diagnosticsEnabled)
+        const cwd = vscode.workspace.workspaceFolders;
+        if (cwd)
         {
-            Src.Diagnostics.generateDiagnostics(e.document);
+            if (!e.document.uri.fsPath.startsWith(cwd[0].uri.fsPath))
+            {
+                return;
+            }
+
+            Parsers.WorkspaceParser.parseFile(e.document);
+
+            if (Config.WorkspaceConfig.diagnosticsEnabled)
+            {
+                Src.Diagnostics.generateDiagnostics(e.document);
+            }
         }
     });
 }
