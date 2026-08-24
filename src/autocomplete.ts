@@ -165,12 +165,13 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
             return undefined;
         }
 
-        const lineText = document.lineAt(position).text.substring(0, position.character);
+        const line = document.lineAt(position);
+        const lineText = line.text.substring(0, position.character);
 
         //
-        //  Special case for adding # @NOQA
+        //  Special case for adding # @NOQA only one line 1
         //
-        if (lineText.trim().startsWith("#"))
+        if (line.lineNumber == 0 && lineText.trim().length < 3 && lineText.trim().startsWith("#"))
         {
             Utils.Logger.logDebug("Autocomplete lookup for comment");
 
@@ -269,7 +270,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // Potentially the best or worst solution? Going to leave it here now for testing as it does what it want it to, should find a better solution though for performance resaons
 
-        return Src.Store.getImmediateCompletions;
+        return undefined
     }
 
     public getDisposable(): vscode.Disposable
