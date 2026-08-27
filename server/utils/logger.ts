@@ -3,7 +3,7 @@ import * as lsps from "vscode-languageserver/node";
 export class Logger
 {
     private static connectionConsole: lsps.RemoteConsole | undefined = undefined;
-    private static readonly _messagePrefix: string = "[Ren'Py v2 LS]";
+    private static readonly _messagePrefix: string = "[Ren'Py v2 LSP Server]";
 
     public static init(console: lsps.RemoteConsole): void
     {

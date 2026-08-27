@@ -3,13 +3,23 @@ import * as vscode from "vscode";
 import * as lspc from "vscode-languageclient/node";
 import * as Utils from "@client/utils/index";
 import * as Middleware from "@client/middleware/index";
+import * as Common from "@common/variables";
+import { DebugAdapterFactory } from "./debugger";
+import { ContextMenuCommands } from "./commands";
 
 let languageClient: lspc.LanguageClient | undefined = undefined;
 
 export function activate(context: vscode.ExtensionContext): void
 {
     pushDisposables(context);
+    Utils.Logger.clear();
     Utils.Logger.updateStatusBar("Initializing Ren'Py v2", `$(loading~spin)`);
+
+    const cwd = vscode.workspace.workspaceFolders;
+    if (cwd)
+    {
+        Utils.EditorUtils.createSettingsJson(cwd[0]);
+    }
 
     startLanguageServer(context);
     Utils.Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
@@ -27,8 +37,13 @@ export function deactivate(): Promise<void> | undefined
 
 function pushDisposables(context: vscode.ExtensionContext): void
 {
-    context.subscriptions.push(Utils.Logger.outputChannel);
-    context.subscriptions.push(Utils.Logger.statusBar);
+    context.subscriptions.push(Utils.Logger._outputChannel);
+    context.subscriptions.push(Utils.Logger._statusBar);
+
+    context.subscriptions.push(new DebugAdapterFactory().getDisposable());
+    context.subscriptions.push(DebugAdapterFactory.getDebugCommandDisposable());
+
+    context.subscriptions.push(...ContextMenuCommands.getDisposables());
 }
 
 function startLanguageServer(context: vscode.ExtensionContext): void
@@ -59,7 +74,10 @@ function startLanguageServer(context: vscode.ExtensionContext): void
             }
         ],
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{rpy,rpym}"),
+            fileEvents: vscode.workspace.createFileSystemWatcher(Common.RENPY_FORMAT_GLOB)
+        },
+        markdown: {
+            isTrusted: true
         },
         middleware: {
             provideDocumentColors(document, token, next): vscode.ProviderResult<vscode.ColorInformation[]>

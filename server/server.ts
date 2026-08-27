@@ -2,6 +2,7 @@ import * as lsps from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import * as Providers from "@server/providers/index";
 import * as Utils from "@server/utils/index";
+import * as Common from "@common/variables";
 
 const connection: lsps.Connection = lsps.createConnection(lsps.ProposedFeatures.all);
 const documents: lsps.TextDocuments<TextDocument> = new lsps.TextDocuments(TextDocument);
@@ -33,7 +34,7 @@ function HandleSubscriptions(): void
         const textDocument = change.document;
         const diagnostics: lsps.Diagnostic[] = [];
 
-        if (textDocument.getText({ start: { line: 0, character: 0 }, end: { line: 0, character: 7 } }) === ("# @NOQA"))
+        if (textDocument.getText({ start: { line: 0, character: 0 }, end: { line: 0, character: Common.NO_QUALITY_ASSURANCE.length } }) === Common.NO_QUALITY_ASSURANCE)
         {
             connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: [] });
             return;

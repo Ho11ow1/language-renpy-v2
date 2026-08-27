@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as Utils from "@client/utils/logger";
-import * as Common from "@client/common/variables";
+import * as Common from "@common/variables";
 
 export function withGlobalMiddleware<T>(endpointName: string, action: () => T): T
 {
@@ -12,7 +12,7 @@ export function withGlobalMiddleware<T>(endpointName: string, action: () => T): 
     }
     finally
     {
-        Utils.Logger.logDebug(`[LSP client] ${endpointName} took ${(performance.now() - startTime).toFixed(2)}ms`);
+        Utils.Logger.logDebug(`(${endpointName}) took ${(performance.now() - startTime).toFixed(2)}ms`);
     }
 }
 

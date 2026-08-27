@@ -35,8 +35,6 @@ export class ColorProvider
         const results: lsps.ColorInformation[] = [];
         const text = document.getText();
 
-        Utils.Logger.logMessage(`Random message`);
-
         let match: RegExpExecArray | null = null;
         while ((match = this._groupedRegex.exec(text)) !== null && match.groups)
         {
