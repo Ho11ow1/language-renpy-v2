@@ -1,17 +1,31 @@
 {
-	"version": "0.2.0",
-	"configurations": [
-		{
-			"name": "Run Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}"
-			],
-			"outFiles": [
-				"${workspaceFolder}/dist/**/*.js"
-			],
-			"preLaunchTask": "npm: watch"
-		}
-	]
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Extension & Server",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/dist/**/*.js"
+            ],
+            "preLaunchTask": "npm: watch",
+            "serverReadyAction": {
+                "pattern": ".*--inspect=6009.*",
+                "action": "startDebugging",
+                "config": {
+                    "name": "Attach to Server",
+                    "type": "node",
+                    "request": "attach",
+                    "port": 1563, // If you know you know (Good conversation)
+                    "restart": true,
+                    "outFiles": [
+                        "${workspaceFolder}/dist/**/*.js"
+                    ]
+                }
+            }
+        }
+    ]
 }

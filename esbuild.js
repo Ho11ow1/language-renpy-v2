@@ -1,57 +1,67 @@
 const esbuild = require("esbuild");
 
-const production = process.argv.includes('--production');
-const watch = process.argv.includes('--watch');
+const production = process.argv.includes("--production");
+const watch = process.argv.includes("--watch");
 
 /**
- * @type {import('esbuild').Plugin}
+ * @type {import("esbuild").Plugin}
  */
 const esbuildProblemMatcherPlugin = {
-	name: 'esbuild-problem-matcher',
+	name: "esbuild-problem-matcher",
 
-	setup(build) {
+	setup(build)
+	{
 		build.onStart(() => {
-			console.log('[watch] build started');
+			console.log(`[watch] build started (${build.initialOptions.outfile})`);
 		});
+
 		build.onEnd((result) => {
 			result.errors.forEach(({ text, location }) => {
 				console.error(`✘ [ERROR] ${text}`);
 				console.error(`    ${location.file}:${location.line}:${location.column}:`);
 			});
-			console.log('[watch] build finished');
+
+			console.log(`[watch] build finished (${build.initialOptions.outfile})`);
 		});
 	},
 };
 
-async function main() {
+async function buildTarget(entry, outfile)
+{
 	const ctx = await esbuild.context({
-		entryPoints: [
-			'src/extension.ts'
-		],
+		entryPoints: [ entry ],
 		bundle: true,
-		format: 'cjs',
+		format: "cjs",
 		minify: production,
-		sourcemap: !production,
+		sourcemap: false,
 		sourcesContent: false,
-		platform: 'node',
-		outfile: 'dist/extension.js',
-		external: ['vscode'],
-		logLevel: 'silent',
-		tsconfig: 'tsconfig.json',
-		plugins: [
-			/* add to the end of plugins array */
-			esbuildProblemMatcherPlugin,
-		],
+		platform: "node",
+		outfile: outfile,
+		external: ["vscode"],
+		logLevel: "silent",
+		tsconfig: "tsconfig.json",
+		plugins: [ esbuildProblemMatcherPlugin ],
 	});
-	if (watch) {
+
+	if (watch)
+	{
 		await ctx.watch();
-	} else {
+	} 
+	else
+	{
 		await ctx.rebuild();
 		await ctx.dispose();
 	}
 }
 
-main().catch(e => {
+async function main() {
+	await Promise.all([
+		buildTarget("client/extension.ts", "dist/extension.js"),
+		buildTarget("server/server.ts", "dist/server.js")
+	]);
+}
+
+main().catch((e) => {
 	console.error(e);
 	process.exit(1);
 });

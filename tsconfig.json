@@ -4,23 +4,18 @@
         "moduleResolution": "Node16",
         "target": "ES2022",
         "lib": ["ES2022"],
-        "types": ["node", "mocha"],
+        "types": ["node"],
+        "outDir": "out",
+        "rootDir": ".",
         "sourceMap": false,
-        "rootDir": "src",
         "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
         "noFallthroughCasesInSwitch": true,
         "resolveJsonModule": true,
-
         "paths": {
-            "@src/*": ["./src/*"],
-            "@common/*": ["./src/common/*"],
-            "@config/*": ["./src/config/*"],
-            "@data/*": ["./src/data/*"],
-            "@interfaces/*": ["./src/interfaces/*"],
-            "@models/*": ["./src/models/*"],
-            "@parser/*": ["./src/parser/*"],
-            "@services/*": ["./src/services/*"],
-            "@utils/*": ["./src/utils/*"]
-        }
+            "@client/*": ["./client/*"],
+            "@server/*": ["./server/*"]
+        },
     }
 }
