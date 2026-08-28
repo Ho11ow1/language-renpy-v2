@@ -102,7 +102,17 @@ function startLanguageServer(context: vscode.ExtensionContext): void
 
                     return next(document, position, context, token);
                 });
-            }
+            },
+            provideDocumentSymbols(document, token, next): vscode.ProviderResult<vscode.DocumentSymbol[] | vscode.SymbolInformation[]> | undefined {
+                return Middleware.withGlobalMiddleware("provideDocumentSymbols", (): vscode.ProviderResult<vscode.DocumentSymbol[] | vscode.SymbolInformation[]> | undefined => {
+                    if (Middleware.isLargeFile(document))
+                    {
+                        return undefined;
+                    }
+
+                    return next(document, token);
+                });
+            },
         }
     };
 

@@ -45,15 +45,6 @@ export default [
                 "always",
             ],
 
-            "quotes": [
-                "error",
-                "double",
-                {
-                    avoidEscape: true,
-                    allowTemplateLiterals: true,
-                },
-            ],
-
             "indent": [
                 "error",
                 4,

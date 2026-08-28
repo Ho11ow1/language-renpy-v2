@@ -22,4 +22,9 @@ export class Logger
     {
         this.connectionConsole?.debug(`${this._messagePrefix} | ${msg}`);
     }
+
+    public static logError(msg: string): void
+    {
+        this.connectionConsole?.error(`${this._messagePrefix} | ${msg}`);
+    }
 }

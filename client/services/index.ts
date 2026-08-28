@@ -1,1 +1,1 @@
-export { ProcessService } from "./processService"
+export { ProcessService } from "./processService";

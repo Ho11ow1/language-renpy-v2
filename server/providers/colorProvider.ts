@@ -102,7 +102,7 @@ export class ColorProvider
 
         const lineText = document.getText({
             start: { line: range.start.line, character: 0 },
-            end: { line: range.start.line, character: range.end.character + 1}
+            end: { line: range.start.line, character: range.end.character + 1 }
         });
 
         const beforeTarget = lineText.slice(0, range.start.character);
