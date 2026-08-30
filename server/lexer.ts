@@ -12,6 +12,9 @@ export class Lexer
         "screen": Models.TokenType.SCREEN,
         "default": Models.TokenType.DEFAULT,
         "define": Models.TokenType.DEFINE,
+        "return": Models.TokenType.RETURN,
+        "class": Models.TokenType.CLASS,
+        "def": Models.TokenType.FUNC
     };
 
     private tokens: Models.Token[] = [];
@@ -67,12 +70,56 @@ export class Lexer
 
         switch (c)
         {
+            case '!':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.NOT_EQUALS : Models.TokenType.EXCLAMATION);
+                break;
+            case '-':
+                this.addToken(this.advanceIfNextExpected('>') ? Models.TokenType.DEF_TYPE_HINT : Models.TokenType.MINUS);
+                break;
+            case '>':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.GREATER_EQUALS : Models.TokenType.GREATER);
+                break;
+            case '<':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.LESSER_EQUALS : Models.TokenType.LESSER);
+                break;
+            case '=':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.EQUALS : Models.TokenType.ASSIGN);
+                break;
+
+            case '.':
+                this.addToken(Models.TokenType.PERIOD);
+                break;
+            case ',':
+                this.addToken(Models.TokenType.COMMA);
+                break;
+            case ':':
+                this.addToken(Models.TokenType.COLON);
+                break;
+            case '(':
+                this.addToken(Models.TokenType.L_PAREN);
+                break;
+            case ')':
+                this.addToken(Models.TokenType.R_PAREN);
+                break;
+            case '{':
+                this.addToken(Models.TokenType.L_BRACE);
+                break;
+            case '}':
+                this.addToken(Models.TokenType.R_BRACE);
+                break;
+            case '[':
+                this.addToken(Models.TokenType.L_BRACKET);
+                break;
+            case ']':
+                this.addToken(Models.TokenType.R_BRACKET);
+                break;
             case '#':
                 while (this.peek() !== '\n' && !this.isEOF())
                 {
                     this.advance();
                 }
                 break;
+
             case '\n':
                 this.line++;
                 this.character = 0;
@@ -84,9 +131,6 @@ export class Lexer
             case '\t':
                 break;
 
-            case '!':
-                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.NOT_EQUALS : Models.TokenType.EXCLAMATION);
-                break;
 
             case '"':
             case '\'':
