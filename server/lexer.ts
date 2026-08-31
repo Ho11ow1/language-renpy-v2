@@ -7,14 +7,36 @@ export class Lexer
     //
     //  TODO: Expand the keyword match list converter
     //
-    private static readonly KEYWORDS: Record<string, Models.TokenType> = {
+    private static readonly _keywords: Record<string, Models.TokenType> = {
         "label": Models.TokenType.LABEL,
         "screen": Models.TokenType.SCREEN,
+        "menu": Models.TokenType.MENU,
+        "style": Models.TokenType.STYLE,
+        "image": Models.TokenType.IMAGE,
+        "transform": Models.TokenType.TRANSFORM,
         "default": Models.TokenType.DEFAULT,
         "define": Models.TokenType.DEFINE,
-        "return": Models.TokenType.RETURN,
+        "init": Models.TokenType.INIT,
+
         "class": Models.TokenType.CLASS,
-        "def": Models.TokenType.FUNC
+        "def": Models.TokenType.FUNC,
+        "return": Models.TokenType.RETURN,
+
+        "and": Models.TokenType.AND,
+        "or": Models.TokenType.OR,
+        "if": Models.TokenType.IF,
+        "else": Models.TokenType.ELSE,
+        "is": Models.TokenType.IS,
+        "not": Models.TokenType.NOT,
+        "in": Models.TokenType.IN,
+        "match": Models.TokenType.MATCH,
+        "for": Models.TokenType.FOR,
+        "while": Models.TokenType.WHILE,
+        "elif": Models.TokenType.ELIF,
+
+        "True": Models.TokenType.TRUE,
+        "False": Models.TokenType.FALSE,
+        "None": Models.TokenType.NONE
     };
 
     private tokens: Models.Token[] = [];
@@ -24,9 +46,11 @@ export class Lexer
     private line: number = 0;
     private character: number = 0;
     private startCharacter: number = 0;
+    private startLine: number = 0;
 
     private indentStack: number[] = [0];
     private atLineStart: boolean = true;
+    private hasContentSinceNewline: boolean = false;
 
     public constructor(source: string)
     {
@@ -45,12 +69,14 @@ export class Lexer
         {
             this.start = this.current;
             this.startCharacter = this.character;
+            this.startLine = this.line;
 
             if (this.atLineStart)
             {
                 this.handleIndentation();
                 this.start = this.current;
                 this.startCharacter = this.character;
+                this.startLine = this.line;
             }
 
             this.scanToken();
@@ -60,6 +86,8 @@ export class Lexer
             this.indentStack.pop();
             this.addToken(Models.TokenType.DEDENT);
         }
+
+        this.addToken(Models.TokenType.EOF);
 
         return this.tokens;
     }
@@ -73,17 +101,66 @@ export class Lexer
             case '!':
                 this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.NOT_EQUALS : Models.TokenType.EXCLAMATION);
                 break;
-            case '-':
-                this.addToken(this.advanceIfNextExpected('>') ? Models.TokenType.DEF_TYPE_HINT : Models.TokenType.MINUS);
-                break;
-            case '>':
-                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.GREATER_EQUALS : Models.TokenType.GREATER);
-                break;
-            case '<':
-                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.LESSER_EQUALS : Models.TokenType.LESSER);
-                break;
             case '=':
                 this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.EQUALS : Models.TokenType.ASSIGN);
+                break;
+            case '+':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.PLUS_ASSIGN : Models.TokenType.PLUS);
+                break;
+            case '*':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.MULTIPLY_ASSIGN : Models.TokenType.MULTIPLY);
+                break;
+            case '%':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.MOD_ASSIGN : Models.TokenType.MOD);
+                break;
+            case '^':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.BIT_XOR_ASSIGN : Models.TokenType.BIT_XOR);
+                break;
+            case '|':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.BIT_OR_ASSIGN : Models.TokenType.BIT_OR);
+                break;
+            case '&':
+                this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.BIT_AND_ASSIGN : Models.TokenType.BIT_AND);
+                break;
+            case '-':
+                if (this.advanceIfNextExpected('>'))
+                {
+                    this.addToken(Models.TokenType.DEF_TYPE_HINT);
+                }
+                else
+                {
+                    this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.MINUS_ASSIGN : Models.TokenType.MINUS);
+                }
+                break;
+            case '<':
+                if (this.advanceIfNextExpected('<'))
+                {
+                    this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.LEFT_BIT_SHIFT_ASSIGN : Models.TokenType.LEFT_BIT_SHIFT);
+                }
+                else
+                {
+                    this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.LESSER_EQUALS : Models.TokenType.LESSER);
+                }
+                break;
+            case '>':
+                if (this.advanceIfNextExpected('>'))
+                {
+                    this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.RIGHT_BIT_SHIFT_ASSIGN : Models.TokenType.RIGHT_BIT_SHIFT);
+                }
+                else
+                {
+                    this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.GREATER_EQUALS : Models.TokenType.GREATER);
+                }
+                break;
+            case '/':
+                if (this.advanceIfNextExpected('/'))
+                {
+                    this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.DIVIDE_FLOOR_ASSIGN : Models.TokenType.DIVIDE_FLOOR);
+                }
+                else
+                {
+                    this.addToken(this.advanceIfNextExpected('=') ? Models.TokenType.DIVIDE_ASSIGN : Models.TokenType.DIVIDE);
+                }
                 break;
 
             case '.':
@@ -113,6 +190,17 @@ export class Lexer
             case ']':
                 this.addToken(Models.TokenType.R_BRACKET);
                 break;
+            case '$':
+                this.addToken(Models.TokenType.DOLLAR_SIGN_LINE);
+                break;
+            //
+            //  Should help the parser in representing static, class, property, property.setter, etc...
+            //  Ultimately the lexer more or less just spews things out and is not meant to be smart
+            //  The parser should be handling all the look back for usages and declarations
+            //
+            case '@':
+                this.addToken(Models.TokenType.AT);
+                break;
             case '#':
                 while (this.peek() !== '\n' && !this.isEOF())
                 {
@@ -121,16 +209,20 @@ export class Lexer
                 break;
 
             case '\n':
+                if (this.hasContentSinceNewline)
+                {
+                    this.addToken(Models.TokenType.NEW_LINE);
+                }
                 this.line++;
                 this.character = 0;
                 this.atLineStart = true;
+                this.hasContentSinceNewline = false;
                 break;
 
             case '\r':
             case ' ':
             case '\t':
                 break;
-
 
             case '"':
             case '\'':
@@ -146,6 +238,10 @@ export class Lexer
                 else if (this.isAlpha(c))
                 {
                     this.scanIdentifierOrKeyword();
+                }
+                else
+                {
+                    this.addToken(Models.TokenType.UNKNOWN);
                 }
                 break;
         }
@@ -233,7 +329,7 @@ export class Lexer
         }
 
         const text = this.source.substring(this.start, this.current);
-        const type = Lexer.KEYWORDS[text] ?? Models.TokenType.IDENTIFIER;
+        const type = Lexer._keywords[text] ?? Models.TokenType.IDENTIFIER;
 
         this.addToken(type);
     }
@@ -357,9 +453,14 @@ export class Lexer
 
     private addToken(type: Models.TokenType): void
     {
-        const text = (type !== Models.TokenType.INDENT && type !== Models.TokenType.DEDENT) ? this.source.substring(this.start, this.current) : "";
+        if (type !== Models.TokenType.INDENT && type !== Models.TokenType.DEDENT && type !== Models.TokenType.NEW_LINE)
+        {
+            this.hasContentSinceNewline = true;
+        }
+
+        const text = (type !== Models.TokenType.INDENT && type !== Models.TokenType.DEDENT && type !== Models.TokenType.NEW_LINE && type !== Models.TokenType.EOF) ? this.source.substring(this.start, this.current) : "";
         const range = {
-            start: { line: this.line, character: this.startCharacter },
+            start: { line: this.startLine, character: this.startCharacter },
             end: { line: this.line, character: this.character }
         };
 
