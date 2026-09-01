@@ -1,15 +1,10 @@
 import * as vscode from "vscode";
-import * as Common from "@common/variables";
+import * as Common from "@common/index";
 
 export class EditorUtils
 {
-    public static async createSettingsJson(folder?: vscode.WorkspaceFolder): Promise<void>
+    public static async createSettingsJson(folder: vscode.WorkspaceFolder): Promise<void>
     {
-        if (!folder)
-        {
-            return;
-        }
-
         const vscodePath = vscode.Uri.joinPath(folder.uri, ".vscode");
         try
         {
@@ -26,18 +21,29 @@ export class EditorUtils
         }
         catch {} // Doesn't exist
 
-        const excluded = (settings["files.exclude"] as Record<string, boolean>) ?? {};
+        const excludedFromView = (settings["files.exclude"] as Record<string, boolean>) ?? {};
+        const excludedFromSearch = (settings["search.exclude"] as Record<string, boolean>) ?? {};
+        const missingFileExclude = Common.EXCLUDE_FROM_VIEW_SEARCH_TARGETS.filter((key): boolean => !Object.hasOwn(excludedFromView, key));
+        const missingSearchExclude = Common.EXCLUDE_FROM_VIEW_SEARCH_TARGETS.filter((key): boolean => !Object.hasOwn(excludedFromSearch, key));
 
-        const missing = Common.EXCLUDE_FROM_VIEW_TARGETS.filter((key): boolean => !Object.hasOwn(excluded, key));
-        if (missing.length == 0)
+        if (missingFileExclude.length == 0 && missingSearchExclude.length == 0)
         {
             return;
         }
-
-        settings["files.exclude"] = {
-            ...excluded,
-            ...Object.fromEntries(missing.map((key): [string, boolean] => [key, true]))
-        };
+        if (missingFileExclude.length > 0)
+        {
+            settings["files.exclude"] = {
+                ...excludedFromView,
+                ...Object.fromEntries(missingFileExclude.map((key): [string, boolean] => [key, true]))
+            };
+        }
+        if (missingSearchExclude.length > 0)
+        {
+            settings["search.exclude"] = {
+                ...excludedFromSearch,
+                ...Object.fromEntries(missingSearchExclude.map((key): [string, boolean] => [key, true]))
+            };
+        }
 
         await vscode.workspace.fs.writeFile(settingsPath, Buffer.from(JSON.stringify(settings, null, 4) + "\n"));
     }

@@ -1,17 +1,19 @@
 import * as vscode from "vscode";
 import * as Interfaces from "@client/interfaces/index";
+import * as Utils from "@client/utils/index";
+import * as Common from "@common/index";
 
-export class ContextMenuCommands
+export class ContextMenu
 {
     public static getDisposables(): vscode.Disposable[]
     {
         return [
-            vscode.commands.registerCommand("renpy.toUpper", ContextMenuCommands.toUpper.bind(ContextMenuCommands)),
-            vscode.commands.registerCommand("renpy.toLower", ContextMenuCommands.toLower.bind(ContextMenuCommands)),
-            vscode.commands.registerCommand("renpy.addItalic", ContextMenuCommands.addItalic.bind(ContextMenuCommands)),
-            vscode.commands.registerCommand("renpy.addBold", ContextMenuCommands.addBold.bind(ContextMenuCommands)),
-            vscode.commands.registerCommand("renpy.addColor", ContextMenuCommands.addColor.bind(ContextMenuCommands)),
-            vscode.commands.registerCommand("renpy.addCPS", ContextMenuCommands.addCPS.bind(ContextMenuCommands))
+            vscode.commands.registerCommand("renpy.toUpper", ContextMenu.toUpper.bind(ContextMenu)),
+            vscode.commands.registerCommand("renpy.toLower", ContextMenu.toLower.bind(ContextMenu)),
+            vscode.commands.registerCommand("renpy.addItalic", ContextMenu.addItalic.bind(ContextMenu)),
+            vscode.commands.registerCommand("renpy.addBold", ContextMenu.addBold.bind(ContextMenu)),
+            vscode.commands.registerCommand("renpy.addColor", ContextMenu.addColor.bind(ContextMenu)),
+            vscode.commands.registerCommand("renpy.addCPS", ContextMenu.addCPS.bind(ContextMenu))
         ];
     }
 
@@ -123,5 +125,33 @@ export class ContextMenuCommands
     private static replaceSelection(editor: vscode.TextEditor, selection: vscode.Selection, newText: string): Thenable<Boolean>
     {
         return editor.edit((editorBuilder): void => editorBuilder.replace(selection, newText));
+    }
+}
+
+export class Utility
+{
+    public static getDisposables(): vscode.Disposable[]
+    {
+        return [
+            vscode.commands.registerCommand("renpy.clearRpyc", Utility.clearRpyc.bind(Utility))
+        ];
+    }
+
+    private static async clearRpyc(): Promise<void>
+    {
+        Utils.Logger.logMessage(`Starting rpyc removal`);
+
+        const docs = await vscode.workspace.findFiles(Common.RENPY_COMPILED_FORMAT_GLOB, null);
+
+        await Promise.all(
+            docs.map(async (doc): Promise<void> => {
+                await vscode.workspace.fs.delete(doc, {
+                    recursive: false,
+                    useTrash: false
+                });
+            })
+        );
+
+        Utils.Logger.logMessage(`Removed: (${docs.length}) rpyc files`);
     }
 }

@@ -19,7 +19,7 @@
     "main": "./dist/extension.js",
     "activationEvents": [
         "workspaceContains:**/*.rpy",
-        "workspaceContains:**/*_ren.py"
+        "workspaceContains:**/*.rpym"
     ],
     "contributes": {
         "languages": [
@@ -115,8 +115,8 @@
                 "category": "Renpy-v2"
             },
             {
-                "command": "renpy.crawlDocs",
-                "title": "Crawl sdk path docs",
+                "command": "renpy.clearRpyc",
+                "title": "Completely removes rpyc files project wide",
                 "category": "Renpy-v2"
             }
         ],

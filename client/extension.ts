@@ -3,9 +3,9 @@ import * as vscode from "vscode";
 import * as lspc from "vscode-languageclient/node";
 import * as Utils from "@client/utils/index";
 import * as Middleware from "@client/middleware/index";
-import * as Common from "@common/variables";
+import * as Common from "@common/index";
+import * as Commands from "./commands";
 import { DebugAdapterFactory } from "./debugger";
-import { ContextMenuCommands } from "./commands";
 
 let languageClient: lspc.LanguageClient | undefined = undefined;
 
@@ -43,7 +43,8 @@ function pushDisposables(context: vscode.ExtensionContext): void
     context.subscriptions.push(new DebugAdapterFactory().getDisposable());
     context.subscriptions.push(DebugAdapterFactory.getDebugCommandDisposable());
 
-    context.subscriptions.push(...ContextMenuCommands.getDisposables());
+    context.subscriptions.push(...Commands.ContextMenu.getDisposables());
+    context.subscriptions.push(...Commands.Utility.getDisposables());
 }
 
 function startLanguageServer(context: vscode.ExtensionContext): void
@@ -70,11 +71,11 @@ function startLanguageServer(context: vscode.ExtensionContext): void
     const clientOptions: lspc.LanguageClientOptions = {
         documentSelector: [
             {
-                scheme: "file",  language: "renpy"
+                scheme: "file",  language: "renpy", pattern: Common.RENPY_FORMAT_GLOB
             }
         ],
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher(Common.RENPY_FORMAT_GLOB)
+            fileEvents: vscode.workspace.createFileSystemWatcher(Common.RENPY_FORMAT_GLOB),
         },
         markdown: {
             isTrusted: true

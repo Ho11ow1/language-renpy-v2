@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as Utils from "@client/utils/logger";
-import * as Common from "@common/variables";
+import * as Common from "@common/index";
 
 export function withGlobalMiddleware<T>(endpointName: string, action: () => T): T
 {
