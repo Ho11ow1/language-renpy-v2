@@ -62,7 +62,7 @@ export class DebugAdapter implements vscode.DebugAdapter
     private readonly _messageEmitter = new vscode.EventEmitter<vscode.DebugProtocolMessage>();
     private readonly _exitSub: vscode.Disposable;
 
-    public readonly _onDidSendMessage: vscode.Event<vscode.DebugProtocolMessage> = this._messageEmitter.event;
+    public readonly onDidSendMessage: vscode.Event<vscode.DebugProtocolMessage> = this._messageEmitter.event;
 
     private seq = 1;
     private terminatedSent = false;
