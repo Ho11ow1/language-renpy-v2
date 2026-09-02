@@ -5,7 +5,7 @@
 			"for ${1:i} in ${2:range(0, 5)}:",
 			"\tprint(i)$0"
 		],
-		"description": "Inserts a simple for loop snippet"
+		"description": "Inserts a simple for loop snippet\n"
 	},
 	"label": {
 		"prefix": "label",
@@ -13,7 +13,7 @@
 			"label ${1:labelName}:",
 			"\t$0"
 		],
-		"description": "Inserts a simple label snippet"
+		"description": "Inserts a simple label snippet\n"
 	},
 	"screen": {
 		"prefix": "screen",
@@ -21,7 +21,7 @@
 			"screen ${1:screenName}:",
 			"\t$0"
 		],
-		"description": "Inserts a simple screen snippet"
+		"description": "Inserts a simple screen snippet\n"
 	},
 	"menu": {
 		"prefix": "menu",
@@ -29,7 +29,7 @@
 			"menu ${1/(.+)/ $1/}:",
 			"\t$0"
 		],
-		"description": "Inserts an optionally named menu snippet"
+		"description": "Inserts an optionally named menu snippet\n"
 	},
 	"transform": {
 		"prefix": "transform",
@@ -37,27 +37,50 @@
 			"transform ${1:transformName}:",
 			"\t$0"
 		],
-		"description": "Inserts a simple transform snippet"
+		"description": "Inserts a simple transform snippet\n"
 	},
 	"default": {
 		"prefix": "default",
 		"body": [
             "default ${1:varName} = ${2:\"value\"}$0"
         ],
-		"description": "Inserts an example default statement"
+		"description": "Inserts an example default statement\n"
 	},
 	"define": {
 		"prefix": "define",
 		"body": [
             "define ${1:varName} = ${2:\"value\"}$0"
         ],
-		"description": "Inserts an example define statement"
+		"description": "Inserts an example define statement\n"
 	},
 	"image": {
 		"prefix": "image",
 		"body": [
             "image ${1:varName} = ${2:\"myImagePath\"}$0"
         ],
-		"description": "Inserts an example image statement"
+		"description": "Inserts an example image statement\n"
+	},
+	"@staticmethod": {
+		"prefix": "@staticmethod",
+		"body": [
+			"@staticmethod",
+			"def ${1:methodName}():"
+		],
+		"description": "Inserts a class static method example\n"
+	},
+	"@classmethod": {
+		"prefix": "@classmethod",
+		"body": [
+			"@classmethod",
+			"def ${1:methodName}(cls):"
+		],
+		"description": "Inserts a class class method example\n"
+	},
+	"@NOQA": {
+		"prefix": "@NOQA",
+		"body": [
+			"# @NOQA"
+		],
+		"description": "Inserts a No Quality Assurance notice for the extension\n"
 	}
 }
