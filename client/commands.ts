@@ -141,17 +141,28 @@ export class Utility
     {
         Utils.Logger.logMessage(`Starting rpyc removal`);
 
-        const docs = await vscode.workspace.findFiles(Common.RENPY_COMPILED_FORMAT_GLOB, null);
+        const result = await vscode.window.showQuickPick(["NO", "YES"], {
+            canPickMany: false
+        });
 
-        await Promise.all(
-            docs.map(async (doc): Promise<void> => {
-                await vscode.workspace.fs.delete(doc, {
-                    recursive: false,
-                    useTrash: false
-                });
-            })
-        );
-
-        Utils.Logger.logMessage(`Removed: (${docs.length}) rpyc files`);
+        if (result === "YES")
+        {
+            const docs = await vscode.workspace.findFiles(Common.RENPY_COMPILED_FORMAT_GLOB, null);
+    
+            await Promise.all(
+                docs.map(async (doc): Promise<void> => {
+                    await vscode.workspace.fs.delete(doc, {
+                        recursive: false,
+                        useTrash: false
+                    });
+                })
+            );
+    
+            Utils.Logger.logMessage(`Removed: (${docs.length}) rpyc files`);
+        }
+        else
+        {
+            Utils.Logger.logMessage(`Abandoned remove rpyc removal`);
+        }
     }
 }
