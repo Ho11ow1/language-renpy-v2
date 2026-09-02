@@ -75,6 +75,11 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Dictates whether or not a simple debugger is enabled | Allows you to launch, restart & close your game from vscode"
+                },
+                "renpy.createContextSubMenu": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates whether or not the extension will provide a context menu sub menu for a few useful text based commands"
                 }
             }
         },
@@ -138,7 +143,7 @@
                 {
                     "submenu": "renpy.submenu",
                     "group": "navigation@1",
-                    "when": "resourceLangId == renpy || resourceExtname == .rpy"
+                    "when": "resourceLangId == renpy && config.renpy.createContextSubMenu"
                 }
             ],
             "renpy.submenu": [
