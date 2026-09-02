@@ -153,7 +153,7 @@ export class Utility
                 docs.map(async (doc): Promise<void> => {
                     await vscode.workspace.fs.delete(doc, {
                         recursive: false,
-                        useTrash: false
+                        useTrash: true
                     });
                 })
             );
