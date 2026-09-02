@@ -3,7 +3,7 @@ export enum TokenType
     //
     //  RENPY
     //
-    LABEL = "label", SCREEN = "screen", MENU = "menu", STYLE = "style", IMAGE = "image", TRANSFORM = "transform", DEFAULT = "default", DEFINE = "define", INIT = "init", DOLLAR_SIGN_LINE = "$",
+    LABEL = "label", SCREEN = "screen", MENU = "menu", STYLE = "style", IMAGE = "image", TRANSFORM = "transform", DEFAULT = "default", DEFINE = "define", INIT = "init", DOLLAR_SIGN_LINE = "$", PYTHON = "python",
     //
     //  MATH
     //
@@ -26,6 +26,6 @@ export enum TokenType
     //
     //  OTHER
     //
-    NUMBER = "number",  STRING = "string", IDENTIFIER = "word", COLON = ":",
+    NUMBER = "number", STRING = "string", IDENTIFIER = "word", COLON = ":",
     INDENT = "indent", DEDENT = "dedent", NEW_LINE = "\\n", EOF = "EOF", UNKNOWN = "UNKNOWN",
 }

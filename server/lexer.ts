@@ -4,9 +4,6 @@ import * as Utils from "@server/utils/index";
 
 export class Lexer
 {
-    //
-    //  TODO: Expand the keyword match list converter
-    //
     private static readonly _keywords: Record<string, Models.TokenType> = {
         "label": Models.TokenType.LABEL,
         "screen": Models.TokenType.SCREEN,
@@ -17,6 +14,7 @@ export class Lexer
         "default": Models.TokenType.DEFAULT,
         "define": Models.TokenType.DEFINE,
         "init": Models.TokenType.INIT,
+        "python": Models.TokenType.PYTHON,
 
         "class": Models.TokenType.CLASS,
         "def": Models.TokenType.FUNC,
@@ -52,7 +50,7 @@ export class Lexer
     private atLineStart: boolean = true;
     private hasContentSinceNewline: boolean = false;
 
-    public constructor(source: string)
+    private constructor(source: string)
     {
         this.source = source;
     }
@@ -60,6 +58,7 @@ export class Lexer
     public static tokenizeDocument(document: TextDocument): Models.Token[]
     {
         const lexer = new Lexer(document.getText());
+
         return lexer.scanTokens();
     }
 

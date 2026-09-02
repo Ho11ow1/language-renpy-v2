@@ -1,9 +1,8 @@
 import * as lsps from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-
 import * as Providers from "@server/providers/index";
 import * as Utils from "@server/utils/index";
-import * as Common from "@common/variables";
+import * as Common from "@common/index";
 import { Lexer } from "./lexer";
 
 const connection: lsps.Connection = lsps.createConnection(lsps.ProposedFeatures.all);
