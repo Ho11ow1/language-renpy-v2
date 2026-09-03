@@ -4,6 +4,7 @@ import * as Providers from "@server/providers/index";
 import * as Utils from "@server/utils/index";
 import * as Common from "@common/index";
 import { Lexer } from "./lexer";
+import { Parser } from "./parser";
 
 const connection: lsps.Connection = lsps.createConnection(lsps.ProposedFeatures.all);
 const documents: lsps.TextDocuments<TextDocument> = new lsps.TextDocuments(TextDocument);
@@ -61,20 +62,6 @@ function HandleSubscriptions(): void
         }
 
         connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
-    });
-
-    //
-    //  Will currently tank performance but yeah
-    //
-    documents.onDidOpen((open): void => {
-        const textDocument = open.document;
-
-        const tokens = Lexer.tokenizeDocument(textDocument);
-
-        for (const token of tokens)
-        {
-            Utils.Logger.logDebug(`${textDocument.uri} | ${token.toString()}`);
-        }
     });
 }
 
