@@ -121,12 +121,12 @@
             },
             {
                 "command": "renpy.clearRpyc",
-                "title": "Completely removes rpyc files project wide",
+                "title": "Remove project rpyc files",
                 "category": "Renpy-v2"
             },
             {
                 "command": "renpy.deletePersistent",
-                "title": "Deletes the (fileSystems) and (saves directory) persistent file",
+                "title": "Remove system & local persistent",
                 "category": "Renpy-v2"
             }
         ],
