@@ -47,9 +47,10 @@ export class DocumentUtils
         return true;
     }
 
-    public static isValidFilename(filePath: string): boolean
+    public static isValidFilename(fsPathOrUri: string): boolean
     {
-        const base = path.basename(fileURLToPath(filePath));
+        const filePath = fsPathOrUri.startsWith("file://") ? fileURLToPath(fsPathOrUri) : fsPathOrUri;
+        const base = path.basename(filePath);
 
         return !base.startsWith("00") && this._validFileNameRegex.test(base);
     }

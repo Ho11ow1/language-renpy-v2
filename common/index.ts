@@ -1,1 +1,2 @@
 export { MAX_LINE_COUNT, NO_QUALITY_ASSURANCE, EXCLUDE_FROM_VIEW_SEARCH_TARGETS, RENPY_FORMAT_GLOB, RENPY_COMPILED_FORMAT_GLOB } from "./variables";
+export { INotification } from "./INotification";

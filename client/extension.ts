@@ -5,11 +5,12 @@ import * as Utils from "@client/utils/index";
 import * as Middleware from "@client/middleware/index";
 import * as Common from "@common/index";
 import * as Commands from "./commands";
+import * as Config from "@client/config/workspaceConfig";
 import { DebugAdapterFactory } from "./debugger";
 
 let languageClient: lspc.LanguageClient | undefined = undefined;
 
-export function activate(context: vscode.ExtensionContext): void
+export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
     pushDisposables(context);
     Utils.Logger.clear();
@@ -21,7 +22,7 @@ export function activate(context: vscode.ExtensionContext): void
         Utils.EditorUtils.createSettingsJson(cwd[0]);
     }
 
-    startLanguageServer(context);
+    await startLanguageServer(context);
     Utils.Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
 }
 
@@ -47,7 +48,7 @@ function pushDisposables(context: vscode.ExtensionContext): void
     context.subscriptions.push(...Commands.Utility.getDisposables());
 }
 
-function startLanguageServer(context: vscode.ExtensionContext): void
+async function startLanguageServer(context: vscode.ExtensionContext): Promise<void>
 {
     const serverModule = context.asAbsolutePath(path.join("dist", "server.js"));
 
@@ -117,6 +118,7 @@ function startLanguageServer(context: vscode.ExtensionContext): void
         }
     };
 
+
     languageClient = new lspc.LanguageClient(
         "renpyLanguageServer",
         "Ren'Py Language Server",
@@ -124,5 +126,7 @@ function startLanguageServer(context: vscode.ExtensionContext): void
         clientOptions
     );
 
-    languageClient.start();
+    languageClient.onNotification("renpyv2/config/dir", (params: Common.INotification) => Config.WorkspaceConfig.setFsSaveDirectory(params.message));
+
+    await languageClient.start();
 }

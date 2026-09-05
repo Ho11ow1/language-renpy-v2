@@ -2,6 +2,10 @@ import * as vscode from "vscode";
 import * as Interfaces from "@client/interfaces/index";
 import * as Utils from "@client/utils/index";
 import * as Common from "@common/index";
+import * as Config from "@client/config/index";
+import * as path from "path";
+import * as fs from "fs";
+import * as os from "os";
 
 export class ContextMenu
 {
@@ -133,7 +137,8 @@ export class Utility
     public static getDisposables(): vscode.Disposable[]
     {
         return [
-            vscode.commands.registerCommand("renpy.clearRpyc", Utility.clearRpyc.bind(Utility))
+            vscode.commands.registerCommand("renpy.clearRpyc", Utility.clearRpyc.bind(Utility)),
+            vscode.commands.registerCommand("renpy.deletePersistent", Utility.deletePersistent.bind(Utility)),
         ];
     }
 
@@ -141,28 +146,84 @@ export class Utility
     {
         Utils.Logger.logMessage(`Starting rpyc removal`);
 
-        const result = await vscode.window.showQuickPick(["NO", "YES"], {
-            canPickMany: false
-        });
-
-        if (result === "YES")
-        {
-            const docs = await vscode.workspace.findFiles(Common.RENPY_COMPILED_FORMAT_GLOB, null);
-    
-            await Promise.all(
-                docs.map(async (doc): Promise<void> => {
-                    await vscode.workspace.fs.delete(doc, {
-                        recursive: false,
-                        useTrash: true
-                    });
-                })
-            );
-    
-            Utils.Logger.logMessage(`Removed: (${docs.length}) rpyc files`);
-        }
-        else
+        if (!(await this.confirm(["NO", "YES"])))
         {
             Utils.Logger.logMessage(`Abandoned remove rpyc removal`);
+
+            return;
         }
+
+        const docs = await vscode.workspace.findFiles(Common.RENPY_COMPILED_FORMAT_GLOB, null);
+        await Promise.all(
+            docs.map(async (doc): Promise<void> => {
+                await vscode.workspace.fs.delete(doc, {
+                    recursive: false,
+                    useTrash: true
+                });
+            })
+        );
+
+        Utils.Logger.logMessage(`Removed: (${docs.length}) rpyc files`);
+    }
+
+    private static async deletePersistent(): Promise<void>
+    {
+        const cwd = vscode.workspace.workspaceFolders?.[0];
+        if (!cwd)
+        {
+            return;
+        }
+
+        Utils.Logger.logMessage(`starting persistent removal`);
+        
+        if (!(await this.confirm(["NO", "YES"])))
+        {
+            Utils.Logger.logMessage(`Abandoned persistent removal`);
+
+            return;
+        }
+
+        const entries: string[] = [];
+
+        entries.push(path.join(cwd.uri.fsPath, "game", "saves", "persistent"))
+        if (Config.WorkspaceConfig.fsSaveDirectory !== "")
+        {
+            const platfrom = process.platform;
+            let base: string = "";
+
+            base = platfrom === "win32" ? path.join(os.homedir(), "AppData", "Roaming", "RenPy") :
+                platfrom === "darwin" ? path.join(os.homedir(), "Library", "RenPy") :
+                path.join(os.homedir(), ".renpy");
+
+            const candidate = path.join(base, Config.WorkspaceConfig.fsSaveDirectory, "persistent");
+            //
+            //  Kind of a weird way i guess but we don't allow for config.save_directory which start with a weird path like [ "." | "../" | "../jr" ] so that's fine
+            //  I doubt anyone will ever even touch their save_directory config but just in case i guess since i am kind of resposible for the os and their files here
+            //
+            if (path.resolve(candidate).startsWith(path.resolve(base) + path.sep))
+            {
+                entries.push(candidate);
+            }
+            else
+            {
+                Utils.Logger.logDebug(`refused bad save directory: ${Config.WorkspaceConfig.fsSaveDirectory}`);
+            }
+        }
+
+        await Promise.all(
+            entries.map(async (entry): Promise<void> => {
+                await fs.promises.rm(entry, {
+                    recursive: false,
+                    force: true
+                });
+            })
+        );
+
+        Utils.Logger.logMessage(`Removed:\n${entries.map((entry, idx): string => `${idx}: ${entry}`).join('\n')}`);
+    }
+
+    private static async confirm(options: string[], multipleChoice: boolean = false)
+    {
+        return ((await vscode.window.showQuickPick(options, { canPickMany: multipleChoice })) === options[1]);
     }
 }

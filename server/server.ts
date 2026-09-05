@@ -3,8 +3,10 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import * as Providers from "@server/providers/index";
 import * as Utils from "@server/utils/index";
 import * as Common from "@common/index";
+import * as fs from "fs";
 import { Lexer } from "./lexer";
 import { Parser } from "./parser";
+import { pathToFileURL } from "url";
 
 const connection: lsps.Connection = lsps.createConnection(lsps.ProposedFeatures.all);
 const documents: lsps.TextDocuments<TextDocument> = new lsps.TextDocuments(TextDocument);
@@ -131,19 +133,30 @@ function HandleSubscriptions(): void
     });
 
     connection.onInitialized(async (params) => {
-        const docs = await Utils.DocumentUtils.getWorkspaceRenpyFilePaths(true);
+        const docs = await Utils.DocumentUtils.getWorkspaceRenpyFilePaths();
 
         for (const doc of docs)
         {
-            Utils.Logger.logMessage(doc);
+            const docUri = pathToFileURL(doc).toString();
+
             if (!Utils.DocumentUtils.isValidFilename(doc))
             {
-                connection.sendDiagnostics({ uri: doc, diagnostics: [{
+                connection.sendDiagnostics({ uri: docUri, diagnostics: [{
                     severity: lsps.DiagnosticSeverity.Information,
                     range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
                     message: "Filenames should start with a number or letter but not 00",
                     source: "Ren'Py v2"
                 }] });
+            }
+
+            const text = await fs.promises.readFile(doc, { encoding: "utf-8" })
+            let match: RegExpMatchArray | null = null;
+            if ((match = text.match(/^\s*define\s+config\.save_directory\s*=\s*(["'])(.*?)\1/m)) && match)
+            {
+                const notification: Common.INotification = { message: match[2] };
+                Utils.Logger.logMessage(`sending: ${notification.message}`);
+
+                connection.sendNotification("renpyv2/config/dir", notification);
             }
         }
     });

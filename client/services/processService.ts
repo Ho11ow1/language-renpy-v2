@@ -33,7 +33,7 @@ export class ProcessService
         }
         catch (ex)
         {
-            Utils.Logger.logDebug(`Failed to spawn process | ${ex}`);
+            Utils.Logger.logMessage(`Failed to spawn process | ${ex}`);
 
             this.process = undefined;
         }
@@ -66,7 +66,7 @@ export class ProcessService
     private async OnStart(): Promise<void>
     {
         return new Promise((resolve): void => {
-            Utils.Logger.logDebug("Connection Opened");
+            Utils.Logger.logMessage("Connection Opened");
 
             resolve();
         });
@@ -75,7 +75,7 @@ export class ProcessService
     private async OnClose(code: number | null, signal: NodeJS.Signals | null): Promise<void>
     {
         return new Promise((resolve): void => {
-            Utils.Logger.logDebug(code !== null ? `Connection closed with code: ${code}` : `Connection closed via signal: ${signal ?? "unknown"}`);
+            Utils.Logger.logMessage(code !== null ? `Connection closed with code: ${code}` : `Connection closed via signal: ${signal ?? "unknown"}`);
 
             this.process = undefined;
             this.exitEmitter.fire();
@@ -86,7 +86,7 @@ export class ProcessService
     private async OnError(err: Error): Promise<void>
     {
         return new Promise((resolve): void => {
-            Utils.Logger.logDebug(`Connection ran into an error: ${err.message}`);
+            Utils.Logger.logMessage(`Connection ran into an error: ${err.message}`);
 
             this.process = undefined;
             this.exitEmitter.fire();
