@@ -2,13 +2,14 @@ auto-complete improvements:
     1. self. / cls. () => Look at indent first to not do a pointless parse, get doc range of 0 to current, go line by line up, find namespace + class, return Src.Store.GetCompletionForPath()
     2. Generally return undefined because the current approach is far too agressive however first lookup for any local vars.
 
-diagnostics improvements:
-    1. Improve diagnostics further via also using the ContextParser too lookup so we know if this is the correct indent, if a var is out of scope, etc... (This may actually be good for namespaces where you need to access renpy.store.() and not just direct naming but most people don't need it)
-
-build:
-    1. Modify build pipeline so we don't have unwanted files being kept:
-        - TODO.txt
-        - scripts/
-
 readme:
     1. Update it at some point
+
+all-references:
+    1. Implement view-all-references suggested by Junior
+
+rename-references:
+    1. Implement rename-all-references suggested by Junior
+
+references:
+    1. Requires a restructure of NamespaceNode, Declaration, LocationInfo

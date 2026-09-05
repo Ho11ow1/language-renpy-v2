@@ -9,6 +9,7 @@ export function hasUnclosedDelimiters(text: string): boolean
     let brackets = 0;
     let braces = 0;
     let inString = null;
+    let escapeNext = false;
 
     for (let i = 0; i < text.length; i++)
     {
@@ -16,15 +17,29 @@ export function hasUnclosedDelimiters(text: string): boolean
 
         if (inString)
         {
-            if (char === inString && text[i - 1] !== "\\")
+            if (escapeNext)
+            {
+                escapeNext = false;
+
+                continue;
+            }
+            if (char === "\\")
+            {
+                escapeNext = true;
+
+                continue;
+            }
+            if (char === inString)
             {
                 inString = null;
             }
+
             continue;
         }
-        if (char === '"' || char === "'")
+        if (char === "\"" || char === "'")
         {
             inString = char;
+
             continue;
         }
 

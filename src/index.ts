@@ -8,3 +8,5 @@ export { ContextMenuCommands } from "./contextmenu";
 export { ColorProvider } from "./color";
 export { DebugAdapter, DebugAdapterFactory } from "./debug";
 export { DocumentSymbolProvider } from "./outline";
+export { ReferenceProvider } from "./reference";
+export { RenameProvider } from "./rename";

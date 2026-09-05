@@ -28,7 +28,7 @@ export class WorkspaceParser
     private static readonly _persistentRegex: RegExp = /^\s*(?:default|define)\s+persistent\.([a-zA-Z_]\w*)\s*=\s*([\s\S]+)$/;
 
     // Explicit variable statements
-    private static readonly _renpyVarRegex: RegExp = /^\s*(?:default|define)\s+([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*=\s*([\s\S]+)$/;
+    private static readonly _renpyVarRegex: RegExp = /^\s*(?:default|define)(?:\s+-?\d+)?\s+([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*=\s*([\s\S]+)$/;
     private static readonly _plainVarRegex: RegExp = /^\s*([a-zA-Z_]\w*)\s*=\s*([\s\S]+)$/;
 
     // Built-in overrides
@@ -339,7 +339,7 @@ export class WorkspaceParser
                     parserScopeState.currentFunction = functionName;
                     parserScopeState.functionIndent = lineIndent;
 
-                    if (functionName.startsWith("__") && functionName.endsWith("__") || functionName.startsWith("_"))
+                    if (functionName.startsWith("__") && functionName.endsWith("__"))
                     {
                         continue;
                     }
@@ -377,11 +377,6 @@ export class WorkspaceParser
                     if (selfMatch)
                     {
                         const fieldName = selfMatch[1];
-                        if (fieldName.startsWith("_"))
-                        {
-                            continue;
-                        }
-
                         const rightHandExpr = selfMatch[2].trim();
                         const inferredType = Utils.inferTypeFromExpression(rightHandExpr);
                         const scopePath = Utils.ParserUtils.getScopePath(parserScopeState.currentNamespace, parserScopeState.currentClass, fieldName);

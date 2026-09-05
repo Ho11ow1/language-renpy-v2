@@ -3,6 +3,8 @@
 out/**
 node_modules/**
 src/**
+scripts/**
+TODO.txt
 .gitignore
 .yarnrc
 esbuild.js

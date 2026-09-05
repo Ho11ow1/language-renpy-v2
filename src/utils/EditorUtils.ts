@@ -7,7 +7,7 @@ import * as Utils from "@utils/index";
 
 export class EditorUtils
 {
-    public static async createSettingsJson(folder?: vscode.WorkspaceFolder): Promise<void>
+    public static async createSettingsJson(folder: vscode.WorkspaceFolder): Promise<void>
     {
         if (!folder)
         {

@@ -20,7 +20,7 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
     private readonly _styleRegex: RegExp = /(?:^|\s)style\s+([a-zA-Z0-9_]*)$/;
     private readonly _styleRegex2: RegExp = /\b\s+style./;
 
-    private readonly _prefixSliceArray: Array<string> = new Array<string>("renpy.config.", "renpy.gui", "renpy.achievement.", "renpy.build.");
+    private readonly _prefixSliceArray: Array<string> = new Array<string>("renpy.config", "renpy.gui", "renpy.achievement", "renpy.build");
     private readonly _noqaComment: vscode.CompletionItem = new vscode.CompletionItem("@NOQA", vscode.CompletionItemKind.Constant);
 
     // private readonly _baseStyleProperties = new Set<string>([
@@ -165,12 +165,13 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
             return undefined;
         }
 
-        const lineText = document.lineAt(position).text.substring(0, position.character);
+        const line = document.lineAt(position);
+        const lineText = line.text.substring(0, position.character);
 
         //
-        //  Special case for adding # @NOQA
+        //  Special case for adding # @NOQA only one line 1
         //
-        if (lineText.trim().startsWith("#"))
+        if (line.lineNumber == 0 && lineText.trim().length < 3 && lineText.trim().startsWith("#"))
         {
             Utils.Logger.logDebug("Autocomplete lookup for comment");
 
@@ -269,12 +270,12 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
         //
         // Potentially the best or worst solution? Going to leave it here now for testing as it does what it want it to, should find a better solution though for performance resaons
 
-        return Src.Store.getImmediateCompletions;
+        return undefined
     }
 
     public getDisposable(): vscode.Disposable
     {
-        return vscode.languages.registerCompletionItemProvider("renpy", this, ".", " ", "(");
+        return vscode.languages.registerCompletionItemProvider("renpy", this, ".", " ");
     }
 
     // Kind of a clunky way to do this but due to renpys complexity of:
@@ -285,9 +286,9 @@ export class CompletionItemProvider implements vscode.CompletionItemProvider
     // There's probably more but these are really the most important because of the intellisense lookup
     private normalizeCompletionPath(targetPath: string): string
     {
-        if (targetPath.startsWith("renpy.Src.Store."))
+        if (targetPath.startsWith("renpy.store."))
         {
-            return targetPath.substring("renpy.Src.Store.".length);
+            return targetPath.substring("renpy.Store.".length);
         }
         if (this._prefixSliceArray.some((str): boolean => targetPath.startsWith(str)))
         {
