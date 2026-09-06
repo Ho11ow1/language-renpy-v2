@@ -7,6 +7,13 @@ export class MenuNode extends Models.Node
 
     public addOption(option: { label: string, range: lsps.Range } | { label: string, range: lsps.Range }[]): void
     {
-        Array.isArray(option) ? this.Options.push(...option) : this.Options.push(option);
+        if (Array.isArray(option))
+        {
+            this.Options.push(...option);
+        }
+        else
+        {
+            this.Options.push(option);
+        }
     }
 }

@@ -297,7 +297,14 @@ export class Lexer
             }
         }
 
-        this.addToken(Models.TokenType.STRING);
+        if (isTripleQuote)
+        {
+            this.addToken(Models.TokenType.DOC_STRING);
+        }
+        else
+        {
+            this.addToken(Models.TokenType.STRING);
+        }
     }
 
     private scanNumber(): void

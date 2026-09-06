@@ -20,6 +20,13 @@ export class Node implements Interfaces.INode
 
     public addReference(ref: Interfaces.ILocationRef | Interfaces.ILocationRef[]): void
     {
-        Array.isArray(ref) ? this.References.push(...ref) : this.References.push(ref);
+        if (Array.isArray(ref))
+        {
+            this.References.push(...ref);
+        }
+        else
+        {
+            this.References.push(ref);
+        }
     }
 }

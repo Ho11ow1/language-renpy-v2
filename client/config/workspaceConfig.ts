@@ -29,7 +29,7 @@ export class WorkspaceConfig
         return this.config.get<boolean>("debuggerEnabled", true);
     }
 
-    public static setFsSaveDirectory(dir: string)
+    public static setFsSaveDirectory(dir: string): void
     {
         this.configSaveDirectory = dir;
     }

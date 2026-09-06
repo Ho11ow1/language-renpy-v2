@@ -175,7 +175,7 @@ export class Utility
         }
 
         Utils.Logger.logMessage(`starting persistent removal`);
-        
+
         if (!(await this.confirm(["NO", "YES"])))
         {
             Utils.Logger.logMessage(`Abandoned persistent removal`);
@@ -185,15 +185,13 @@ export class Utility
 
         const entries: string[] = [];
 
-        entries.push(path.join(cwd.uri.fsPath, "game", "saves", "persistent"))
+        entries.push(path.join(cwd.uri.fsPath, "game", "saves", "persistent"));
         if (Config.WorkspaceConfig.fsSaveDirectory !== "")
         {
             const platfrom = process.platform;
             let base: string = "";
 
-            base = platfrom === "win32" ? path.join(os.homedir(), "AppData", "Roaming", "RenPy") :
-                platfrom === "darwin" ? path.join(os.homedir(), "Library", "RenPy") :
-                path.join(os.homedir(), ".renpy");
+            base = platfrom === "win32" ? path.join(os.homedir(), "AppData", "Roaming", "RenPy") : platfrom === "darwin" ? path.join(os.homedir(), "Library", "RenPy") : path.join(os.homedir(), ".renpy");
 
             const candidate = path.join(base, Config.WorkspaceConfig.fsSaveDirectory, "persistent");
             //
@@ -222,7 +220,7 @@ export class Utility
         Utils.Logger.logMessage(`Removed:\n${entries.map((entry, idx): string => `${idx}: ${entry}`).join('\n')}`);
     }
 
-    private static async confirm(options: string[], multipleChoice: boolean = false)
+    private static async confirm(options: string[], multipleChoice: boolean = false): Promise<boolean>
     {
         return ((await vscode.window.showQuickPick(options, { canPickMany: multipleChoice })) === options[1]);
     }

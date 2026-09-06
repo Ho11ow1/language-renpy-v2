@@ -126,7 +126,7 @@ async function startLanguageServer(context: vscode.ExtensionContext): Promise<vo
         clientOptions
     );
 
-    languageClient.onNotification("renpyv2/config/dir", (params: Common.INotification) => Config.WorkspaceConfig.setFsSaveDirectory(params.message));
+    languageClient.onNotification("renpyv2/config/dir", (params: Common.INotification): void => Config.WorkspaceConfig.setFsSaveDirectory(params.message));
 
     await languageClient.start();
 }

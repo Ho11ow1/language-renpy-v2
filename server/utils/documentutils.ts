@@ -9,7 +9,7 @@ export class DocumentUtils
     private static cwd: string | undefined = undefined;
     private static readonly _validFileNameRegex: RegExp = /^[a-zA-Z0-9][a-zA-Z0-9_.]*(?:\.rpy|\.rpym)$/;
 
-    public static init(dir: string | undefined)
+    public static init(dir: string | undefined): void
     {
         if (dir)
         {

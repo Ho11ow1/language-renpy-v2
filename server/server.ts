@@ -132,7 +132,7 @@ function HandleSubscriptions(): void
         }
     });
 
-    connection.onInitialized(async (params) => {
+    connection.onInitialized(async (params): Promise<void> => {
         const docs = await Utils.DocumentUtils.getWorkspaceRenpyFilePaths();
 
         for (const doc of docs)
@@ -149,7 +149,7 @@ function HandleSubscriptions(): void
                 }] });
             }
 
-            const text = await fs.promises.readFile(doc, { encoding: "utf-8" })
+            const text = await fs.promises.readFile(doc, { encoding: "utf-8" });
             let match: RegExpMatchArray | null = null;
             if ((match = text.match(/^\s*define\s+config\.save_directory\s*=\s*(["'])(.*?)\1/m)) && match)
             {

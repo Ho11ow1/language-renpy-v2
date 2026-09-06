@@ -1,5 +1,6 @@
 import * as Models from "@server/models/index";
 import * as Interfaces from "@server/interfaces/index";
+import * as lsps from "vscode-languageserver/node";
 
 export class Parser
 {
@@ -17,7 +18,7 @@ export class Parser
     public static parseDocument(tokens: Models.Token[]): void
     {
         const parser = new Parser(tokens);
-        
+
         parser.parseAndStore();
     }
 
@@ -34,7 +35,36 @@ export class Parser
     //
     private parseDefinition(): void
     {
-        
+        const token = this.advance();
+
+        switch (token.Type)
+        {
+            case Models.TokenType.DEFAULT:
+                this.handleBasicVar(Models.TokenType.DEFAULT);
+                break;
+            case Models.TokenType.DEFINE:
+                this.handleBasicVar(Models.TokenType.DEFINE);
+                break;
+            case Models.TokenType.CLASS:
+
+                break;
+            case Models.TokenType.FUNC:
+
+                break;
+
+            case Models.TokenType.LABEL:
+
+                break;
+            case Models.TokenType.SCREEN:
+
+                break;
+            case Models.TokenType.TRANSFORM:
+
+                break;
+            case Models.TokenType.STYLE:
+
+                break;
+        }
     }
 
     //
@@ -54,24 +84,19 @@ export class Parser
         return token;
     }
 
-    private next(): Models.Token | undefined
+    private peek(): Models.Token
     {
         return this.tokens[this.current];
-    }
-
-    private prev(): Models.Token | undefined
-    {
-        return this.tokens[this.current - 1];
-    }
-
-    private prevTwo(): Models.Token | undefined
-    {
-        return this.tokens[this.current - 2];
     }
 
     private enterScope(kind: Models.ScopeType, name?: string): void
     {
         this.scopeStack.push({ kind, depth: this.indentStack.length, name });
+    }
+
+    private addNode(key: string, fullDeclaration: string, kind: lsps.CompletionItemKind): void
+    {
+
     }
 
     private handleDedent(): void
@@ -82,6 +107,29 @@ export class Parser
         {
             this.scopeStack.pop();
         }
+    }
+
+    private handleBasicVar(type: Models.TokenType): void
+    {
+        let key = "";
+        let declaration = "";
+
+        this.addNode(key, declaration, type == Models.TokenType.DEFAULT ? lsps.CompletionItemKind.Variable : lsps.CompletionItemKind.Constant);
+    }
+
+    private getFuncParams(): string
+    {
+        let str = "";
+        let unclosedParenCount = 0;
+
+        return str;
+    }
+
+    private getFuncDocstring(): string
+    {
+        let str = "";
+
+        return str;
     }
 
     private isEOF(): boolean
