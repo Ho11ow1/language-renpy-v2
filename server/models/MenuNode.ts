@@ -1,20 +1,12 @@
+import * as Models from "@server/models/index";
 import * as lsps from "vscode-languageserver/node";
-import * as Interfaces from "@server/interfaces/index";
 
-export class MenuNode implements Interfaces.INode
+export class MenuNode extends Models.Node
 {
-    public Name: string;
-    public Location: Interfaces.ILocationRef;
-    public Range: lsps.Range;
-    public SelectionRange: lsps.Range;
-    public Options: Interfaces.INode[];
+    public Options: {label: string, range: lsps.Range}[] = [];
 
-    public constructor(name: string, range: lsps.Range, selectionRange: lsps.Range, options: Interfaces.INode[], location: Interfaces.ILocationRef)
+    public addOption(option: { label: string, range: lsps.Range } | { label: string, range: lsps.Range }[]): void
     {
-        this.Name = name;
-        this.Range = range;
-        this.SelectionRange = selectionRange;
-        this.Options = options;
-        this.Location = location;
+        Array.isArray(option) ? this.Options.push(...option) : this.Options.push(option);
     }
 }
