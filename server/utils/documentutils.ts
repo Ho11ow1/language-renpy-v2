@@ -1,8 +1,7 @@
-import * as fs from "fs";
-import * as path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import * as path from "path";
+import * as fs from "fs";
 import * as Common from "@common/index";
-import * as Utils from "@server/utils/index";
 
 export class DocumentUtils
 {
@@ -21,6 +20,18 @@ export class DocumentUtils
         }
     }
 
+    public static normalizeUri(uri: string): string
+    {
+        try
+        {
+            return pathToFileURL(fileURLToPath(uri)).href;
+        }
+        catch
+        {
+            return uri;
+        }
+    }
+
     public static async getWorkspaceRenpyFilePaths(convertToUri: boolean = false): Promise<string[]>
     {
         if (!this.cwd)
@@ -34,7 +45,7 @@ export class DocumentUtils
             entries.push(path.resolve(this.cwd, entry));
         }
 
-        return convertToUri ? entries.map((entry): string => pathToFileURL(entry).toString()) : entries;
+        return convertToUri ? entries.map((entry): string => this.normalizeUri(entry)) : entries;
     }
 
     public static isInCwd(path: string): boolean

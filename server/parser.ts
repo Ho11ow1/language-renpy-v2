@@ -1,6 +1,8 @@
+import * as lsps from "vscode-languageserver/node";
 import * as Models from "@server/models/index";
 import * as Interfaces from "@server/interfaces/index";
-import * as lsps from "vscode-languageserver/node";
+import * as Utils from "@server/utils/index";
+import { Store } from "@server/store";
 
 export class Parser
 {
@@ -10,14 +12,19 @@ export class Parser
     private indentStack: number[] = [0];
     private scopeStack: Interfaces.IScope[] = [];
 
-    private constructor(tokens: Models.Token[])
+    private seen: Map<string, Map<string, Models.Node>> = new Map<string, Map<string, Models.Node>>();
+    private parsedNodes: Models.Node[] = [];
+    private currentFileUri: string;
+
+    private constructor(tokens: Models.Token[], uri: string)
     {
         this.tokens = tokens;
+        this.currentFileUri = uri;
     }
 
-    public static parseDocument(tokens: Models.Token[]): void
+    public static parseDocument(tokens: Models.Token[], uri: string): void
     {
-        const parser = new Parser(tokens);
+        const parser = new Parser(tokens, uri);
 
         parser.parseAndStore();
     }
@@ -28,51 +35,187 @@ export class Parser
         {
             this.parseDefinition();
         }
+
+        Store.setDocumentNodes(this.currentFileUri, this.parsedNodes);
     }
 
-    //
-    //  Pass 1, just get definitions so that we can then perform the second pass after every parser has finished with all of the referencing
-    //
     private parseDefinition(): void
     {
         const token = this.advance();
 
         switch (token.Type)
         {
+            //
+            //  Indent logic to hold scope
+            //
+            case Models.TokenType.INDENT:
+                break;
+            case Models.TokenType.DEDENT:
+                break;
+
+            //
+            //  Yeah
+            //
             case Models.TokenType.DEFAULT:
-                this.handleBasicVar(Models.TokenType.DEFAULT);
+                // Mark as variable
                 break;
             case Models.TokenType.DEFINE:
-                this.handleBasicVar(Models.TokenType.DEFINE);
-                break;
-            case Models.TokenType.CLASS:
-
-                break;
-            case Models.TokenType.FUNC:
-
+                // Mark as constant
                 break;
 
+            //
+            //  Special usage things
+            //
             case Models.TokenType.LABEL:
-
+                this.parseLabelDef(token);
                 break;
             case Models.TokenType.SCREEN:
-
+                this.parseScreenDef(token);
                 break;
-            case Models.TokenType.TRANSFORM:
-
+            case Models.TokenType.IMAGE:
+                this.parseImageDef(token);
                 break;
-            case Models.TokenType.STYLE:
 
+            //
+            //  Custom python stuff
+            //
+            case Models.TokenType.CLASS:
+                break;
+            case Models.TokenType.FUNC:
+                break;
+
+            default:
                 break;
         }
     }
 
-    //
-    //  Pass 2, get all usages just like i said above and we can't do them in 1 because this is python where use before declare is a thing
-    //
-    private parseReference(): void
+    private parseLabelDef(token: Models.Token): void
     {
+        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
+        {
+            // Call diagnostics
+            return;
+        }
 
+        const fullRange: lsps.Range = {
+            start: token.Range.start,
+            end: nameToken.Range.end
+        };
+
+        const labelNode = new Models.LabelNode(
+            nameToken.Value,
+            `label ${nameToken.Value}`,
+            fullRange,
+            nameToken.Range,
+            lsps.CompletionItemKind.Interface,
+            lsps.SymbolKind.Interface,
+            { Uri: this.currentFileUri, Range: fullRange },
+        );
+
+        this.parsedNodes.push(labelNode);
+    }
+
+    private parseScreenDef(token: Models.Token): void
+    {
+        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
+        {
+            // Call diagnostics
+            return;
+        }
+        const prev2 = this.prevTwo();
+        if ((prev2 && prev2.Value === "hide") || (prev2 && prev2.Value === "show") || (prev2 && prev2.Value === "call"))
+        {
+            Utils.Logger.logMessage(`avoiding duplicate: ${nameToken.Value}`);
+
+            return;
+        }
+
+        const fullRange: lsps.Range = {
+            start: token.Range.start,
+            end: nameToken.Range.end
+        };
+
+        const screenNode = new Models.ScreenNode(
+            nameToken.Value,
+            `screen ${nameToken.Value}`,
+            fullRange,
+            nameToken.Range,
+            lsps.CompletionItemKind.Interface,
+            lsps.SymbolKind.Interface,
+            { Uri: this.currentFileUri, Range: fullRange },
+        );
+
+        this.parsedNodes.push(screenNode);
+    }
+
+    private parseImageDef(token: Models.Token): void
+    {
+        const nameTokens: Models.Token[] = [];
+
+        while (this.peek().Type === Models.TokenType.IDENTIFIER)
+        {
+            nameTokens.push(this.advance());
+        }
+
+        if (nameTokens.length === 0)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        const imageName = nameTokens.map((t): string => t.Value).join(' ');
+        const firstNameToken = nameTokens[0];
+        const lastNameToken = nameTokens[nameTokens.length - 1];
+
+        const nextToken = this.peek();
+
+        const fullRange: lsps.Range = {
+            start: token.Range.start,
+            end: lastNameToken.Range.end
+        };
+        const selectionRange: lsps.Range = {
+            start: firstNameToken.Range.start,
+            end: lastNameToken.Range.end
+        };
+
+        if (nextToken.Type === Models.TokenType.ASSIGN)
+        {
+            this.advance();
+
+            const imageNode = new Models.ImageNode(
+                imageName,
+                `image ${imageName}`,
+                fullRange,
+                selectionRange,
+                lsps.CompletionItemKind.Constant,
+                lsps.SymbolKind.Constant,
+                { Uri: this.currentFileUri, Range: fullRange }
+            );
+
+            this.parsedNodes.push(imageNode);
+        }
+        else if (nextToken.Type === Models.TokenType.COLON)
+        {
+            this.advance();
+
+            const imageNode = new Models.ImageNode(
+                imageName,
+                `image ${imageName}:`,
+                fullRange,
+                selectionRange,
+                lsps.CompletionItemKind.Constant,
+                lsps.SymbolKind.Constant,
+                { Uri: this.currentFileUri, Range: fullRange }
+            );
+
+            this.parsedNodes.push(imageNode);
+        }
+        else
+        {
+            // Call diagnostics
+        }
     }
 
     private advance(): Models.Token
@@ -84,56 +227,42 @@ export class Parser
         return token;
     }
 
+    //
+    //  Current is always one ahead of the current working token
+    //  current - 1 would be working
+    //  current - 2 is prev
+    //  current - 3 is prev of prev
+    //  Counter-measure to stop getting duplicate entries for screens for now
+    //  This probably won't be necessary when scope is implemented as only grab root or init blocks
+    //  Same issue goes for labels in screens but whatever for now
+    //
+    private prev(): Models.Token | undefined
+    {
+        return ((this.current - 2) < 0 ? undefined : this.tokens[this.current - 2]);
+    }
+
+    private prevTwo(): Models.Token | undefined
+    {
+        return ((this.current - 3) < 0 ? undefined : this.tokens[this.current - 3]);
+    }
+
     private peek(): Models.Token
     {
         return this.tokens[this.current];
     }
 
-    private enterScope(kind: Models.ScopeType, name?: string): void
+    private advanceIfExpected(expected: Models.TokenType): { success: boolean, token?: Models.Token }
     {
-        this.scopeStack.push({ kind, depth: this.indentStack.length, name });
-    }
-
-    private addNode(key: string, fullDeclaration: string, kind: lsps.CompletionItemKind): void
-    {
-
-    }
-
-    private handleDedent(): void
-    {
-        this.indentStack.pop();
-
-        while (this.scopeStack.length > 0 && this.scopeStack[this.scopeStack.length - 1].depth > this.indentStack.length)
+        if (this.isEOF() || this.peek().Type !==  expected)
         {
-            this.scopeStack.pop();
+            return { success: false, token: undefined };
         }
-    }
 
-    private handleBasicVar(type: Models.TokenType): void
-    {
-        let key = "";
-        let declaration = "";
-
-        this.addNode(key, declaration, type == Models.TokenType.DEFAULT ? lsps.CompletionItemKind.Variable : lsps.CompletionItemKind.Constant);
-    }
-
-    private getFuncParams(): string
-    {
-        let str = "";
-        let unclosedParenCount = 0;
-
-        return str;
-    }
-
-    private getFuncDocstring(): string
-    {
-        let str = "";
-
-        return str;
+        return { success: true, token: this.advance() };
     }
 
     private isEOF(): boolean
     {
-        return this.tokens[this.current].Type === Models.TokenType.EOF;
+        return this.peek().Type === Models.TokenType.EOF;
     }
 }

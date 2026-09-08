@@ -1,4 +1,3 @@
-import { TextDocument } from "vscode-languageserver-textdocument";
 import * as Models from "@server/models/index";
 import * as Utils from "@server/utils/index";
 
@@ -55,9 +54,9 @@ export class Lexer
         this.source = source;
     }
 
-    public static tokenizeDocument(document: TextDocument): Models.Token[]
+    public static tokenizeDocument(text: string): Models.Token[]
     {
-        const lexer = new Lexer(document.getText());
+        const lexer = new Lexer(text);
 
         return lexer.scanTokens();
     }

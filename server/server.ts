@@ -7,6 +7,7 @@ import * as fs from "fs";
 import { Lexer } from "./lexer";
 import { Parser } from "./parser";
 import { pathToFileURL } from "url";
+import { Store } from "./store";
 
 const connection: lsps.Connection = lsps.createConnection(lsps.ProposedFeatures.all);
 const documents: lsps.TextDocuments<TextDocument> = new lsps.TextDocuments(TextDocument);
@@ -60,7 +61,7 @@ function HandleSubscriptions(): void
                 },
                 completionProvider: {
                     resolveProvider: false,
-                    triggerCharacters: ["."] // So this is actualy additional triggerCharacters while the normal behvaiour is just any char starting with.
+                    triggerCharacters: [".", ' '] // So this is actualy additional triggerCharacters while the normal behvaiour is just any char starting with.
                 },
                 colorProvider: true,
                 documentSymbolProvider: true
@@ -71,110 +72,133 @@ function HandleSubscriptions(): void
     connection.onCompletion((params, token): lsps.CompletionItem[] => completionItemProvider.provideCompletionItems(params, token, documents));
     connection.onDocumentColor((params, token): lsps.ColorInformation[] => colorProvider.provideDocumentColors(params, token, documents));
     connection.onColorPresentation((params, token): lsps.ColorPresentation[] => colorProvider.provideColorPresentations(params, token, documents));
-    connection.onDocumentSymbol((params, token): lsps.DocumentSymbol[] => documentSymbolProvider.providerDocumentOutline(params, token, documents));
+    connection.onDocumentSymbol((params, token): lsps.DocumentSymbol[] => documentSymbolProvider.providerDocumentOutline(params, token));
 
     connection.workspace.onDidDeleteFiles((params): void => {
-        const docs = params.files;
-
-        for (const doc of docs)
+        for (const doc of params.files)
         {
-            Utils.Logger.logMessage(doc.uri);
-            if (!Utils.DocumentUtils.isInCwd(doc.uri))
+            const normalizedUri = Utils.DocumentUtils.normalizeUri(doc.uri);
+            if (!Utils.DocumentUtils.isInCwd(normalizedUri))
             {
                 continue;
             }
 
-            connection.sendDiagnostics({ uri: doc.uri, diagnostics: [] });
+            Store.clearDocumentNodes(normalizedUri);
+            connection.sendDiagnostics({ uri: normalizedUri, diagnostics: [] });
         }
     });
     connection.workspace.onDidCreateFiles((params): void => {
-        const docs = params.files;
-
-        for (const doc of docs)
+        for (const doc of params.files)
         {
-            Utils.Logger.logMessage(doc.uri);
-            if (!Utils.DocumentUtils.isInCwd(doc.uri))
+            const normalizedUri = Utils.DocumentUtils.normalizeUri(doc.uri);
+            if (!Utils.DocumentUtils.isInCwd(normalizedUri))
             {
                 continue;
             }
-            if (!Utils.DocumentUtils.isValidFilename(doc.uri))
+
+            if (!Utils.DocumentUtils.isValidFilename(normalizedUri))
             {
-                connection.sendDiagnostics({ uri: doc.uri, diagnostics: [{
-                    severity: lsps.DiagnosticSeverity.Information,
-                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-                    message: "Filenames should start with a number or letter but not 00",
-                    source: "Ren'Py v2"
-                }] });
+                connection.sendDiagnostics({
+                    uri: normalizedUri,
+                    diagnostics: [{
+                        severity: lsps.DiagnosticSeverity.Information,
+                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                        message: "Filenames should start with a number or letter but not 00",
+                        source: "Ren'Py v2"
+                    }]
+                });
             }
         }
     });
     connection.workspace.onDidRenameFiles((params): void => {
-        const docs = params.files;
-
-        for (const doc of docs)
+        for (const doc of params.files)
         {
-            Utils.Logger.logMessage(`${doc.oldUri} | ${doc.newUri}`);
-            if (!Utils.DocumentUtils.isInCwd(doc.newUri))
+            const normalizedOldUri = Utils.DocumentUtils.normalizeUri(doc.oldUri);
+            const normalizedNewUri = Utils.DocumentUtils.normalizeUri(doc.newUri);
+
+            Store.clearDocumentNodes(normalizedOldUri);
+
+            if (!Utils.DocumentUtils.isInCwd(normalizedNewUri))
             {
                 continue;
             }
-            if (!Utils.DocumentUtils.isValidFilename(doc.newUri))
+
+            if (!Utils.DocumentUtils.isValidFilename(normalizedNewUri))
             {
-                connection.sendDiagnostics({ uri: doc.newUri, diagnostics: [{
-                    severity: lsps.DiagnosticSeverity.Information,
-                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-                    message: "Filenames should start with a number or letter but not 00",
-                    source: "Ren'Py v2"
-                }] });
+                connection.sendDiagnostics({
+                    uri: normalizedNewUri,
+                    diagnostics: [{
+                        severity: lsps.DiagnosticSeverity.Information,
+                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                        message: "Filenames should start with a number or letter but not 00",
+                        source: "Ren'Py v2"
+                    }]
+                });
             }
 
-            connection.sendDiagnostics({ uri: doc.oldUri, diagnostics: [] });
+            connection.sendDiagnostics({ uri: normalizedOldUri, diagnostics: [] });
         }
     });
 
-    connection.onInitialized(async (params): Promise<void> => {
+    connection.onInitialized(async (): Promise<void> => {
         const docs = await Utils.DocumentUtils.getWorkspaceRenpyFilePaths();
 
-        for (const doc of docs)
+        for (const docPath of docs)
         {
-            const docUri = pathToFileURL(doc).toString();
+            const docUri = Utils.DocumentUtils.normalizeUri(pathToFileURL(docPath).href);
 
-            if (!Utils.DocumentUtils.isValidFilename(doc))
+            if (!Utils.DocumentUtils.isValidFilename(docPath))
             {
-                connection.sendDiagnostics({ uri: docUri, diagnostics: [{
-                    severity: lsps.DiagnosticSeverity.Information,
-                    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-                    message: "Filenames should start with a number or letter but not 00",
-                    source: "Ren'Py v2"
-                }] });
+                connection.sendDiagnostics({
+                    uri: docUri,
+                    diagnostics: [{
+                        severity: lsps.DiagnosticSeverity.Information,
+                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                        message: "Filenames should start with a number or letter but not 00",
+                        source: "Ren'Py v2"
+                    }]
+                });
             }
 
-            const text = await fs.promises.readFile(doc, { encoding: "utf-8" });
-            let match: RegExpMatchArray | null = null;
-            if ((match = text.match(/^\s*define\s+config\.save_directory\s*=\s*(["'])(.*?)\1/m)) && match)
+            const text = await fs.promises.readFile(docPath, { encoding: "utf-8" });
+            const match = text.match(/^\s*define\s+config\.save_directory\s*=\s*(["'])(.*?)\1/m);
+
+            if (match)
             {
                 const notification: Common.INotification = { message: match[2] };
-                Utils.Logger.logMessage(`sending: ${notification.message}`);
 
                 connection.sendNotification("renpyv2/config/dir", notification);
             }
+
+            const tokens = Lexer.tokenizeDocument(text);
+            Parser.parseDocument(tokens, docUri);
         }
     });
 
     documents.onDidChangeContent((change): void => {
         const textDocument = change.document;
-        if (!Utils.DocumentUtils.isInCwd(textDocument.uri))
+        const normalizedUri = Utils.DocumentUtils.normalizeUri(textDocument.uri);
+
+        if (!Utils.DocumentUtils.isInCwd(normalizedUri))
         {
             return;
         }
-        if (textDocument.getText({ start: { line: 0, character: 0 }, end: { line: 0, character: Common.NO_QUALITY_ASSURANCE.length } }) === Common.NO_QUALITY_ASSURANCE)
+
+        const text = textDocument.getText();
+
+        const tokens = Lexer.tokenizeDocument(text);
+        Parser.parseDocument(tokens, normalizedUri);
+
+        if (text.startsWith(Common.NO_QUALITY_ASSURANCE))
         {
-            connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: [] });
+            connection.sendDiagnostics({ uri: normalizedUri, diagnostics: [] });
+
             return;
         }
 
         const diagnostics: lsps.Diagnostic[] = [];
-        if (!Utils.DocumentUtils.isValidFilename(textDocument.uri))
+
+        if (!Utils.DocumentUtils.isValidFilename(normalizedUri))
         {
             diagnostics.push({
                 severity: lsps.DiagnosticSeverity.Information,
@@ -183,7 +207,7 @@ function HandleSubscriptions(): void
                 source: "Ren'Py v2"
             });
         }
-        const text = textDocument.getText();
+
         const pattern = /TODO/g;
         let match: RegExpExecArray | null;
 
@@ -200,7 +224,7 @@ function HandleSubscriptions(): void
             });
         }
 
-        connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+        connection.sendDiagnostics({ uri: normalizedUri, diagnostics });
     });
 }
 
