@@ -4,6 +4,7 @@ export enum TokenType
     //  RENPY
     //
     LABEL = "label", SCREEN = "screen", MENU = "menu", STYLE = "style", IMAGE = "image", TRANSFORM = "transform", DEFAULT = "default", DEFINE = "define", INIT = "init", DOLLAR_SIGN_LINE = "$", PYTHON = "python",
+    CALL = "call", JUMP = "jump", SHOW = "show", HIDE = "hide", SCENE = "scene", USE = "use", ADD = "add", AT = "at", AS = "as",
     //
     //  MATH
     //
@@ -16,7 +17,7 @@ export enum TokenType
     //
     //  PYTHON
     //
-    L_PAREN = "(", R_PAREN = ")", L_BRACE = "{", R_BRACE = "}", L_BRACKET = "[", R_BRACKET = "]", COMMA = ",", AT = "@", DEF_TYPE_HINT = "->",
+    L_PAREN = "(", R_PAREN = ")", L_BRACE = "{", R_BRACE = "}", L_BRACKET = "[", R_BRACKET = "]", COMMA = ",", AT_SIGN = "@", DEF_TYPE_HINT = "->",
     CLASS = "class", FUNC = "def", RETURN = "return",
     AND = "and", OR = "or", IF = "if", ELSE = "else", ELIF = "elif", IS = "is", NOT = "not", IN = "in", MATCH = "match", FOR = "for", WHILE = "while",
     //

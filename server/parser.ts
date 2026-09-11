@@ -10,9 +10,10 @@ export class Parser
     private current: number = 0;
 
     private indentStack: number[] = [0];
-    private scopeStack: Interfaces.IScope[] = [];
+    private scopeStack: Interfaces.IScope[] = [{ depth: 0, kind: Models.ScopeType.ROOT }];
+    private menuStack: Models.MenuNode[] = [];
+    private labelStack: Models.LabelNode[] = [];
 
-    private seen: Map<string, Map<string, Models.Node>> = new Map<string, Map<string, Models.Node>>();
     private parsedNodes: Models.Node[] = [];
     private currentFileUri: string;
 
@@ -26,10 +27,10 @@ export class Parser
     {
         const parser = new Parser(tokens, uri);
 
-        parser.parseAndStore();
+        parser.parseDeclarations();
     }
 
-    private parseAndStore(): void
+    private parseDeclarations(): void
     {
         while (!this.isEOF())
         {
@@ -37,6 +38,51 @@ export class Parser
         }
 
         Store.setDocumentNodes(this.currentFileUri, this.parsedNodes);
+    }
+
+    private parseRefs(): void
+    {
+        const token = this.advance();
+
+        switch (token.Type)
+        {
+            //
+            //  Yeah
+            //
+            case Models.TokenType.JUMP:
+                break;
+            case Models.TokenType.CALL:
+                break;
+
+            //
+            //  Yeah
+            //
+            case Models.TokenType.SHOW:
+                break;
+            case Models.TokenType.HIDE:
+                break;
+            case Models.TokenType.SCENE:
+                break;
+
+            //
+            //  In Screen
+            //
+            case Models.TokenType.USE:
+                break;
+            case Models.TokenType.ADD:
+                break;
+
+            //
+            //  Transfomr
+            //
+            case Models.TokenType.AT:
+                break;
+            //
+            //  Style
+            //
+            case Models.TokenType.AS:
+                break;
+        }
     }
 
     private parseDefinition(): void
@@ -49,8 +95,10 @@ export class Parser
             //  Indent logic to hold scope
             //
             case Models.TokenType.INDENT:
+                this.handleIndent(token);
                 break;
             case Models.TokenType.DEDENT:
+                this.handleDedent();
                 break;
 
             //
@@ -62,18 +110,36 @@ export class Parser
             case Models.TokenType.DEFINE:
                 // Mark as constant
                 break;
+            case Models.TokenType.STRING:
+                if (this.currentScope()?.kind === Models.ScopeType.MENU)
+                {
+                    this.parseMenuOption(token);
+                }
+                break;
 
             //
             //  Special usage things
             //
             case Models.TokenType.LABEL:
-                this.parseLabelDef(token);
+                if (!this.isInScope(Models.ScopeType.SCREEN))
+                {
+                    this.parseLabelDef(token);
+                }
                 break;
             case Models.TokenType.SCREEN:
-                this.parseScreenDef(token);
+                if (!this.isInScope(Models.ScopeType.LABEL))
+                {
+                    this.parseScreenDef(token);
+                }
                 break;
             case Models.TokenType.IMAGE:
-                this.parseImageDef(token);
+                if (!this.isInScope(Models.ScopeType.SCREEN))
+                {
+                    this.parseImageDef(token);
+                }
+                break;
+            case Models.TokenType.MENU:
+                this.parseMenuDef(token);
                 break;
 
             //
@@ -113,7 +179,15 @@ export class Parser
             { Uri: this.currentFileUri, Range: fullRange },
         );
 
-        this.parsedNodes.push(labelNode);
+        if (this.labelStack.length === 0)
+        {
+            this.parsedNodes.push(labelNode);
+        }
+        if (this.peek().Type === Models.TokenType.COLON)
+        {
+            this.pushScope(Models.ScopeType.LABEL, nameToken.Value);
+            this.labelStack.push(labelNode);
+        }
     }
 
     private parseScreenDef(token: Models.Token): void
@@ -122,13 +196,6 @@ export class Parser
         if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
         {
             // Call diagnostics
-            return;
-        }
-        const prev2 = this.prevTwo();
-        if ((prev2 && prev2.Value === "hide") || (prev2 && prev2.Value === "show") || (prev2 && prev2.Value === "call"))
-        {
-            Utils.Logger.logMessage(`avoiding duplicate: ${nameToken.Value}`);
-
             return;
         }
 
@@ -148,6 +215,7 @@ export class Parser
         );
 
         this.parsedNodes.push(screenNode);
+        this.pushScope(Models.ScopeType.SCREEN, nameToken.Value);
     }
 
     private parseImageDef(token: Models.Token): void
@@ -218,6 +286,88 @@ export class Parser
         }
     }
 
+    private parseMenuDef(token: Models.Token): void
+    {
+        let menuName = "menu";
+        let isNamed = false;
+        let nameRange = token.Range;
+
+        if (this.peek().Type === Models.TokenType.IDENTIFIER)
+        {
+            const nameToken = this.advance();
+
+            menuName = nameToken.Value;
+            isNamed = true;
+            nameRange = nameToken.Range;
+        }
+
+        const fullRange: lsps.Range = {
+            start: token.Range.start,
+            end: nameRange.end
+        };
+
+        const menuNode = new Models.MenuNode(
+            menuName,
+            isNamed ? `menu ${menuName}` : "menu",
+            fullRange,
+            nameRange,
+            lsps.CompletionItemKind.Enum,
+            lsps.SymbolKind.Enum,
+            isNamed,
+            { Uri: this.currentFileUri, Range: fullRange }
+        );
+
+        if (this.peek().Type === Models.TokenType.COLON)
+        {
+            this.advance();
+        }
+
+        const activeLabel: Models.LabelNode | undefined = (this.labelStack.length > 0) ? this.labelStack[this.labelStack.length - 1] : undefined;
+        if (activeLabel)
+        {
+            activeLabel.addMenu(menuNode);
+        }
+        else
+        {
+            this.parsedNodes.push(menuNode);
+        }
+
+        this.menuStack.push(menuNode);
+        this.pushScope(Models.ScopeType.MENU, menuName);
+    }
+
+    private parseMenuOption(stringToken: Models.Token): void
+    {
+        while (this.peek().Type !== Models.TokenType.COLON)
+        {
+            if (this.peek().Type === Models.TokenType.NEW_LINE || this.peek().Type === Models.TokenType.DEDENT)
+            {
+                return;
+            }
+
+            this.advance();
+        }
+
+        if (this.peek().Type !== Models.TokenType.COLON)
+        {
+            return;
+        }
+        
+        const activeMenu = this.menuStack[this.menuStack.length - 1];
+        if (activeMenu)
+        {
+            const optionRange: lsps.Range = {
+                start: stringToken.Range.start,
+                end: stringToken.Range.end
+            };
+
+            activeMenu.addOption({
+                Option: stringToken.Value,
+                Range: optionRange
+            });
+        }
+    }
+
     private advance(): Models.Token
     {
         const token = this.tokens[this.current];
@@ -227,15 +377,6 @@ export class Parser
         return token;
     }
 
-    //
-    //  Current is always one ahead of the current working token
-    //  current - 1 would be working
-    //  current - 2 is prev
-    //  current - 3 is prev of prev
-    //  Counter-measure to stop getting duplicate entries for screens for now
-    //  This probably won't be necessary when scope is implemented as only grab root or init blocks
-    //  Same issue goes for labels in screens but whatever for now
-    //
     private prev(): Models.Token | undefined
     {
         return ((this.current - 2) < 0 ? undefined : this.tokens[this.current - 2]);
@@ -251,9 +392,57 @@ export class Parser
         return this.tokens[this.current];
     }
 
+    private handleIndent(token: Models.Token): void
+    {
+        this.indentStack.push(this.indentStack.length);
+    }
+
+    private handleDedent(): void
+    {
+        if (this.indentStack.length > 1)
+        {
+            this.indentStack.pop();
+        }
+
+        const currentDepth = this.currentDepth();
+        while (this.scopeStack.length > 1 && this.scopeStack[this.scopeStack.length - 1].depth >= currentDepth)
+        {
+            const poppedScope = this.scopeStack.pop();
+
+            if (poppedScope?.kind === Models.ScopeType.LABEL)
+            {
+                this.labelStack.pop();
+            }
+            else if (poppedScope?.kind === Models.ScopeType.MENU)
+            {
+                this.menuStack.pop();
+            }
+        }
+    }
+
+    private currentDepth(): number
+    {
+        return this.indentStack[this.indentStack.length - 1];
+    }
+
+    private pushScope(kind: Models.ScopeType, name?: string): void
+    {
+        this.scopeStack.push({ kind, depth: this.currentDepth(), name });
+    }
+
+    private isInScope(kind: Models.ScopeType): boolean
+    {
+        return this.scopeStack.some((scope): boolean => scope.kind === kind);
+    }
+
+    private currentScope(): Interfaces.IScope | undefined
+    {
+        return this.scopeStack[this.scopeStack.length - 1];
+    }
+
     private advanceIfExpected(expected: Models.TokenType): { success: boolean, token?: Models.Token }
     {
-        if (this.isEOF() || this.peek().Type !==  expected)
+        if (this.isEOF() || this.peek().Type !== expected)
         {
             return { success: false, token: undefined };
         }

@@ -61,7 +61,7 @@ function HandleSubscriptions(): void
                 },
                 completionProvider: {
                     resolveProvider: false,
-                    triggerCharacters: [".", ' '] // So this is actualy additional triggerCharacters while the normal behvaiour is just any char starting with.
+                    triggerCharacters: ['.'] // So this is actualy additional triggerCharacters while the normal behvaiour is just any char starting with.
                 },
                 colorProvider: true,
                 documentSymbolProvider: true

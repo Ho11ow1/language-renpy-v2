@@ -14,6 +14,15 @@ export class Lexer
         "define": Models.TokenType.DEFINE,
         "init": Models.TokenType.INIT,
         "python": Models.TokenType.PYTHON,
+        "call": Models.TokenType.CALL,
+        "jump": Models.TokenType.JUMP,
+        "show": Models.TokenType.SHOW,
+        "hide": Models.TokenType.HIDE,
+        "scene": Models.TokenType.SCENE,
+        "use": Models.TokenType.USE,
+        "add": Models.TokenType.ADD,
+        "at": Models.TokenType.AT,
+        "as": Models.TokenType.AS,
 
         "class": Models.TokenType.CLASS,
         "def": Models.TokenType.FUNC,
@@ -197,7 +206,7 @@ export class Lexer
             //  The parser should be handling all the look back for usages and declarations
             //
             case '@':
-                this.addToken(Models.TokenType.AT);
+                this.addToken(Models.TokenType.AT_SIGN);
                 break;
             case '#':
                 while (this.peek() !== '\n' && !this.isEOF())

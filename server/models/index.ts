@@ -8,3 +8,4 @@ export { Node } from "./Node";
 export { LabelNode } from "./nodes/LabelNode";
 export { ScreenNode } from "./nodes/ScreenNode";
 export { ImageNode } from "./nodes/ImageNode";
+export { MenuNode } from "./nodes/MenuNode";

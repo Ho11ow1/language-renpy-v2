@@ -13,17 +13,22 @@ export class Store
         this.clearDocumentNodes(uri);
         this.nodesByDocument.set(uri, nodes);
 
+
         for (const node of nodes)
         {
             if (node instanceof Models.LabelNode)
             {
                 this.labelNodes.push(node);
             }
-            if (node instanceof Models.ScreenNode)
+            else if (node instanceof Models.MenuNode && node.IsNamed)
+            {
+                this.labelNodes.push(node);
+            }
+            else if (node instanceof Models.ScreenNode)
             {
                 this.screenNodes.push(node);
             }
-            if (node instanceof Models.ImageNode)
+            else if (node instanceof Models.ImageNode)
             {
                 this.imageNodes.push(node);
             }

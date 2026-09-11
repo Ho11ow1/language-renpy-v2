@@ -1,5 +1,6 @@
 export enum ScopeType
 {
+    ROOT = "ROOT",
     NAMESPACE = "namespace",
     CLASS = "class",
     FUNCTION = "function",
