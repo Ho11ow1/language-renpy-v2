@@ -8,6 +8,7 @@ import { Lexer } from "./lexer";
 import { Parser } from "./parser";
 import { pathToFileURL } from "url";
 import { Store } from "./store";
+import * as Models from "@server/models/index";
 
 const connection: lsps.Connection = lsps.createConnection(lsps.ProposedFeatures.all);
 const documents: lsps.TextDocuments<TextDocument> = new lsps.TextDocuments(TextDocument);
@@ -16,6 +17,9 @@ Utils.Logger.init(connection.console);
 const colorProvider = new Providers.ColorProvider();
 const completionItemProvider = new Providers.CompletionItemProvider();
 const documentSymbolProvider = new Providers.DocumentSymbolProvider();
+const referenceProvider = new Providers.ReferenceProvider();
+const declarationProvider = new Providers.DeclarationProvider();
+const renameProvider = new Providers.RenameProvider();
 
 function HandleSubscriptions(): void
 {
@@ -64,7 +68,10 @@ function HandleSubscriptions(): void
                     triggerCharacters: ['.'] // So this is actualy additional triggerCharacters while the normal behvaiour is just any char starting with.
                 },
                 colorProvider: true,
-                documentSymbolProvider: true
+                documentSymbolProvider: true,
+                referencesProvider: true,
+                declarationProvider: true,
+                renameProvider: true
             },
         };
     });
@@ -73,6 +80,9 @@ function HandleSubscriptions(): void
     connection.onDocumentColor((params, token): lsps.ColorInformation[] => colorProvider.provideDocumentColors(params, token, documents));
     connection.onColorPresentation((params, token): lsps.ColorPresentation[] => colorProvider.provideColorPresentations(params, token, documents));
     connection.onDocumentSymbol((params, token): lsps.DocumentSymbol[] => documentSymbolProvider.providerDocumentOutline(params, token));
+    connection.onReferences((params, token):lsps.Location[] => referenceProvider.provideReferences(params, token, documents));
+    connection.onDeclaration((params, token): lsps.Declaration | undefined => declarationProvider.provideDeclaration(params, token, documents));
+    connection.onRenameRequest((params, token): lsps.WorkspaceEdit => renameProvider.provideRename(params, token, documents));
 
     connection.workspace.onDidDeleteFiles((params): void => {
         for (const doc of params.files)
@@ -142,6 +152,7 @@ function HandleSubscriptions(): void
 
     connection.onInitialized(async (): Promise<void> => {
         const docs = await Utils.DocumentUtils.getWorkspaceRenpyFilePaths();
+        const map: Map<string, Models.Token[]> = new Map<string, Models.Token[]>();
 
         for (const docPath of docs)
         {
@@ -171,7 +182,13 @@ function HandleSubscriptions(): void
             }
 
             const tokens = Lexer.tokenizeDocument(text);
-            Parser.parseDocument(tokens, docUri);
+            map.set(docUri, tokens);
+            Parser.parseDocumentDeclarations(tokens, docUri);
+        }
+
+        for (const [uri, tokens] of map)
+        {
+            Parser.parseDocumentReferences(tokens, uri);
         }
     });
 
@@ -187,7 +204,8 @@ function HandleSubscriptions(): void
         const text = textDocument.getText();
 
         const tokens = Lexer.tokenizeDocument(text);
-        Parser.parseDocument(tokens, normalizedUri);
+        Parser.parseDocumentDeclarations(tokens, normalizedUri);
+        Parser.parseDocumentReferences(tokens, normalizedUri);
 
         if (text.startsWith(Common.NO_QUALITY_ASSURANCE))
         {

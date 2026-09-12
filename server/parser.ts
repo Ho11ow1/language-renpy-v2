@@ -23,14 +23,21 @@ export class Parser
         this.currentFileUri = uri;
     }
 
-    public static parseDocument(tokens: Models.Token[], uri: string): void
+    public static parseDocumentDeclarations(tokens: Models.Token[], uri: string): void
     {
         const parser = new Parser(tokens, uri);
 
-        parser.parseDeclarations();
+        parser.pass1();
     }
 
-    private parseDeclarations(): void
+    public static parseDocumentReferences(tokens: Models.Token[], uri: string): void
+    {
+        const parser = new Parser(tokens, uri);
+
+        parser.pass2();
+    }
+
+    private pass1(): void
     {
         while (!this.isEOF())
         {
@@ -40,7 +47,15 @@ export class Parser
         Store.setDocumentNodes(this.currentFileUri, this.parsedNodes);
     }
 
-    private parseRefs(): void
+    private pass2(): void
+    {
+        while (!this.isEOF())
+        {
+            this.parseReferences();
+        }
+    }
+
+    private parseReferences(): void
     {
         const token = this.advance();
 
@@ -50,6 +65,7 @@ export class Parser
             //  Yeah
             //
             case Models.TokenType.JUMP:
+                this.parseJump();
                 break;
             case Models.TokenType.CALL:
                 break;
@@ -176,12 +192,13 @@ export class Parser
             nameToken.Range,
             lsps.CompletionItemKind.Interface,
             lsps.SymbolKind.Interface,
-            { Uri: this.currentFileUri, Range: fullRange },
+            { uri: this.currentFileUri, range: fullRange },
         );
 
         if (this.labelStack.length === 0)
         {
             this.parsedNodes.push(labelNode);
+            labelNode.References.push({ range: nameToken.Range, uri: this.currentFileUri });
         }
         if (this.peek().Type === Models.TokenType.COLON)
         {
@@ -211,9 +228,10 @@ export class Parser
             nameToken.Range,
             lsps.CompletionItemKind.Interface,
             lsps.SymbolKind.Interface,
-            { Uri: this.currentFileUri, Range: fullRange },
+            { uri: this.currentFileUri, range: fullRange },
         );
 
+        screenNode.References.push({ range: nameToken.Range, uri: this.currentFileUri });
         this.parsedNodes.push(screenNode);
         this.pushScope(Models.ScopeType.SCREEN, nameToken.Value);
     }
@@ -259,9 +277,10 @@ export class Parser
                 selectionRange,
                 lsps.CompletionItemKind.Constant,
                 lsps.SymbolKind.Constant,
-                { Uri: this.currentFileUri, Range: fullRange }
+                { uri: this.currentFileUri, range: fullRange }
             );
 
+            imageNode.References.push({ range: selectionRange, uri: this.currentFileUri });
             this.parsedNodes.push(imageNode);
         }
         else if (nextToken.Type === Models.TokenType.COLON)
@@ -275,9 +294,10 @@ export class Parser
                 selectionRange,
                 lsps.CompletionItemKind.Constant,
                 lsps.SymbolKind.Constant,
-                { Uri: this.currentFileUri, Range: fullRange }
+                { uri: this.currentFileUri, range: fullRange }
             );
 
+            imageNode.References.push({ range: selectionRange, uri: this.currentFileUri });
             this.parsedNodes.push(imageNode);
         }
         else
@@ -314,8 +334,12 @@ export class Parser
             lsps.CompletionItemKind.Enum,
             lsps.SymbolKind.Enum,
             isNamed,
-            { Uri: this.currentFileUri, Range: fullRange }
+            { uri: this.currentFileUri, range: fullRange }
         );
+        if (isNamed)
+        {
+            menuNode.References.push({ range: nameRange, uri: this.currentFileUri });
+        }
 
         if (this.peek().Type === Models.TokenType.COLON)
         {
@@ -352,7 +376,7 @@ export class Parser
         {
             return;
         }
-        
+
         const activeMenu = this.menuStack[this.menuStack.length - 1];
         if (activeMenu)
         {
@@ -366,6 +390,18 @@ export class Parser
                 Range: optionRange
             });
         }
+    }
+
+    private parseJump(): void
+    {
+        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        Store.getLabel(nameToken.Value)?.addReference({ uri: this.currentFileUri, range: nameToken.Range });
     }
 
     private advance(): Models.Token

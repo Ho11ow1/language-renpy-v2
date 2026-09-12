@@ -6,14 +6,14 @@ export class Node implements Interfaces.INode
     public Name: string;
     public Detail: string;
     public Documentation: string;
-    public Location?: Interfaces.ILocationRef;
-    public References: Interfaces.ILocationRef[];
+    public Location?: lsps.Location;
+    public References: lsps.Location[];
     public Range: lsps.Range;
     public SelectionRange: lsps.Range;
     public readonly Kind: lsps.CompletionItemKind;
     public readonly SymbolKind: lsps.SymbolKind;
 
-    public constructor(name: string, detail: string, range: lsps.Range, selectionRange: lsps.Range, kind: lsps.CompletionItemKind, symbolKind: lsps.SymbolKind, location?: Interfaces.ILocationRef, documentation: string = "")
+    public constructor(name: string, detail: string, range: lsps.Range, selectionRange: lsps.Range, kind: lsps.CompletionItemKind, symbolKind: lsps.SymbolKind, location?: lsps.Location, documentation: string = "")
     {
         this.Name = name;
         this.Detail = detail;
@@ -26,7 +26,7 @@ export class Node implements Interfaces.INode
         this.References = [];
     }
 
-    public addReference(ref: Interfaces.ILocationRef | Interfaces.ILocationRef[]): void
+    public addReference(ref: lsps.Location | lsps.Location[]): void
     {
         if (Array.isArray(ref))
         {
@@ -73,8 +73,8 @@ export class Node implements Interfaces.INode
 
         if (this.Location)
         {
-            const fileName = this.Location.Uri.split('/').pop() || this.Location.Uri;
-            const lineNumber = this.Location.Range.start.line + 1;
+            const fileName = this.Location.uri.split('/').pop() || this.Location.uri;
+            const lineNumber = this.Location.range.start.line + 1;
 
             markdownParts.push(`*(custom) | ${fileName} | line ${lineNumber}*`);
         }

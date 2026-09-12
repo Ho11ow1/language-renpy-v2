@@ -7,7 +7,7 @@ export class MenuNode extends Models.Node
     public IsNamed: boolean;
     public Options: Interfaces.IMenuEntry[] = [];
 
-    constructor(name: string, detail: string, range: lsps.Range, selectionRange: lsps.Range, kind: lsps.CompletionItemKind, symbolKind: lsps.SymbolKind, isNamed: boolean, location?: Interfaces.ILocationRef, documentation: string = "")
+    constructor(name: string, detail: string, range: lsps.Range, selectionRange: lsps.Range, kind: lsps.CompletionItemKind, symbolKind: lsps.SymbolKind, isNamed: boolean, location?: lsps.Location, documentation: string = "")
     {
         super(name, detail, range, selectionRange, kind, symbolKind, location, documentation);
 

@@ -13,7 +13,6 @@ export class Store
         this.clearDocumentNodes(uri);
         this.nodesByDocument.set(uri, nodes);
 
-
         for (const node of nodes)
         {
             if (node instanceof Models.LabelNode)
@@ -39,7 +38,6 @@ export class Store
     {
         return this.nodesByDocument.get(uri) || [];
     }
-
     public static getLabels(): Models.Node[]
     {
         return this.labelNodes;
@@ -51,6 +49,18 @@ export class Store
     public static getImages(): Models.Node[]
     {
         return this.imageNodes;
+    }
+    public static getLabel(name: string): Models.Node | undefined
+    {
+        return this.labelNodes.find((node): boolean => node.Name === name);
+    }
+    public static getScreen(name: string): Models.Node | undefined
+    {
+        return this.screenNodes.find((node): boolean => node.Name === name);
+    }
+    public static getImage(name: string): Models.Node | undefined
+    {
+        return this.imageNodes.find((node): boolean => node.Name === name);
     }
 
     public static clearDocumentNodes(uri: string): void

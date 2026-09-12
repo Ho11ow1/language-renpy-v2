@@ -97,27 +97,35 @@ async function startLanguageServer(context: vscode.ExtensionContext): Promise<vo
             provideCompletionItem(document, position, context, token, next): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> | undefined
             {
                 return Middleware.withGlobalMiddleware("provideCompletionItem", (): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> | undefined => {
-                    if (Middleware.isLargeFile(document))
-                    {
-                        return undefined;
-                    }
-
                     return next(document, position, context, token);
                 });
             },
-            provideDocumentSymbols(document, token, next): vscode.ProviderResult<vscode.DocumentSymbol[] | vscode.SymbolInformation[]> | undefined {
+            provideDocumentSymbols(document, token, next): vscode.ProviderResult<vscode.DocumentSymbol[] | vscode.SymbolInformation[]> | undefined
+            {
                 return Middleware.withGlobalMiddleware("provideDocumentSymbols", (): vscode.ProviderResult<vscode.DocumentSymbol[] | vscode.SymbolInformation[]> | undefined => {
-                    if (Middleware.isLargeFile(document))
-                    {
-                        return undefined;
-                    }
-
                     return next(document, token);
                 });
             },
+            provideReferences(document, position, options, token, next): vscode.ProviderResult<vscode.Location[]> | undefined
+            {
+                return Middleware.withGlobalMiddleware("provideReferences", (): vscode.ProviderResult<vscode.Location[]> | undefined => {
+                    return next(document, position, options, token);
+                });
+            },
+            provideDeclaration(document, position, token, next): vscode.ProviderResult<vscode.Declaration> | undefined
+            {
+                return Middleware.withGlobalMiddleware("provideDeclaration", (): vscode.ProviderResult<vscode.Declaration> | undefined => {
+                    return next(document, position, token);
+                });
+            },
+            provideRenameEdits(document, position, newName, token, next): vscode.ProviderResult<vscode.WorkspaceEdit> | undefined
+            {
+                return Middleware.withGlobalMiddleware("provideRenameEdits", (): vscode.ProviderResult<vscode.WorkspaceEdit> | undefined => {
+                    return next(document, position, newName, token);
+                });
+            }
         }
     };
-
 
     languageClient = new lspc.LanguageClient(
         "renpyLanguageServer",

@@ -23,7 +23,7 @@ export class LabelNode extends Models.Node
 
         if (this.Menus.length > 0)
         {
-            symbol.children = this.Menus.map((menu) => menu.toDocumentSymbol());
+            symbol.children = this.Menus.map((menu): lsps.DocumentSymbol => menu.toDocumentSymbol());
         }
 
         return symbol;
