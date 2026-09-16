@@ -2,21 +2,21 @@ import * as lsps from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Store } from "@server/store";
 
-export class ReferenceProvider
+export class DefinitionProvider
 {
     private readonly _fullWordRegex: RegExp = /[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*/g;
 
-    public provideReferences(params: lsps.ReferenceParams, token: lsps.CancellationToken, documents: lsps.TextDocuments<TextDocument>): lsps.Location[]
+    public provideDefinition(params: lsps.DeclarationParams, token: lsps.CancellationToken, documents: lsps.TextDocuments<TextDocument>): lsps.Definition | undefined
     {
         if (token.isCancellationRequested)
         {
-            return [];
+            return undefined;
         }
 
         const document = documents.get(params.textDocument.uri);
         if (!document)
         {
-            return [];
+            return undefined;
         }
 
         const fullRange = document.getText({
@@ -27,19 +27,13 @@ export class ReferenceProvider
         const targetWord = this.getWordAtPosition(fullRange, params.position);
         if (!targetWord)
         {
-            return [];
+            return undefined;
         }
 
         //
         //  Temporary until we start doinga regex match of a few previous words to determine what context it is being used in
         //
-        const node = Store.getImage(targetWord) ?? Store.getLabel(targetWord) ?? Store.getScreen(targetWord) ?? Store.getTransform(targetWord);
-        if (!node)
-        {
-            return [];
-        }
-
-        return node.References.map((ref): lsps.Location => ({ range: ref.range, uri: ref.uri }));
+        return Store.getLabel(targetWord)?.Location ?? Store.getScreen(targetWord)?.Location ?? Store.getImage(targetWord)?.Location ?? Store.getTransform(targetWord)?.Location;
     }
 
     private getWordAtPosition(fullTextRange: string, position: lsps.Position): string | undefined

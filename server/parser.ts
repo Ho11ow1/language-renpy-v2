@@ -68,16 +68,18 @@ export class Parser
                 this.parseJump();
                 break;
             case Models.TokenType.CALL:
+                this.parseCall();
                 break;
 
             //
             //  Yeah
             //
             case Models.TokenType.SHOW:
-                break;
             case Models.TokenType.HIDE:
+                this.parseShowHide();
                 break;
             case Models.TokenType.SCENE:
+                this.parseScene();
                 break;
 
             //
@@ -92,6 +94,7 @@ export class Parser
             //  Transfomr
             //
             case Models.TokenType.AT:
+                this.parseAt();
                 break;
             //
             //  Style
@@ -157,6 +160,9 @@ export class Parser
             case Models.TokenType.MENU:
                 this.parseMenuDef(token);
                 break;
+            case Models.TokenType.TRANSFORM:
+                this.parseTransformDef(token);
+                break;
 
             //
             //  Custom python stuff
@@ -171,6 +177,7 @@ export class Parser
         }
     }
 
+    // #region DEFINITION
     private parseLabelDef(token: Models.Token): void
     {
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
@@ -392,6 +399,36 @@ export class Parser
         }
     }
 
+    private parseTransformDef(token: Models.Token): void
+    {
+        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!success || !nameToken)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        const nameRange = nameToken.Range;
+        const fullRange: lsps.Range = {
+            start: token.Range.start,
+            end: nameToken.Range.end
+        };
+
+        const transformNode = new Models.TransformNode(
+            nameToken.Value,
+            `transform ${nameToken.Value}`,
+            fullRange,
+            nameRange,
+            lsps.CompletionItemKind.Constant,
+            lsps.SymbolKind.Constant,
+            { uri: this.currentFileUri, range: fullRange }
+        );
+        transformNode.References.push({ uri: this.currentFileUri, range: fullRange });
+        this.parsedNodes.push(transformNode);
+    }
+    // #endregion
+
+    // #region REFERENCE
     private parseJump(): void
     {
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
@@ -401,9 +438,125 @@ export class Parser
             return;
         }
 
-        Store.getLabel(nameToken.Value)?.addReference({ uri: this.currentFileUri, range: nameToken.Range });
+        const node = Store.getLabel(nameToken.Value);
+        if (!node)
+        {
+            // Call Diagnostics
+            return;
+        }
+
+        node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
     }
 
+    private parseCall(): void
+    {
+        if (this.peek().Type === Models.TokenType.SCREEN)
+        {
+            this.advance();
+            this.resolveScreenRef();
+            return;
+        }
+
+        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        const node = Store.getLabel(nameToken.Value);
+        if (!node)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
+    }
+
+    private parseShowHide(): void
+    {
+        if (this.peek().Type === Models.TokenType.SCREEN)
+        {
+            this.advance();
+            this.resolveScreenRef();
+            return;
+        }
+
+        this.parseScene();
+    }
+
+    private resolveScreenRef(): void
+    {
+        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        const node = Store.getScreen(nameToken.Value);
+        if (!node)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
+    }
+
+    private parseScene(): void
+    {
+        const nameTokens: Models.Token[] = [];
+
+        while (this.peek().Type === Models.TokenType.IDENTIFIER)
+        {
+            nameTokens.push(this.advance());
+        }
+
+        if (nameTokens.length === 0)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        const imageName = nameTokens.map((t): string => t.Value).join(' ');
+        const fullRange: lsps.Range = {
+            start: nameTokens[0].Range.start,
+            end: nameTokens[nameTokens.length - 1].Range.end
+        };
+
+        const node = Store.getImage(imageName);
+        if (!node)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        node.addReference({ uri: this.currentFileUri, range: fullRange });
+    }
+
+    private parseAt(): void
+    {
+        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        const node = Store.getTransform(nameToken.Value);
+        if (!node)
+        {
+            // Call diagnostics
+            return;
+        }
+
+        node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
+    }
+    // #endregion
+
+    // #region UTILS
     private advance(): Models.Token
     {
         const token = this.tokens[this.current];
@@ -490,4 +643,5 @@ export class Parser
     {
         return this.peek().Type === Models.TokenType.EOF;
     }
+    // #endregion
 }

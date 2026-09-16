@@ -3,6 +3,7 @@ import { TextDocument } from "vscode-languageserver-textdocument";
 import * as Providers from "@server/providers/index";
 import * as Utils from "@server/utils/index";
 import * as Common from "@common/index";
+import * as path from "path";
 import * as fs from "fs";
 import { Lexer } from "./lexer";
 import { Parser } from "./parser";
@@ -18,7 +19,7 @@ const colorProvider = new Providers.ColorProvider();
 const completionItemProvider = new Providers.CompletionItemProvider();
 const documentSymbolProvider = new Providers.DocumentSymbolProvider();
 const referenceProvider = new Providers.ReferenceProvider();
-const declarationProvider = new Providers.DeclarationProvider();
+const definitionProvider = new Providers.DefinitionProvider();
 const renameProvider = new Providers.RenameProvider();
 
 function HandleSubscriptions(): void
@@ -60,7 +61,7 @@ function HandleSubscriptions(): void
                                     }
                                 }
                             ]
-                        },
+                        }
                     }
                 },
                 completionProvider: {
@@ -70,8 +71,10 @@ function HandleSubscriptions(): void
                 colorProvider: true,
                 documentSymbolProvider: true,
                 referencesProvider: true,
-                declarationProvider: true,
-                renameProvider: true
+                definitionProvider: true,
+                renameProvider: {
+                    prepareProvider: true
+                }
             },
         };
     });
@@ -81,8 +84,9 @@ function HandleSubscriptions(): void
     connection.onColorPresentation((params, token): lsps.ColorPresentation[] => colorProvider.provideColorPresentations(params, token, documents));
     connection.onDocumentSymbol((params, token): lsps.DocumentSymbol[] => documentSymbolProvider.providerDocumentOutline(params, token));
     connection.onReferences((params, token):lsps.Location[] => referenceProvider.provideReferences(params, token, documents));
-    connection.onDeclaration((params, token): lsps.Declaration | undefined => declarationProvider.provideDeclaration(params, token, documents));
-    connection.onRenameRequest((params, token): lsps.WorkspaceEdit => renameProvider.provideRename(params, token, documents));
+    connection.onDefinition((params, token): lsps.Definition | undefined => definitionProvider.provideDefinition(params, token, documents));
+    connection.onRenameRequest((params, token): lsps.WorkspaceEdit | undefined => renameProvider.provideRename(params, token, documents));
+    connection.onPrepareRename((params, token): lsps.PrepareRenameResult | null => renameProvider.onPrepareRename(params, token, documents));
 
     connection.workspace.onDidDeleteFiles((params): void => {
         for (const doc of params.files)
@@ -126,31 +130,33 @@ function HandleSubscriptions(): void
             const normalizedOldUri = Utils.DocumentUtils.normalizeUri(doc.oldUri);
             const normalizedNewUri = Utils.DocumentUtils.normalizeUri(doc.newUri);
 
-            Store.clearDocumentNodes(normalizedOldUri);
-
-            if (!Utils.DocumentUtils.isInCwd(normalizedNewUri))
+            if (Utils.DocumentUtils.isInCwd(normalizedNewUri))
             {
-                continue;
-            }
+                Store.renameDocument(normalizedOldUri, normalizedNewUri);
 
-            if (!Utils.DocumentUtils.isValidFilename(normalizedNewUri))
+                if (!Utils.DocumentUtils.isValidFilename(normalizedNewUri))
+                {
+                    connection.sendDiagnostics({
+                        uri: normalizedNewUri,
+                        diagnostics: [{
+                            severity: lsps.DiagnosticSeverity.Information,
+                            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+                            message: "Filenames should start with a number or letter but not 00",
+                            source: "Ren'Py v2"
+                        }]
+                    });
+                }
+            }
+            else
             {
-                connection.sendDiagnostics({
-                    uri: normalizedNewUri,
-                    diagnostics: [{
-                        severity: lsps.DiagnosticSeverity.Information,
-                        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
-                        message: "Filenames should start with a number or letter but not 00",
-                        source: "Ren'Py v2"
-                    }]
-                });
+                Store.clearDocumentNodes(normalizedOldUri);
+                connection.sendDiagnostics({ uri: normalizedOldUri, diagnostics: [] });
             }
-
-            connection.sendDiagnostics({ uri: normalizedOldUri, diagnostics: [] });
         }
     });
 
     connection.onInitialized(async (): Promise<void> => {
+        const _ = await Utils.DocumentUtils.getEditorConfig();
         const docs = await Utils.DocumentUtils.getWorkspaceRenpyFilePaths();
         const map: Map<string, Models.Token[]> = new Map<string, Models.Token[]>();
 

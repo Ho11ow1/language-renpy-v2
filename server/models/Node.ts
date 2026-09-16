@@ -48,9 +48,6 @@ export class Node implements Interfaces.INode
                 kind: lsps.MarkupKind.Markdown,
                 value: this.Documentation
             },
-            //
-            //  TODO: Either leave as is, remove, or update to recommended textEdit
-            //
             insertText: this.Name
         };
     }

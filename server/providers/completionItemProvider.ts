@@ -18,6 +18,7 @@ export class CompletionItemProvider
     private readonly _sceneRegex: RegExp = /\s+(?:scene)\s+([a-zA-Z0-9_]*)$/;
     private readonly _useRegex: RegExp = /\s+(?:use)\s+([a-zA-Z0-9_)]*)$/;
     private readonly _addRegex: RegExp = /\s+(?:add)\s+([a-zA-Z0-9_)]*)$/;
+    private readonly _atRegex: RegExp = /\s+(?:at)\s+([a-zA-Z0-9_]*)$/;
 
     public provideCompletionItems(params: lsps.TextDocumentPositionParams, token: lsps.CancellationToken, documents: lsps.TextDocuments<TextDocument>): lsps.CompletionItem[]
     {
@@ -42,12 +43,16 @@ export class CompletionItemProvider
         //
         if (this._jumpRegex.test(lineText))
         {
-            return Store.getLabels().map((node): lsps.CompletionItem => node.toCompletionItem());
+            let items = Store.getLabels().map((node): lsps.CompletionItem => node.toCompletionItem());
+            items.push({ label: "expression", kind: lsps.CompletionItemKind.Keyword });
+
+            return items;
         }
         if (this._callRegex.test(lineText))
         {
             let items = Store.getLabels().map((node): lsps.CompletionItem => node.toCompletionItem());
             items.push({ label: "screen", kind: lsps.CompletionItemKind.Keyword });
+            items.push({ label: "expression", kind: lsps.CompletionItemKind.Keyword });
 
             return items;
         }
@@ -79,6 +84,10 @@ export class CompletionItemProvider
             items.push(...Store.getScreens().map((node): lsps.CompletionItem => node.toCompletionItem()));
 
             return items;
+        }
+        if (this._atRegex.test(lineText))
+        {
+            return Store.getTransforms().map((node): lsps.CompletionItem => node.toCompletionItem());
         }
 
         //
