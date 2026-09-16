@@ -76,7 +76,7 @@ async function startLanguageServer(context: vscode.ExtensionContext): Promise<vo
             }
         ],
         synchronize: {
-            fileEvents: vscode.workspace.createFileSystemWatcher(Common.RENPY_FORMAT_GLOB),
+            fileEvents: vscode.workspace.createFileSystemWatcher(Common.RENPY_FORMAT_GLOB)
         },
         markdown: {
             isTrusted: true
@@ -112,9 +112,9 @@ async function startLanguageServer(context: vscode.ExtensionContext): Promise<vo
                     return next(document, position, options, token);
                 });
             },
-            provideDeclaration(document, position, token, next): vscode.ProviderResult<vscode.Declaration> | undefined
+            provideDefinition(document, position, token, next): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> | undefined
             {
-                return Middleware.withGlobalMiddleware("provideDeclaration", (): vscode.ProviderResult<vscode.Declaration> | undefined => {
+                return Middleware.withGlobalMiddleware("provideDefinition", (): vscode.ProviderResult<vscode.Definition | vscode.LocationLink[]> | undefined => {
                     return next(document, position, token);
                 });
             },
@@ -122,6 +122,23 @@ async function startLanguageServer(context: vscode.ExtensionContext): Promise<vo
             {
                 return Middleware.withGlobalMiddleware("provideRenameEdits", (): vscode.ProviderResult<vscode.WorkspaceEdit> | undefined => {
                     return next(document, position, newName, token);
+                });
+            },
+            prepareRename(document, position, token, next): vscode.ProviderResult<vscode.Range | { range: vscode.Range, placeholder: string}> | undefined
+            {
+                return Middleware.withGlobalMiddleware("prepareRename", (): vscode.ProviderResult<vscode.Range | { range: vscode.Range, placeholder: string}> | undefined => {
+                    return next(document, position, token);
+                });
+            },
+            handleDiagnostics(uri, diagnostics, next): void
+            {
+                return Middleware.withGlobalMiddleware("handleDiagnostics", (): void => {
+                    if (!Config.WorkspaceConfig.diagnosticsEnabled)
+                    {
+                        return;
+                    }
+
+                    next(uri, diagnostics);
                 });
             }
         }
