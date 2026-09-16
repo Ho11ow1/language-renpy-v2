@@ -1,7 +1,25 @@
 const esbuild = require("esbuild");
+const path = require("path");
+const fs = require("fs");
 
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
+
+/**
+ * @type {import("esbuild").Plugin}
+ */
+const wasmEditorConfigPlugin = {
+	name: "editorconfig-bundle-plugin",
+
+	setup(build)
+	{
+		build.onEnd(() => {
+			const wasmPath = require.resolve("@one-ini/wasm/one_ini_bg.wasm", { paths: [path.dirname(require.resolve("editorconfig"))] });
+
+			fs.copyFileSync(wasmPath, path.join("dist", "one_ini_bg.wasm"));
+		});
+	},
+};
 
 /**
  * @type {import("esbuild").Plugin}
@@ -26,7 +44,7 @@ const esbuildProblemMatcherPlugin = {
 	},
 };
 
-async function buildTarget(entry, outfile)
+async function buildTarget(entry, outfile, additionalPlugins = [])
 {
 	const ctx = await esbuild.context({
 		entryPoints: [ entry ],
@@ -40,7 +58,7 @@ async function buildTarget(entry, outfile)
 		external: ["vscode"],
 		logLevel: "silent",
 		tsconfig: "tsconfig.json",
-		plugins: [ esbuildProblemMatcherPlugin ],
+		plugins: [ esbuildProblemMatcherPlugin, ...additionalPlugins],
 	});
 
 	if (watch)
@@ -54,10 +72,11 @@ async function buildTarget(entry, outfile)
 	}
 }
 
-async function main() {
+async function main()
+{
 	await Promise.all([
 		buildTarget("client/extension.ts", "dist/extension.js"),
-		buildTarget("server/server.ts", "dist/server.js")
+		buildTarget("server/server.ts", "dist/server.js", [wasmEditorConfigPlugin])
 	]);
 }
 
