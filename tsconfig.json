@@ -16,7 +16,8 @@
         "paths": {
             "@client/*": ["./client/*"],
             "@server/*": ["./server/*"],
-            "@common/*": ["./common/*"]
+            "@common/*": ["./common/*"],
+            "@data/*": ["./data/*"]
         },
     }
 }

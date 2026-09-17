@@ -4,6 +4,8 @@ import * as path from "path";
 import * as fs from "fs";
 import * as Common from "@common/index";
 import * as Utils from "@server/utils/index";
+import * as Models from "@server/models/index";
+import { Diagnostics } from "@server/diagnostics";
 
 export class DocumentUtils
 {
@@ -50,11 +52,11 @@ export class DocumentUtils
         return convertToUri ? entries.map((entry): string => this.normalizeUri(entry)) : entries;
     }
 
-    public static async getEditorConfig(): Promise<string[] | undefined>
+    public static async parseEditorConfig(): Promise<void>
     {
         if (!this.cwd)
         {
-            return undefined;
+            return;
         }
 
         const configPath = path.join(this.cwd, ".editorconfig");
@@ -62,26 +64,61 @@ export class DocumentUtils
         {
             Utils.Logger.logDebug(`No editor config at ${configPath}`);
 
-            return undefined;
+            return;
         }
 
         try
         {
-            // The param really doesn't matter as there is no check, it simply bases a lookup off of a path like where the only thing that matters is the extension
             const config = await editorConfig.parse(".rpy");
+            const validSeverities = new Set(Object.keys(Models.DiagnosticSeverity));
+            const validNamingRules = new Set(Object.keys(Models.NamingRule));
 
             for (const [key, value] of Object.entries(config))
             {
-                Utils.Logger.logMessage(`${key} = ${value}`);
-            }
+                const split = key.split(".");
+                if (split.length !== 3)
+                {
+                    continue;
+                }
 
-            return [];
+                const [prefix, identifier, property] = split;
+                if (property !== "severity")
+                {
+                    continue;
+                }
+
+                const severityKey = String(value).toUpperCase() as keyof typeof Models.DiagnosticSeverity;
+                if (!validSeverities.has(severityKey))
+                {
+                    continue;
+                }
+
+                if (prefix === "renpy_diagnostic")
+                {
+                    if (identifier.length !== 7)
+                    {
+                        continue;
+                    }
+
+                    const errorCodeName = Models.ErrorCode[Number(identifier.substring(3))];
+                    if (errorCodeName !== undefined)
+                    {
+                        Diagnostics.overrideSeverity(identifier.toUpperCase(), Models.DiagnosticSeverity[severityKey]);
+                    }
+                }
+                else if (prefix === "renpy_naming_rule")
+                {
+                    const namingRuleName = identifier.toUpperCase() as keyof typeof Models.NamingRule;
+                    if (validNamingRules.has(namingRuleName))
+                    {
+                        Diagnostics.overrideSeverity(namingRuleName, Models.DiagnosticSeverity[severityKey]);
+                    }
+                }
+            }
         }
         catch (ex)
         {
             Utils.Logger.logError(`Failed to parse ${configPath}: ${ex}`);
-
-            return undefined;
         }
     }
 

@@ -3,6 +3,7 @@ import * as Models from "@server/models/index";
 import * as Interfaces from "@server/interfaces/index";
 import * as Utils from "@server/utils/index";
 import { Store } from "@server/store";
+import { Diagnostics } from "@server/diagnostics";
 
 export class Parser
 {
@@ -65,10 +66,10 @@ export class Parser
             //  Yeah
             //
             case Models.TokenType.JUMP:
-                this.parseJump();
+                this.parseJump(token);
                 break;
             case Models.TokenType.CALL:
-                this.parseCall();
+                this.parseCall(token);
                 break;
 
             //
@@ -76,10 +77,10 @@ export class Parser
             //
             case Models.TokenType.SHOW:
             case Models.TokenType.HIDE:
-                this.parseShowHide();
+                this.parseShowHide(token);
                 break;
             case Models.TokenType.SCENE:
-                this.parseScene();
+                this.parseScene(token);
                 break;
 
             //
@@ -94,7 +95,7 @@ export class Parser
             //  Transfomr
             //
             case Models.TokenType.AT:
-                this.parseAt();
+                this.parseAt(token);
                 break;
             //
             //  Style
@@ -181,9 +182,10 @@ export class Parser
     private parseLabelDef(token: Models.Token): void
     {
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
+        if (!success || !nameToken)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
@@ -202,24 +204,34 @@ export class Parser
             { uri: this.currentFileUri, range: fullRange },
         );
 
+        //
+        // TODO: Check for params and colon or colon
+        //
+
         if (this.labelStack.length === 0)
         {
             this.parsedNodes.push(labelNode);
             labelNode.References.push({ range: nameToken.Range, uri: this.currentFileUri });
         }
+
         if (this.peek().Type === Models.TokenType.COLON)
         {
             this.pushScope(Models.ScopeType.LABEL, nameToken.Value);
             this.labelStack.push(labelNode);
+        }
+        else
+        {
+            this.pushErrorCode(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(nameToken.Range.end, nameToken.Range.end));
         }
     }
 
     private parseScreenDef(token: Models.Token): void
     {
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
+        if (!success || !nameToken)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
@@ -238,6 +250,10 @@ export class Parser
             { uri: this.currentFileUri, range: fullRange },
         );
 
+        //
+        // TODO: Check for params and colon or colon
+        //
+
         screenNode.References.push({ range: nameToken.Range, uri: this.currentFileUri });
         this.parsedNodes.push(screenNode);
         this.pushScope(Models.ScopeType.SCREEN, nameToken.Value);
@@ -254,7 +270,8 @@ export class Parser
 
         if (nameTokens.length === 0)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
@@ -309,12 +326,17 @@ export class Parser
         }
         else
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(nextToken.Range.end, nextToken.Range.end));
         }
     }
 
     private parseMenuDef(token: Models.Token): void
     {
+        if (this.prev()?.Value === "tag")
+        {
+            return;
+        }
+
         let menuName = "menu";
         let isNamed = false;
         let nameRange = token.Range;
@@ -352,6 +374,12 @@ export class Parser
         {
             this.advance();
         }
+        else
+        {
+            this.pushErrorCode(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
+            return;
+        }
 
         const activeLabel: Models.LabelNode | undefined = (this.labelStack.length > 0) ? this.labelStack[this.labelStack.length - 1] : undefined;
         if (activeLabel)
@@ -379,10 +407,9 @@ export class Parser
             this.advance();
         }
 
-        if (this.peek().Type !== Models.TokenType.COLON)
-        {
-            return;
-        }
+        //
+        // TODO: Check for condition and colon or colon
+        //
 
         const activeMenu = this.menuStack[this.menuStack.length - 1];
         if (activeMenu)
@@ -404,7 +431,8 @@ export class Parser
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
         if (!success || !nameToken)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
@@ -413,6 +441,10 @@ export class Parser
             start: token.Range.start,
             end: nameToken.Range.end
         };
+
+        //
+        // TODO: Check for params and colon or colon
+        //
 
         const transformNode = new Models.TransformNode(
             nameToken.Value,
@@ -429,83 +461,96 @@ export class Parser
     // #endregion
 
     // #region REFERENCE
-    private parseJump(): void
+    private parseJump(token: Models.Token): void
     {
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
         if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
         const node = Store.getLabel(nameToken.Value);
         if (!node)
         {
-            // Call Diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_LABEL_NOT_DEFINED, nameToken.Range, undefined, nameToken.Value);
+
             return;
         }
 
         node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
     }
 
-    private parseCall(): void
+    private parseCall(token: Models.Token): void
     {
         if (this.peek().Type === Models.TokenType.SCREEN)
         {
             this.advance();
-            this.resolveScreenRef();
+            this.resolveScreenRef(token);
+
             return;
         }
 
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
         if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
         const node = Store.getLabel(nameToken.Value);
         if (!node)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_LABEL_NOT_DEFINED, nameToken.Range, undefined, nameToken.Value);
+
             return;
         }
 
         node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
     }
 
-    private parseShowHide(): void
+    private parseShowHide(token: Models.Token): void
     {
-        if (this.peek().Type === Models.TokenType.SCREEN)
+        if (this.prev()?.Value === "on")
         {
-            this.advance();
-            this.resolveScreenRef();
             return;
         }
 
-        this.parseScene();
+        if (this.peek().Type === Models.TokenType.SCREEN)
+        {
+            this.advance();
+            this.resolveScreenRef(token);
+
+            return;
+        }
+
+        this.parseScene(token);
     }
 
-    private resolveScreenRef(): void
+    private resolveScreenRef(token: Models.Token): void
     {
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
         if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
         const node = Store.getScreen(nameToken.Value);
         if (!node)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_SCREEN_NOT_DEFINED, nameToken.Range, undefined, nameToken.Value);
+
             return;
         }
 
         node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
     }
 
-    private parseScene(): void
+    private parseScene(token: Models.Token): void
     {
         const nameTokens: Models.Token[] = [];
 
@@ -516,7 +561,8 @@ export class Parser
 
         if (nameTokens.length === 0)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
@@ -529,26 +575,29 @@ export class Parser
         const node = Store.getImage(imageName);
         if (!node)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.WRN_IMAGE_NOT_DEFINED, fullRange, undefined, imageName);
+
             return;
         }
 
         node.addReference({ uri: this.currentFileUri, range: fullRange });
     }
 
-    private parseAt(): void
+    private parseAt(token: Models.Token): void
     {
         const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
         if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+
             return;
         }
 
         const node = Store.getTransform(nameToken.Value);
         if (!node)
         {
-            // Call diagnostics
+            this.pushErrorCode(Models.ErrorCode.ERR_TRANSFORM_NOT_DEFINED, nameToken.Range, undefined, nameToken.Value);
+
             return;
         }
 
@@ -642,6 +691,33 @@ export class Parser
     private isEOF(): boolean
     {
         return this.peek().Type === Models.TokenType.EOF;
+    }
+
+    private pushErrorCode(code: Models.ErrorCode, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void
+    {
+        const descriptor = Models.DiagnosticDescriptorMap.get(code);
+        if (!descriptor)
+        {
+            Utils.Logger.logDebug(`${code.constructor.name} not present in ${Models.DiagnosticDescriptorMap.constructor.name}`);
+
+            return;
+        }
+
+        Diagnostics.push(descriptor.createDiagnostic(range, relatedInformation, ...args), this.currentFileUri);
+    }
+
+    private pushNameViolation(rule: Models.NamingRule, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void
+    {
+        // const descriptor = Models.NamingRuleDescriptorMap.get(rule);
+        // if (!descriptor)
+        // {
+        //     Utils.Logger.logDebug(`${rule.constructor.name} not present in ${Models.NamingRuleDescriptorMap.constructor.name}`);
+
+        //     return;
+        // }
+
+        // Diagnostics.push(descriptor.createDiagnostic(range, relatedInformation, ...args), this.currentFileUri);
+
     }
     // #endregion
 }
