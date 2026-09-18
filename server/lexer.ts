@@ -57,6 +57,9 @@ export class Lexer
     private indentStack: number[] = [0];
     private atLineStart: boolean = true;
     private hasContentSinceNewline: boolean = false;
+    private braceDepth: number = 0;
+    private bracketDepth: number = 0;
+    private parenDepth: number = 0;
 
     private constructor(source: string)
     {
@@ -180,21 +183,27 @@ export class Lexer
                 this.addToken(Models.TokenType.COLON);
                 break;
             case '(':
+                this.parenDepth += 1;
                 this.addToken(Models.TokenType.L_PAREN);
                 break;
             case ')':
+                this.parenDepth -= 1;
                 this.addToken(Models.TokenType.R_PAREN);
                 break;
             case '{':
+                this.braceDepth += 1;
                 this.addToken(Models.TokenType.L_BRACE);
                 break;
             case '}':
+                this.braceDepth -= 1;
                 this.addToken(Models.TokenType.R_BRACE);
                 break;
             case '[':
+                this.bracketDepth += 1;
                 this.addToken(Models.TokenType.L_BRACKET);
                 break;
             case ']':
+                this.bracketDepth += 1;
                 this.addToken(Models.TokenType.R_BRACKET);
                 break;
             case '$':
@@ -216,9 +225,12 @@ export class Lexer
                 break;
 
             case '\n':
-                if (this.hasContentSinceNewline)
+                if (this.bracketDepth === 0 && this.parenDepth === 0 && this.braceDepth === 0)
                 {
-                    this.addToken(Models.TokenType.NEW_LINE);
+                    if (this.hasContentSinceNewline)
+                    {
+                        this.addToken(Models.TokenType.NEW_LINE);
+                    }
                 }
                 this.line++;
                 this.character = 0;
@@ -392,6 +404,10 @@ export class Lexer
 
         const currentIndent = this.indentStack[this.indentStack.length - 1];
 
+        if (this.bracketDepth !== 0 || this.parenDepth !== 0 || this.braceDepth !== 0)
+        {
+            return;
+        }
         if (indent > currentIndent)
         {
             this.indentStack.push(indent);
