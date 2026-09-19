@@ -30,6 +30,10 @@ export class Diagnostics
     public static push(diagnostic: Models.Diagnostic, fileUri: string): void
     {
         const severityOverride = this._severityOverrideMap.get(diagnostic.Descriptor.Id);
+        if (!diagnostic.Descriptor.IsEnabledByDefault && severityOverride === undefined)
+        {
+            return;
+        }
         if (severityOverride === Models.DiagnosticSeverity.NONE)
         {
             return;

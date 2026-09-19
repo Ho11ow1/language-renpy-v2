@@ -9,8 +9,9 @@ export class DiagnosticDescriptor
     public readonly Title: string;
     public readonly Description: string;
     public readonly Format: string;
+    public readonly IsEnabledByDefault: boolean;
 
-    public constructor(id: string, category: string, defaultSeverity: Models.DiagnosticSeverity, title: string, description: string, format: string)
+    public constructor(id: string, category: string, defaultSeverity: Models.DiagnosticSeverity, title: string, description: string, format: string, isEnabledByDefault: boolean)
     {
         this.Id = id;
         this.Category = category;
@@ -18,6 +19,7 @@ export class DiagnosticDescriptor
         this.Title = title;
         this.Description = description;
         this.Format = format;
+        this.IsEnabledByDefault = isEnabledByDefault;
     }
 
     public formatMessage(...args: string[]): string
