@@ -203,7 +203,7 @@ export class Lexer
                 this.addToken(Models.TokenType.L_BRACKET);
                 break;
             case ']':
-                this.bracketDepth += 1;
+                this.bracketDepth -= 1;
                 this.addToken(Models.TokenType.R_BRACKET);
                 break;
             case '$':
@@ -237,10 +237,13 @@ export class Lexer
                 this.atLineStart = true;
                 this.hasContentSinceNewline = false;
                 break;
+                
+            case '\t':
+                this.addToken(Models.TokenType.TAB);
+                break;
 
             case '\r':
             case ' ':
-            case '\t':
                 break;
 
             case '"':
@@ -365,6 +368,7 @@ export class Lexer
         this.atLineStart = false;
 
         let indent = 0;
+        let isTab = false;
         let tempCurrent = this.current;
         let tempChar = this.character;
 
@@ -375,13 +379,16 @@ export class Lexer
             if (ch === ' ')
             {
                 indent++;
+                tempChar++;
             }
             //
             //  Ren'Py doesn't allow tabs but we kind of have to handle that case anyways, might change later to just ignore tabs or something
             //
             else if (ch === '\t')
             {
+                isTab = true;
                 indent += 4;
+                tempChar += 4;
             }
             else
             {
@@ -389,7 +396,6 @@ export class Lexer
             }
 
             tempCurrent++;
-            tempChar++;
         }
 
         const nextChar = this.source.charAt(tempCurrent);
@@ -402,12 +408,16 @@ export class Lexer
         this.current = tempCurrent;
         this.character = tempChar;
 
-        const currentIndent = this.indentStack[this.indentStack.length - 1];
-
         if (this.bracketDepth !== 0 || this.parenDepth !== 0 || this.braceDepth !== 0)
         {
             return;
         }
+        if (isTab)
+        {
+            this.addToken(Models.TokenType.TAB);
+        }
+
+        const currentIndent = this.indentStack[this.indentStack.length - 1];
         if (indent > currentIndent)
         {
             this.indentStack.push(indent);
