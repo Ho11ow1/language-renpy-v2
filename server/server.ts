@@ -150,15 +150,15 @@ function HandleSubscriptions(): void
                 connection.sendNotification("renpyv2/config/dir", notification);
             }
 
-            const tokens = Lexer.tokenizeDocument(text);
-            map.set(docUri, tokens);
-            Parser.parseDocumentDeclarations(tokens, docUri);
+            // const tokens = Lexer.tokenizeDocument(text);
+            // map.set(docUri, tokens);
+            // Parser.parseDocumentDeclarations(tokens, docUri);
         }
 
-        for (const [uri, tokens] of map)
-        {
-            Parser.parseDocumentReferences(tokens, uri);
-        }
+        // for (const [uri, tokens] of map)
+        // {
+        //     Parser.parseDocumentReferences(tokens, uri);
+        // }
     });
 
     documents.onDidClose((e): void => {
@@ -167,25 +167,42 @@ function HandleSubscriptions(): void
         Diagnostics.clear(normalizedUri);
     });
 
-    documents.onDidChangeContent((change): void => {
-        const textDocument = change.document;
-        const normalizedUri = Utils.DocumentUtils.normalizeUri(textDocument.uri);
-
-        if (!Utils.DocumentUtils.isInCwd(normalizedUri))
-        {
-            return;
-        }
-
-        Diagnostics.clear(normalizedUri);
-
-        const text = textDocument.getText();
+    documents.onDidOpen((e): void => {
+        const text = e.document.getText();
         const tokens = Lexer.tokenizeDocument(text);
 
-        Parser.parseDocumentDeclarations(tokens, normalizedUri);
-        Parser.parseDocumentReferences(tokens, normalizedUri);
+        // for (const token of tokens)
+        // {
+        //     Utils.Logger.logMessage(token.toString());
+        // }
 
-        Diagnostics.pushDiagnostics(normalizedUri);
+        Parser.parseDocumentDeclarations(tokens, e.document);
     });
+
+    // documents.onDidChangeContent((change): void => {
+    //     const textDocument = change.document;
+    //     const normalizedUri = Utils.DocumentUtils.normalizeUri(textDocument.uri);
+
+    //     if (!Utils.DocumentUtils.isInCwd(normalizedUri))
+    //     {
+    //         return;
+    //     }
+
+    //     Diagnostics.clear(normalizedUri);
+
+    //     const text = textDocument.getText();
+    //     const tokens = Lexer.tokenizeDocument(text);
+
+    //     for (const token of tokens)
+    //     {
+    //         Utils.Logger.logMessage(token.toString());
+    //     }
+
+    //     Parser.parseDocumentDeclarations(tokens, textDocument);
+    //     // Parser.parseDocumentReferences(tokens, normalizedUri);
+
+    //     // Diagnostics.pushDiagnostics(normalizedUri);
+    // });
 }
 
 function HandleListeners(): void

@@ -237,7 +237,7 @@ export class Lexer
                 this.atLineStart = true;
                 this.hasContentSinceNewline = false;
                 break;
-                
+
             case '\t':
                 this.addToken(Models.TokenType.TAB);
                 break;

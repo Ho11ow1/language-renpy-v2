@@ -4,5 +4,5 @@ export interface IScope
 {
     kind: Models.ScopeType;
     depth: number;
-    name?: string;
+    node: Models.Node;
 }

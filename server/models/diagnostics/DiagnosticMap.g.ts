@@ -8,6 +8,7 @@ export const DiagnosticDescriptorMap: Map<Models.ErrorCode, Models.DiagnosticDes
 
     [Models.ErrorCode.ERR_COLON_EXPECTED, new Models.DiagnosticDescriptor("RPY0115", "Syntax", Models.DiagnosticSeverity.ERROR, "", "", "Expected :", true)],
     [Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, new Models.DiagnosticDescriptor("RPY0116", "Syntax", Models.DiagnosticSeverity.ERROR, "", "", "Expected Identifier ", true)],
+    [Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, new Models.DiagnosticDescriptor("RPY0116", "Design", Models.DiagnosticSeverity.ERROR, "", "", "Expected something", true)],
 
     [Models.ErrorCode.ERR_LABEL_NOT_DEFINED, new Models.DiagnosticDescriptor("RPY0518", "Design", Models.DiagnosticSeverity.ERROR, "", "", "Label ({0}) is Not Defined", true)],
     [Models.ErrorCode.ERR_SCREEN_NOT_DEFINED, new Models.DiagnosticDescriptor("RPY0519", "Design", Models.DiagnosticSeverity.ERROR, "", "", "Screen ({0}) is Not Defined", true)],

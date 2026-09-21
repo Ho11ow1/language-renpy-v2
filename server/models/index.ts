@@ -13,6 +13,7 @@ export { ScreenNode } from "./nodes/ScreenNode";
 export { ImageNode } from "./nodes/ImageNode";
 export { MenuNode } from "./nodes/MenuNode";
 export { TransformNode } from "./nodes/TransformNode";
+export { StyleNode } from "./nodes/StyleNode";
 
 export { Diagnostic } from "./diagnostics/Diagnostic";
 export { DiagnosticDescriptor } from "./diagnostics/DiagnosticDescriptor";
