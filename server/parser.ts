@@ -95,14 +95,14 @@ export class Parser
             return;
         }
 
-        let params: Models.Token[] = [];
+        let params: param[] = [];
         if (this.peek().Type === Models.TokenType.L_PAREN)
         {
             params = this.getParams();
         }
         if (params.length > 1)
         {
-            Utils.Logger.logMessage(`Params: ${params.join('|')}`);
+            Utils.Logger.logDebug(`${params.map((param): string => `(${param.token.Value} | ${param.typeHint} | ${param.RValue.value})`)}`);
         }
 
         const colon = this.advanceIfExpected(Models.TokenType.COLON);
@@ -269,10 +269,10 @@ export class Parser
     }
 
     //
-    //  V1 => (a, b, c)         | Check
-    //  V2 => (a, b, c = RVal)  | TODO: grab + detect positional x required
-    //  V3 => (a: type)         | Self explanitory just V2 but with hints
-    private getParams(): Models.Token[]
+    //  TODO: Create delimeter interface to allow for check splitting across multiple functions as TS doesn't have ref on primitives
+    //  TODO: Clean up common behaviour
+    //
+    private getParams(hintsAllowed: boolean = false): param[]
     {
         this.advance();
 
@@ -283,10 +283,17 @@ export class Parser
             return [];
         }
 
-        const arr: Models.Token[] = [];
+        const paramArr: param[] = [];
+        const tokenArr: Models.Token[] = [];
+        let hasSeenDefault = false;
 
-        while (!this.isEOF() && this.peek().Type !== Models.TokenType.NEW_LINE && this.peek().Type !== Models.TokenType.R_PAREN)
+        while (!this.isEOF())
         {
+            if (this.peek().Type === Models.TokenType.NEW_LINE || this.peek().Type === Models.TokenType.R_PAREN)
+            {
+                break;
+            }
+
             const arg = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
             if (!arg)
             {
@@ -296,11 +303,117 @@ export class Parser
 
                 continue;
             }
-            arr.push(arg);
+
+            tokenArr.push(arg);
+
+            let bracketDepth = 0;
+            let parenDepth = 0;
+            let braceDepth = 0;
+            let hint = "";
+            let hasVal = false;
+            let val = "";
+
+            if (this.peek().Type === Models.TokenType.COLON)
+            {
+                this.advance();
+                if (!hintsAllowed)
+                {
+                    Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure: Ln:${this.prev().Range.start.line} Col: ${this.prev().Range.start.character}`);
+                }
+
+                const typeParts: string[] = [];
+
+                while (!this.isEOF() && this.peek().Type !== Models.TokenType.NEW_LINE)
+                {
+                    if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0)
+                    {
+                        const nextType = this.peek().Type;
+                        if (nextType === Models.TokenType.ASSIGN || nextType === Models.TokenType.COMMA || nextType === Models.TokenType.R_PAREN)
+                        {
+                            break;
+                        }
+                    }
+
+                    const token = this.advance();
+                    switch (token.Type)
+                    {
+                        case Models.TokenType.L_PAREN: parenDepth += 1; break;
+                        case Models.TokenType.R_PAREN: parenDepth -= 1; break;
+                        case Models.TokenType.L_BRACE: braceDepth += 1; break;
+                        case Models.TokenType.R_BRACE: braceDepth -= 1; break;
+                        case Models.TokenType.L_BRACKET: bracketDepth += 1; break;
+                        case Models.TokenType.R_BRACKET: bracketDepth -= 1; break;
+                    }
+
+                    typeParts.push(token.Value);
+                }
+
+                hint = typeParts.join('');
+            }
+
+            if (this.peek().Type === Models.TokenType.ASSIGN)
+            {
+                parenDepth = 0;
+                bracketDepth = 0;
+                braceDepth = 0;
+                hasVal = true;
+                hasSeenDefault = true;
+
+                const RValueArr: string[] = [];
+
+                this.advance();
+
+                while (!this.isEOF() && this.peek().Type !== Models.TokenType.NEW_LINE)
+                {
+                    if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0)
+                    {
+                        const nextType = this.peek().Type;
+                        if (nextType === Models.TokenType.COMMA || nextType === Models.TokenType.R_PAREN)
+                        {
+                            break;
+                        }
+                    }
+
+                    const token = this.advance();
+                    switch (token.Type)
+                    {
+                        case Models.TokenType.L_PAREN: parenDepth += 1; break;
+                        case Models.TokenType.R_PAREN: parenDepth -= 1; break;
+                        case Models.TokenType.L_BRACE: braceDepth += 1; break;
+                        case Models.TokenType.R_BRACE: braceDepth -= 1; break;
+                        case Models.TokenType.L_BRACKET: bracketDepth += 1; break;
+                        case Models.TokenType.R_BRACKET: bracketDepth -= 1; break;
+                    }
+
+                    RValueArr.push(token.Value);
+                }
+
+                val = RValueArr.join('');
+            }
+            else
+            {
+                if (hasSeenDefault)
+                {
+                    Utils.Logger.logDebug(`[DIAGNOSTIC] Non-default argument "${arg.Value}" follows default argument at Ln: ${arg.Range.start.line}, Col: ${arg.Range.start.character}`);
+                }
+            }
+
+            paramArr.push({
+                token: arg,
+                typeHint: hint,
+                RValue: {
+                    hasDefault: hasVal,
+                    value: val
+                }
+            });
 
             if (this.peek().Type === Models.TokenType.COMMA)
             {
                 this.advance();
+                if (this.peek().Type === Models.TokenType.R_PAREN)
+                {
+                    Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing comma at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                }
             }
             else if (this.peek().Type !== Models.TokenType.R_PAREN)
             {
@@ -316,10 +429,10 @@ export class Parser
         }
         else
         {
-            Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed parameter list starting at line`);
+            Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed parameter list starting at line ${this.peek().Range.start.line}`);
         }
 
-        return arr;
+        return paramArr;
     }
 
     private recoverParameterList(): void
@@ -341,4 +454,11 @@ export class Parser
         }
     }
     // #endregion
+}
+
+export interface param
+{
+    RValue: { hasDefault: boolean, value: string };
+    typeHint: string;
+    token: Models.Token;
 }
