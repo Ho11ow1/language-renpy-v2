@@ -5,6 +5,7 @@ import * as Interfaces from "@server/interfaces/index";
 import * as Utils from "@server/utils/index";
 import { Store } from "@server/store";
 import { Diagnostics } from "@server/diagnostics";
+import { TypeHierarchyFeature } from "vscode-languageclient/$test/common/typeHierarchy";
 
 export class Parser
 {
@@ -105,6 +106,16 @@ export class Parser
             Utils.Logger.logDebug(`${params.map((param): string => `(${param.token.Value} | ${param.typeHint} | ${param.RValue.value})`)}`);
         }
 
+        let hint = "";
+        if (this.peek().Type === Models.TokenType.DEF_TYPE_HINT)
+        {
+            hint = this.getFuncTypeHint();
+        }
+        if (hint)
+        {
+            Utils.Logger.logDebug(`Type hint: ${hint}`);
+        }
+
         const colon = this.advanceIfExpected(Models.TokenType.COLON);
         if (!colon)
         {
@@ -126,13 +137,15 @@ export class Parser
             { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: token.Range }
         );
 
+        const first = this.getFirstIndentedToken();
+
         this.scopeStack.push({
             kind: Models.ScopeType.LABEL,
-            depth: 0,
+            depth: first ? first.Range.start.character : 0,
             node: label
         });
 
-        Utils.Logger.logDebug(`[OPEN SCOPE] LABEL "${label.Name}" set to expected depth ${0}`);
+        Utils.Logger.logDebug(`[OPEN SCOPE] LABEL (${label.Name}) set to expected depth ${first ? first.Range.start.character : 0}`);
     }
 
     private parseStyleDef(token: Models.Token): void
@@ -176,7 +189,7 @@ export class Parser
             node: style
         });
 
-        Utils.Logger.logDebug(`[OPEN SCOPE] STYLE "${style.Name}" set to expected depth ${first.Range.start.character}`);
+        Utils.Logger.logDebug(`[OPEN SCOPE] STYLE (${style.Name}) set to expected depth ${first.Range.start.character}`);
     }
     // #endregion
 
@@ -271,6 +284,7 @@ export class Parser
     //
     //  TODO: Create delimeter interface to allow for check splitting across multiple functions as TS doesn't have ref on primitives
     //  TODO: Clean up common behaviour
+    //  Diagnostics are probably not accurate right now but fixed a bunch of stuff
     //
     private getParams(hintsAllowed: boolean = false): param[]
     {
@@ -311,27 +325,28 @@ export class Parser
             let braceDepth = 0;
             let hint = "";
             let hasVal = false;
-            let val = "";
+            let valStr = "";
 
             if (this.peek().Type === Models.TokenType.COLON)
             {
                 this.advance();
-                if (!hintsAllowed)
-                {
-                    Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure: Ln:${this.prev().Range.start.line} Col: ${this.prev().Range.start.character}`);
-                }
-
-                const typeParts: string[] = [];
+                const typeTokens: Models.Token[] = [];
 
                 while (!this.isEOF() && this.peek().Type !== Models.TokenType.NEW_LINE)
                 {
+                    const nextType = this.peek().Type;
                     if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0)
                     {
-                        const nextType = this.peek().Type;
                         if (nextType === Models.TokenType.ASSIGN || nextType === Models.TokenType.COMMA || nextType === Models.TokenType.R_PAREN)
                         {
                             break;
                         }
+                    }
+                    if (nextType === Models.TokenType.ASSIGN)
+                    {
+                        Utils.Logger.logDebug(`[DIAGNOSTIC] Unexpected '=' inside type hint at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+
+                        break;
                     }
 
                     const token = this.advance();
@@ -345,10 +360,32 @@ export class Parser
                         case Models.TokenType.R_BRACKET: bracketDepth -= 1; break;
                     }
 
-                    typeParts.push(token.Value);
+                    typeTokens.push(token);
                 }
 
-                hint = typeParts.join('');
+                const lastToken = typeTokens[typeTokens.length - 1];
+                if (lastToken?.Type === Models.TokenType.BIT_OR)
+                {
+                    Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in parameter type hint at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                }
+                if (!hintsAllowed)
+                {
+                    Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                }
+
+                if (bracketDepth > 0 || parenDepth > 0 || braceDepth > 0)
+                {
+                    Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed delimiter in parameter type hint at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+
+                    if (this.peek().Type !== Models.TokenType.ASSIGN)
+                    {
+                        this.recoverParameterList();
+                    }
+                }
+                else
+                {
+                    hint = typeTokens.map((token): string => token.Value).join('');
+                }
             }
 
             if (this.peek().Type === Models.TokenType.ASSIGN)
@@ -388,14 +425,11 @@ export class Parser
                     RValueArr.push(token.Value);
                 }
 
-                val = RValueArr.join('');
+                valStr = RValueArr.join('');
             }
-            else
+            else if (hasSeenDefault)
             {
-                if (hasSeenDefault)
-                {
-                    Utils.Logger.logDebug(`[DIAGNOSTIC] Non-default argument "${arg.Value}" follows default argument at Ln: ${arg.Range.start.line}, Col: ${arg.Range.start.character}`);
-                }
+                Utils.Logger.logDebug(`[DIAGNOSTIC] Non-default argument '${arg.Value}' follows default argument at Ln: ${arg.Range.start.line}, Col: ${arg.Range.start.character}`);
             }
 
             paramArr.push({
@@ -403,7 +437,7 @@ export class Parser
                 typeHint: hint,
                 RValue: {
                     hasDefault: hasVal,
-                    value: val
+                    value: valStr
                 }
             });
 
@@ -412,12 +446,12 @@ export class Parser
                 this.advance();
                 if (this.peek().Type === Models.TokenType.R_PAREN)
                 {
-                    Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing comma at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                    Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing comma at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
                 }
             }
             else if (this.peek().Type !== Models.TokenType.R_PAREN)
             {
-                Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ',' or ')' after parameter "${arg.Value}" at Ln: ${this.peek().Range.start.line}`);
+                Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ',' or ')' after parameter '${arg.Value}' at Ln: Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
 
                 break;
             }
@@ -429,7 +463,7 @@ export class Parser
         }
         else
         {
-            Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed parameter list starting at line ${this.peek().Range.start.line}`);
+            Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed parameter list starting at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
         }
 
         return paramArr;
@@ -450,6 +484,78 @@ export class Parser
 
         if (this.peek().Type === Models.TokenType.COMMA)
         {
+            this.advance();
+        }
+    }
+
+    private getFuncTypeHint(hintsAllowed: boolean = false): string
+    {
+        this.advance();
+        if (this.peek().Type === Models.TokenType.COLON)
+        {
+            Utils.Logger.logDebug(`[DIAGNOSTIC] Expected type hint Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+
+            return "";
+        }
+
+        let bracketDepth = 0;
+        let parenDepth = 0;
+        const typeTokens: Models.Token[] = [];
+
+        while (!this.isEOF())
+        {
+            const peekType = this.peek().Type;
+            if (peekType === Models.TokenType.NEW_LINE || peekType === Models.TokenType.COLON)
+            {
+                break;
+            }
+
+            const token = this.advance();
+            switch (token.Type)
+            {
+                case Models.TokenType.L_BRACKET: bracketDepth += 1; break;
+                case Models.TokenType.R_BRACKET: bracketDepth -= 1; break;
+                case Models.TokenType.L_PAREN: parenDepth += 1; break;
+                case Models.TokenType.R_PAREN: parenDepth -= 1; break;
+            }
+
+            typeTokens.push(token);
+        }
+
+        if (bracketDepth > 0 || parenDepth > 0)
+        {
+            Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ']' or ')' in type hint starting near Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+
+            this.recoverTypeHint();
+
+            return "";
+        }
+
+        const lastToken = typeTokens[typeTokens.length - 1];
+        if (lastToken?.Type === Models.TokenType.BIT_OR)
+        {
+            Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in return type hint at Ln: ${lastToken.Range.start.line}, Col: ${lastToken.Range.start.character}`);
+            
+            return "";
+        }
+        if (!hintsAllowed)
+        {
+            Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+        }
+
+        return typeTokens.map((token): string => token.Value).join('');
+    }
+
+    private recoverTypeHint(): void
+    {
+        while (!this.isEOF())
+        {
+            const peekType = this.peek().Type;
+            if (peekType === Models.TokenType.COLON || peekType === Models.TokenType.NEW_LINE)
+            {
+                break;
+            }
+
             this.advance();
         }
     }
