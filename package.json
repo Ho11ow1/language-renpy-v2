@@ -71,6 +71,11 @@
                     "default": "",
                     "description": "Should be an absolute path to your renpy sdk | Example: E:\\renpy-8.5.0-sdk"
                 },
+                "renpy.processArguments": {
+                    "type": "array",
+                    "default": "",
+                    "description": "Should be an array of arguments passed to the renpy executable | Example: --compile"
+                },
                 "renpy.debuggerEnabled": {
                     "type": "boolean",
                     "default": true,
