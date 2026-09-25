@@ -24,6 +24,11 @@ export class WorkspaceConfig
         return this.config.get<string>("sdkPath", "");
     }
 
+    public static get processArgs(): string[]
+    {
+        return this.config.get<string[]>("processArguments", []);
+    }
+
     public static get debuggerEnabled(): boolean
     {
         return this.config.get<boolean>("debuggerEnabled", true);

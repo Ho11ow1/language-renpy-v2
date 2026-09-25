@@ -27,7 +27,7 @@ export class ProcessService
         const exe = path.join(Config.WorkspaceConfig.sdkPath, process.platform === "win32" ? "renpy.exe" : "renpy.sh");
         try
         {
-            this.process = cp.spawn(exe, ["--compile", root, "run"], { cwd: Config.WorkspaceConfig.sdkPath });
+            this.process = cp.spawn(exe, [...Config.WorkspaceConfig.processArgs, root, "run"], { cwd: Config.WorkspaceConfig.sdkPath });
 
             this.SetupListeners();
         }
