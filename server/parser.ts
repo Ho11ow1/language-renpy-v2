@@ -75,7 +75,10 @@ export class Parser
                 break;
 
             case Models.TokenType.SCREEN:
-                this.parseScreenDef(token);
+                if (!this.isInScope(Models.ScopeType.LABEL))
+                {
+                    this.parseScreenDef(token);
+                }
                 break;
             case Models.TokenType.LABEL:
                 if (!this.isInScope(Models.ScopeType.SCREEN))
@@ -84,7 +87,16 @@ export class Parser
                 }
                 break;
             case Models.TokenType.STYLE:
-                this.parseStyleDef(token);
+                if (!this.isInScope(Models.ScopeType.SCREEN))
+                {
+                    this.parseStyleDef(token);
+                }
+                break;
+            case Models.TokenType.TRANSFORM:
+                if (!this.isInScope(Models.ScopeType.SCREEN))
+                {
+                    this.parseTransformDef(token);
+                }
                 break;
         }
     }
@@ -106,11 +118,9 @@ export class Parser
         {
             params = this.getParams();
         }
-
-        let hint = "";
         if (this.peek().Type === Models.TokenType.DEF_TYPE_HINT)
         {
-            hint = this.getFuncTypeHint();
+            this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, this.peek().Range);
         }
 
         const colon = this.advanceIfExpected(Models.TokenType.COLON);
@@ -129,7 +139,7 @@ export class Parser
         const label = new Models.LabelNode(
             name.Value,
             this.currentDocument.getText(declarationRange),
-            token.Range,
+            declarationRange,
             name.Range,
             lsps.CompletionItemKind.Interface,
             lsps.SymbolKind.Interface,
@@ -144,6 +154,7 @@ export class Parser
             node: label
         });
 
+        this.parsedNodes.push(label);
         // Utils.Logger.logDebug(`[OPEN SCOPE] LABEL (${label.Name}) set to expected depth ${first ? first.Range.start.character : 0}`);
     }
 
@@ -163,11 +174,9 @@ export class Parser
         {
             params = this.getParams();
         }
-
-        let hint = "";
         if (this.peek().Type === Models.TokenType.DEF_TYPE_HINT)
         {
-            hint = this.getFuncTypeHint();
+            this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, this.peek().Range);
         }
 
         const colon = this.advanceIfExpected(Models.TokenType.COLON);
@@ -186,7 +195,7 @@ export class Parser
         const screen = new Models.ScreenNode(
             name.Value,
             this.currentDocument.getText(declarationRange),
-            token.Range,
+            declarationRange,
             name.Range,
             lsps.CompletionItemKind.Interface,
             lsps.SymbolKind.Interface,
@@ -207,25 +216,40 @@ export class Parser
             node: screen
         });
 
+        this.parsedNodes.push(screen);
         // Utils.Logger.logDebug(`[OPEN SCOPE] LABEL (${screen.Name}) set to expected depth ${first ? first.Range.start.character : 0}`);
     }
 
     private parseStyleDef(token: Models.Token): void
     {
-        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        let name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
         if (!name)
         {
-            return;
+            // style default: work around
+            name = this.advanceIfExpected(Models.TokenType.DEFAULT);
+            if (!name)
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+                return;
+            }
         }
-        const colon = this.advanceIfExpected(Models.TokenType.COLON);
-        if (!colon)
+        this.checkNamingRule(name, Models.ScopeType.STYLE);
+
+        let isInheriting = false;
+        if (this.peek().Type === Models.TokenType.IS && this.peekNext().Type === Models.TokenType.IDENTIFIER || this.peekNext().Type === Models.TokenType.DEFAULT)
         {
-            return;
+            this.advance();
+            this.advance();
+
+            isInheriting = true;
         }
+
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
 
         const declarationRange: lsps.Range = {
             start: token.Range.start,
-            end: colon.Range.end
+            end: name.Range.end
         };
 
         const style = new Models.StyleNode(
@@ -239,6 +263,68 @@ export class Parser
         );
 
         const first = this.getFirstIndentedToken();
+        if (colon && !first)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        this.scopeStack.push({
+            kind: Models.ScopeType.STYLE,
+            depth: first ? first.Range.start.character : 0,
+            node: style
+        });
+
+        this.parsedNodes.push(style);
+        // Utils.Logger.logDebug(`[OPEN SCOPE] STYLE (${style.Name}) set to expected depth ${first.Range.start.character}`);
+    }
+
+    private parseTransformDef(token: Models.Token): void
+    {
+        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!name)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+        this.checkNamingRule(name, Models.ScopeType.TRANSFORM);
+
+        let params: param[] = [];
+        if (this.peek().Type === Models.TokenType.L_PAREN)
+        {
+            params = this.getParams();
+        }
+        if (this.peek().Type === Models.TokenType.DEF_TYPE_HINT)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, this.peek().Range);
+        }
+
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
+        if (!colon)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        const declarationRange: lsps.Range = {
+            start: token.Range.start,
+            end: name.Range.end
+        };
+
+        const transform = new Models.TransformNode(
+            name.Value,
+            this.currentDocument.getText(declarationRange),
+            declarationRange,
+            name.Range,
+            lsps.CompletionItemKind.Struct,
+            lsps.SymbolKind.Struct,
+            { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: token.Range }
+        );
+
+        const first = this.getFirstIndentedToken();
         if (!first)
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
@@ -247,12 +333,13 @@ export class Parser
         }
 
         this.scopeStack.push({
-            kind: Models.ScopeType.BLOCK,
+            kind: Models.ScopeType.TRANSFORM,
             depth: first.Range.start.character,
-            node: style
+            node: transform
         });
 
-        // Utils.Logger.logDebug(`[OPEN SCOPE] STYLE (${style.Name}) set to expected depth ${first.Range.start.character}`);
+        this.parsedNodes.push(transform);
+        // Utils.Logger.logDebug(`[OPEN SCOPE] LABEL (${label.Name}) set to expected depth ${first ? first.Range.start.character : 0}`);
     }
     // #endregion
 
@@ -662,6 +749,18 @@ export class Parser
                 if (!Diagnostics.isSnakeCase(val))
                 {
                     this.pushDiagnostic(Models.NamingRule.SCREENS_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
+            case Models.ScopeType.TRANSFORM:
+                if (!Diagnostics.isSnakeCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.TRANSFORMS_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
+            case Models.ScopeType.STYLE:
+                if (!Diagnostics.isSnakeCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.STYLES_SHOULD_BE_SNAKE_CASE, range);
                 }
                 break;
         }

@@ -7,5 +7,7 @@ export enum ScopeType
     LABEL = "label",
     SCREEN = "screen",
     MENU = "menu",
-    BLOCK = "block",
+    TRANSFORM = "transform",
+    STYLE = "style",
+    BLOCK = "block"
 }

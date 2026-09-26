@@ -1,15 +1,15 @@
+import * as fs from "fs";
 import * as lsps from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import { pathToFileURL } from "url";
 import * as Providers from "@server/providers/index";
 import * as Utils from "@server/utils/index";
-import * as Common from "@common/index";
-import * as fs from "fs";
-import { Lexer } from "./lexer";
-import { Parser } from "./parser";
-import { pathToFileURL } from "url";
-import { Store } from "./store";
 import * as Models from "@server/models/index";
-import { Diagnostics } from "./diagnostics";
+import { Lexer } from "@server/lexer";
+import { Parser } from "@server/parser";
+import { Store } from "@server/store";
+import { Diagnostics } from "@server/diagnostics";
+import * as Common from "@common/index";
 
 const connection: lsps.Connection = lsps.createConnection(lsps.ProposedFeatures.all);
 const documents: lsps.TextDocuments<TextDocument> = new lsps.TextDocuments(TextDocument);
@@ -77,7 +77,7 @@ function registerWorkspaceListeners(): void
 
             Store.clearDocumentNodes(normalizedUri);
             Diagnostics.clear(normalizedUri);
-            connection.sendDiagnostics({ uri: normalizedUri, diagnostics: [] });
+            Diagnostics.pushRawDiagnostic({ uri: normalizedUri, diagnostics: [] });
         }
     });
 

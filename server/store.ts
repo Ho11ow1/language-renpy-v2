@@ -7,6 +7,7 @@ export class Store
     private static screenNodes: Models.Node[] = [];
     private static imageNodes: Models.Node[] = [];
     private static transformNodes: Models.Node[] = [];
+    private static styleNodes: Models.Node[] = [];
 
     private static nodesByDocument: Map<string, Models.Node[]> = new Map<string, Models.Node[]>();
 
@@ -64,6 +65,10 @@ export class Store
     {
         return this.transformNodes;
     }
+    public static getStyles(): Models.Node[]
+    {
+        return this.styleNodes;
+    }
     public static getLabel(name: string): Models.Node | undefined
     {
         return this.labelNodes.find((node): boolean => node.Name === name);
@@ -79,6 +84,10 @@ export class Store
     public static getTransform(name: string): Models.Node | undefined
     {
         return this.transformNodes.find((node): boolean => node.Name === name);
+    }
+    public static getStyle(name: string): Models.Node | undefined
+    {
+        return this.styleNodes.find((node): boolean => node.Name === name);
     }
 
     public static clearDocumentNodes(uri: string): void
@@ -131,6 +140,10 @@ export class Store
                 else if (node instanceof Models.TransformNode)
                 {
                     this.transformNodes.push(node);
+                }
+                else if (node instanceof Models.StyleNode)
+                {
+                    this.styleNodes.push(node);
                 }
             }
         }
