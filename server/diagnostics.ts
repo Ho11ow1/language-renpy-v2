@@ -81,7 +81,7 @@ export class Diagnostics
         }
     }
 
-    private static isPascalCase(value: string): boolean
+    public static isPascalCase(value: string): boolean
     {
         if (!this.isUppercase(value[0]))
         {
@@ -101,7 +101,7 @@ export class Diagnostics
         return true;
     }
 
-    private static isSnakeCase(value: string): boolean
+    public static isSnakeCase(value: string): boolean
     {
         if (value[value.length - 1] === '_')
         {
@@ -135,7 +135,7 @@ export class Diagnostics
         return true;
     }
 
-    private static isScreamingSnakeCase(value: string): boolean
+    public static isScreamingSnakeCase(value: string): boolean
     {
         if (value[0] === '_' || value[value.length - 1] === '_')
         {

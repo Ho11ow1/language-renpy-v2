@@ -92,8 +92,10 @@ export class Parser
         const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
         if (!name)
         {
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
             return;
         }
+        this.checkNamingRule(name, "L");
 
         let params: param[] = [];
         if (this.peek().Type === Models.TokenType.L_PAREN)
@@ -178,7 +180,8 @@ export class Parser
         const first = this.getFirstIndentedToken();
         if (!first)
         {
-            Utils.Logger.logDebug(`[DIAGNOSTIC] Expected non-empty-block Ln: ${name.Range.start.line + 1}, Col: ${0}`);
+            this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+            // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected non-empty-block Ln: ${name.Range.start.line + 1}, Col: ${0}`);
             return;
         }
 
@@ -310,7 +313,9 @@ export class Parser
             const arg = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
             if (!arg)
             {
-                Utils.Logger.logDebug(`[DIAGNOSTIC] Expected parameter identifier at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+                // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected parameter identifier at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
 
                 this.recoverParameterList();
 
@@ -343,7 +348,8 @@ export class Parser
                     }
                     if (nextType === Models.TokenType.ASSIGN)
                     {
-                        Utils.Logger.logDebug(`[DIAGNOSTIC] Unexpected '=' inside type hint at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                        this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+                        // Utils.Logger.logDebug(`[DIAGNOSTIC] Unexpected '=' inside type hint at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
 
                         break;
                     }
@@ -365,16 +371,19 @@ export class Parser
                 const lastToken = typeTokens[typeTokens.length - 1];
                 if (lastToken?.Type === Models.TokenType.BIT_OR)
                 {
-                    Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in parameter type hint at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                    this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_PIPE, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+                    // Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in parameter type hint at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
                 }
                 if (!hintsAllowed)
                 {
-                    Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                    this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+                    // Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
                 }
 
                 if (bracketDepth > 0 || parenDepth > 0 || braceDepth > 0)
                 {
-                    Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed delimiter in parameter type hint at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+                    this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+                    // Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed delimiter in parameter type hint at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
 
                     if (this.peek().Type !== Models.TokenType.ASSIGN)
                     {
@@ -428,7 +437,8 @@ export class Parser
             }
             else if (hasSeenDefault)
             {
-                Utils.Logger.logDebug(`[DIAGNOSTIC] Non-default argument '${arg.Value}' follows default argument at Ln: ${arg.Range.start.line}, Col: ${arg.Range.start.character}`);
+                this.pushDiagnostic(Models.ErrorCode.ERR_DEFAULT_VALUE_BEFORE_REQUIRED_VALUE, lsps.Range.create(arg.Range.start, arg.Range.end));
+                // Utils.Logger.logDebug(`[DIAGNOSTIC] Non-default argument '${arg.Value}' follows default argument at Ln: ${arg.Range.start.line}, Col: ${arg.Range.start.character}`);
             }
 
             paramArr.push({
@@ -444,13 +454,15 @@ export class Parser
             {
                 this.advance();
                 if (this.peek().Type === Models.TokenType.R_PAREN)
-                {
-                    Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing comma at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+                {                
+                    this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_COMMA, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+                    // Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing comma at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
                 }
             }
             else if (this.peek().Type !== Models.TokenType.R_PAREN)
             {
-                Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ',' or ')' after parameter '${arg.Value}' at Ln: Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+                this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+                // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ',' or ')' after parameter '${arg.Value}' at Ln: Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
 
                 break;
             }
@@ -462,7 +474,8 @@ export class Parser
         }
         else
         {
-            Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed parameter list starting at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+            this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+            // Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed parameter list starting at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
         }
 
         return paramArr;
@@ -492,7 +505,9 @@ export class Parser
         this.advance();
         if (this.peek().Type === Models.TokenType.COLON)
         {
-            Utils.Logger.logDebug(`[DIAGNOSTIC] Expected type hint Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+            this.pushDiagnostic(Models.ErrorCode.ERR_HINT_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+
+            // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected type hint Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
 
             return "";
         }
@@ -523,8 +538,8 @@ export class Parser
 
         if (bracketDepth > 0 || parenDepth > 0)
         {
-            Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ']' or ')' in type hint starting near Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
-
+            this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+            // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ']' or ')' in type hint starting near Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
             this.recoverTypeHint();
 
             return "";
@@ -533,13 +548,16 @@ export class Parser
         const lastToken = typeTokens[typeTokens.length - 1];
         if (lastToken?.Type === Models.TokenType.BIT_OR)
         {
-            Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in return type hint at Ln: ${lastToken.Range.start.line}, Col: ${lastToken.Range.start.character}`);
+            this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_PIPE, lsps.Range.create(lastToken.Range.start, lastToken.Range.end));
+            // Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in return type hint at Ln: ${lastToken.Range.start.line}, Col: ${lastToken.Range.start.character}`);
 
             return "";
         }
         if (!hintsAllowed)
         {
-            Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
+            this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+
+            // Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
         }
 
         return typeTokens.map((token): string => token.Value).join('');
@@ -582,6 +600,18 @@ export class Parser
         }
 
         Diagnostics.push(descriptor.createDiagnostic(range, relatedInformation, ...args), Utils.DocumentUtils.normalizeUri(this.currentDocument.uri));
+        Utils.Logger.logMessage(`pushed for parse : ${Utils.DocumentUtils.normalizeUri(this.currentDocument.uri)}`);
+    }
+
+    private checkNamingRule(token: Models.Token, mode: string): void
+    {
+        if (mode === "L")
+        {
+            if (!Diagnostics.isSnakeCase(token.Value))
+            {
+                this.pushDiagnostic(Models.NamingRule.LABELS_SHOULD_BE_SNAKE_CASE, token.Range);
+            }
+        }
     }
     // #endregion
 }
