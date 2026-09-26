@@ -74,6 +74,9 @@ export class Parser
                 this.handleDedent(token);
                 break;
 
+            case Models.TokenType.SCREEN:
+                this.parseScreenDef(token);
+                break;
             case Models.TokenType.LABEL:
                 if (!this.isInScope(Models.ScopeType.SCREEN))
                 {
@@ -93,18 +96,15 @@ export class Parser
         if (!name)
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
             return;
         }
-        this.checkNamingRule(name, "L");
+        this.checkNamingRule(name, Models.ScopeType.LABEL);
 
         let params: param[] = [];
         if (this.peek().Type === Models.TokenType.L_PAREN)
         {
             params = this.getParams();
-        }
-        if (params.length > 1)
-        {
-            Utils.Logger.logDebug(`${params.map((param): string => `(${param.token.Value} | ${param.typeHint} | ${param.RValue.value})`)}`);
         }
 
         let hint = "";
@@ -112,14 +112,12 @@ export class Parser
         {
             hint = this.getFuncTypeHint();
         }
-        if (hint)
-        {
-            Utils.Logger.logDebug(`Type hint: ${hint}`);
-        }
 
         const colon = this.advanceIfExpected(Models.TokenType.COLON);
         if (!colon)
         {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
             return;
         }
 
@@ -146,7 +144,70 @@ export class Parser
             node: label
         });
 
-        Utils.Logger.logDebug(`[OPEN SCOPE] LABEL (${label.Name}) set to expected depth ${first ? first.Range.start.character : 0}`);
+        // Utils.Logger.logDebug(`[OPEN SCOPE] LABEL (${label.Name}) set to expected depth ${first ? first.Range.start.character : 0}`);
+    }
+
+    private parseScreenDef(token: Models.Token): void
+    {
+        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!name)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+        this.checkNamingRule(name, Models.ScopeType.SCREEN);
+
+        let params: param[] = [];
+        if (this.peek().Type === Models.TokenType.L_PAREN)
+        {
+            params = this.getParams();
+        }
+
+        let hint = "";
+        if (this.peek().Type === Models.TokenType.DEF_TYPE_HINT)
+        {
+            hint = this.getFuncTypeHint();
+        }
+
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
+        if (!colon)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        const declarationRange: lsps.Range = {
+            start: token.Range.start,
+            end: name.Range.end
+        };
+
+        const screen = new Models.ScreenNode(
+            name.Value,
+            this.currentDocument.getText(declarationRange),
+            token.Range,
+            name.Range,
+            lsps.CompletionItemKind.Interface,
+            lsps.SymbolKind.Interface,
+            { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: token.Range }
+        );
+
+        const first = this.getFirstIndentedToken();
+        if (!first)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        this.scopeStack.push({
+            kind: Models.ScopeType.SCREEN,
+            depth: first.Range.start.character,
+            node: screen
+        });
+
+        // Utils.Logger.logDebug(`[OPEN SCOPE] LABEL (${screen.Name}) set to expected depth ${first ? first.Range.start.character : 0}`);
     }
 
     private parseStyleDef(token: Models.Token): void
@@ -181,7 +242,7 @@ export class Parser
         if (!first)
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
-            // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected non-empty-block Ln: ${name.Range.start.line + 1}, Col: ${0}`);
+
             return;
         }
 
@@ -191,7 +252,7 @@ export class Parser
             node: style
         });
 
-        Utils.Logger.logDebug(`[OPEN SCOPE] STYLE (${style.Name}) set to expected depth ${first.Range.start.character}`);
+        // Utils.Logger.logDebug(`[OPEN SCOPE] STYLE (${style.Name}) set to expected depth ${first.Range.start.character}`);
     }
     // #endregion
 
@@ -204,20 +265,19 @@ export class Parser
     {
         if (token.Type === Models.TokenType.TAB)
         {
-            // Diagnostics
-            Utils.Logger.logDebug(`Tab: ${token.Range.start.character}, ${token.Range.end.character}`);
+            this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, token.Range, undefined, token.Value);
         }
 
         this.indentStack.push(token.Range.end.character);
 
-        Utils.Logger.logDebug(`prev: ${this.indentStack[this.indentStack.length - 2]} | current: ${this.indentStack[this.indentStack.length - 1]}`);
+        // Utils.Logger.logDebug(`prev: ${this.indentStack[this.indentStack.length - 2]} | current: ${this.indentStack[this.indentStack.length - 1]}`);
     }
 
     private handleDedent(token: Models.Token): void
     {
         const poppedIndent = this.indentStack.pop();
 
-        Utils.Logger.logDebug(`popped: ${poppedIndent} | current: ${this.indentStack[this.indentStack.length - 1]}`);
+        // Utils.Logger.logDebug(`popped: ${poppedIndent} | current: ${this.indentStack[this.indentStack.length - 1]}`);
     }
 
     private advance(): Models.Token
@@ -314,9 +374,6 @@ export class Parser
             if (!arg)
             {
                 this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
-
-                // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected parameter identifier at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
-
                 this.recoverParameterList();
 
                 continue;
@@ -348,8 +405,7 @@ export class Parser
                     }
                     if (nextType === Models.TokenType.ASSIGN)
                     {
-                        this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
-                        // Utils.Logger.logDebug(`[DIAGNOSTIC] Unexpected '=' inside type hint at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
+                        this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, lsps.Range.create(this.peek().Range.start, this.peek().Range.end), undefined, this.peek().Value);
 
                         break;
                     }
@@ -372,18 +428,15 @@ export class Parser
                 if (lastToken?.Type === Models.TokenType.BIT_OR)
                 {
                     this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_PIPE, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
-                    // Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in parameter type hint at Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
                 }
                 if (!hintsAllowed)
                 {
                     this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
-                    // Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure Ln: ${this.peek().Range.start.line}, Col: ${this.peek().Range.start.character}`);
                 }
 
-                if (bracketDepth > 0 || parenDepth > 0 || braceDepth > 0)
+                if (bracketDepth != 0 || parenDepth != 0 || braceDepth != 0)
                 {
                     this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
-                    // Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed delimiter in parameter type hint at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
 
                     if (this.peek().Type !== Models.TokenType.ASSIGN)
                     {
@@ -438,7 +491,6 @@ export class Parser
             else if (hasSeenDefault)
             {
                 this.pushDiagnostic(Models.ErrorCode.ERR_DEFAULT_VALUE_BEFORE_REQUIRED_VALUE, lsps.Range.create(arg.Range.start, arg.Range.end));
-                // Utils.Logger.logDebug(`[DIAGNOSTIC] Non-default argument '${arg.Value}' follows default argument at Ln: ${arg.Range.start.line}, Col: ${arg.Range.start.character}`);
             }
 
             paramArr.push({
@@ -454,15 +506,13 @@ export class Parser
             {
                 this.advance();
                 if (this.peek().Type === Models.TokenType.R_PAREN)
-                {                
+                {
                     this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_COMMA, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
-                    // Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing comma at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
                 }
             }
             else if (this.peek().Type !== Models.TokenType.R_PAREN)
             {
                 this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
-                // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ',' or ')' after parameter '${arg.Value}' at Ln: Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
 
                 break;
             }
@@ -475,7 +525,6 @@ export class Parser
         else
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
-            // Utils.Logger.logDebug(`[DIAGNOSTIC] Unclosed parameter list starting at Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
         }
 
         return paramArr;
@@ -507,8 +556,6 @@ export class Parser
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_HINT_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
 
-            // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected type hint Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
-
             return "";
         }
 
@@ -536,10 +583,9 @@ export class Parser
             typeTokens.push(token);
         }
 
-        if (bracketDepth > 0 || parenDepth > 0)
+        if (bracketDepth != 0 || parenDepth != 0)
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
-            // Utils.Logger.logDebug(`[DIAGNOSTIC] Expected ']' or ')' in type hint starting near Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
             this.recoverTypeHint();
 
             return "";
@@ -549,15 +595,12 @@ export class Parser
         if (lastToken?.Type === Models.TokenType.BIT_OR)
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_PIPE, lsps.Range.create(lastToken.Range.start, lastToken.Range.end));
-            // Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in return type hint at Ln: ${lastToken.Range.start.line}, Col: ${lastToken.Range.start.character}`);
 
             return "";
         }
         if (!hintsAllowed)
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
-
-            // Utils.Logger.logDebug(`[DIAGNOSTIC] Type hints are not allowed in this structure Ln: ${this.prev().Range.start.line}, Col: ${this.prev().Range.start.character}`);
         }
 
         return typeTokens.map((token): string => token.Value).join('');
@@ -585,7 +628,7 @@ export class Parser
 
         if (typeof ruleOrCode === "string")
         {
-            descriptor = Models.DiagnosticDescriptorRuleMap.get(ruleOrCode)
+            descriptor = Models.DiagnosticDescriptorRuleMap.get(ruleOrCode);
         }
         else
         {
@@ -600,17 +643,27 @@ export class Parser
         }
 
         Diagnostics.push(descriptor.createDiagnostic(range, relatedInformation, ...args), Utils.DocumentUtils.normalizeUri(this.currentDocument.uri));
-        Utils.Logger.logMessage(`pushed for parse : ${Utils.DocumentUtils.normalizeUri(this.currentDocument.uri)}`);
     }
 
-    private checkNamingRule(token: Models.Token, mode: string): void
+    private checkNamingRule(token: Models.Token, scopeType: Models.ScopeType): void
     {
-        if (mode === "L")
+        const val = token.Value;
+        const range = token.Range;
+
+        switch (scopeType)
         {
-            if (!Diagnostics.isSnakeCase(token.Value))
-            {
-                this.pushDiagnostic(Models.NamingRule.LABELS_SHOULD_BE_SNAKE_CASE, token.Range);
-            }
+            case Models.ScopeType.LABEL:
+                if (!Diagnostics.isSnakeCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.LABELS_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
+            case Models.ScopeType.SCREEN:
+                if (!Diagnostics.isSnakeCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.SCREENS_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
         }
     }
     // #endregion

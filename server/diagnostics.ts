@@ -18,6 +18,11 @@ export class Diagnostics
         this._severityOverrideMap.set(diagnosticId, severity);
     }
 
+    public static clearOverrides(): void
+    {
+        this._severityOverrideMap.clear();
+    }
+
     public static clear(fileUri: string): void
     {
         this._diagnosticsMap.set(fileUri, []);

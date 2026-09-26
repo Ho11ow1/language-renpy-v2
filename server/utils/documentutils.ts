@@ -62,7 +62,7 @@ export class DocumentUtils
         const configPath = path.join(this.cwd, ".editorconfig");
         if (!fs.existsSync(configPath))
         {
-            Utils.Logger.logDebug(`No editor config at ${configPath}`);
+            Utils.Logger.logMessage(`No editor config at ${configPath}`);
 
             return;
         }
@@ -118,7 +118,7 @@ export class DocumentUtils
         }
         catch (ex)
         {
-            Utils.Logger.logError(`Failed to parse ${configPath}: ${ex}`);
+            Utils.Logger.logMessage(`Failed to parse ${configPath}: ${ex}`);
         }
     }
 
