@@ -249,12 +249,14 @@
     },
     "scripts": {
         "vscode:prepublish": "pnpm run package",
-        "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+        "compile": "pnpm run check-types && pnpm run python && pnpm run lint && node esbuild.js",
         "watch": "npm-run-all -p watch:*",
         "watch:esbuild": "node esbuild.js --watch",
         "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-        "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+        "watch:python": "python scripts/emit.py",
+        "package": "pnpm run check-types && pnpm run python && pnpm run lint && node esbuild.js --production",
         "check-types": "tsc --noEmit",
+        "python": "python scripts/emit.py",
         "lint": "eslint server && eslint client"
     },
     "devDependencies": {

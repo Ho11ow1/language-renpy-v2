@@ -5,7 +5,6 @@ import * as Interfaces from "@server/interfaces/index";
 import * as Utils from "@server/utils/index";
 import { Store } from "@server/store";
 import { Diagnostics } from "@server/diagnostics";
-import { TypeHierarchyFeature } from "vscode-languageclient/$test/common/typeHierarchy";
 
 export class Parser
 {
@@ -535,7 +534,7 @@ export class Parser
         if (lastToken?.Type === Models.TokenType.BIT_OR)
         {
             Utils.Logger.logDebug(`[DIAGNOSTIC] Trailing '|' in return type hint at Ln: ${lastToken.Range.start.line}, Col: ${lastToken.Range.start.character}`);
-            
+
             return "";
         }
         if (!hintsAllowed)
@@ -558,6 +557,31 @@ export class Parser
 
             this.advance();
         }
+    }
+
+    private pushDiagnostic(rule: Models.NamingRule, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void;
+    private pushDiagnostic(code: Models.ErrorCode, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void;
+    private pushDiagnostic(ruleOrCode: Models.ErrorCode | Models.NamingRule, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void
+    {
+        let descriptor: Models.DiagnosticDescriptor | undefined = undefined;
+
+        if (typeof ruleOrCode === "string")
+        {
+            descriptor = Models.DiagnosticDescriptorRuleMap.get(ruleOrCode)
+        }
+        else
+        {
+            descriptor = Models.DiagnosticDescriptorMap.get(ruleOrCode);
+        }
+
+        if (!descriptor)
+        {
+            Utils.Logger.logDebug(`Missing descriptor in map for: ${ruleOrCode.toString()}`);
+
+            return;
+        }
+
+        Diagnostics.push(descriptor.createDiagnostic(range, relatedInformation, ...args), Utils.DocumentUtils.normalizeUri(this.currentDocument.uri));
     }
     // #endregion
 }

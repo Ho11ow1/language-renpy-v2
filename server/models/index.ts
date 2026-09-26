@@ -17,4 +17,5 @@ export { StyleNode } from "./nodes/StyleNode";
 
 export { Diagnostic } from "./diagnostics/Diagnostic";
 export { DiagnosticDescriptor } from "./diagnostics/DiagnosticDescriptor";
-export { DiagnosticDescriptorMap } from "./diagnostics/DiagnosticMap.g";
+export { DiagnosticDescriptorMap } from "./diagnostics/DiagnosticDescriptorMap.g";
+export { DiagnosticDescriptorRuleMap } from "./diagnostics/DiagnosticDescriptorRuleMap.g";
