@@ -76,7 +76,7 @@ def generate_map(source_path: pathlib.Path, output_file_name: str, map_type_name
 
 
 def generate_rules() -> None:
-    generate_map(source_path = NAMING_RULE_PATH, output_file_name = "DiagnosticDescriptorRuleMap.g.ts", map_type_name = "DiagnosticDescriptorRuleMap", enum_type_name = "NamingRule", code_formatter = lambda code: code)
+    generate_map(source_path = NAMING_RULE_PATH, output_file_name = "DiagnosticDescriptorRuleMap.g.ts", map_type_name = "DiagnosticDescriptorRuleMap", enum_type_name = "NamingRule", code_formatter = lambda code: code.upper())
 
     return
 
