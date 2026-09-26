@@ -1,3 +1,4 @@
+import typing
 import pathlib
 import os
 
@@ -6,10 +7,17 @@ OUTPUT_FILE_PATH = pathlib.Path.joinpath(MODELS, "diagnostics")
 NAMING_RULE_PATH = pathlib.Path.joinpath(MODELS, "enums", "NamingRule.ts")
 ERROR_CODE_PATH = pathlib.Path.joinpath(MODELS, "enums", "ErrorCode.ts")
 
+L_VALUE_INDEX = 0
+R_VALUE_INDEX = 2
+CATEGORY_VALUE_INDEX = 4
+SEVERITY_VALUE_INDEX = 5
+IS_ENABLED_BY_DEFAULT_VALUE_INDEX = 6
+MESSAGE_VALUE_INDEX = 7
+
 def get_parts(path: pathlib.Path) -> list[str]:
     lines = list()
 
-    with open(path, "r") as f:
+    with path.open(encoding = "utf-8") as f:
         inRange = False
 
         for line in f:
@@ -36,52 +44,45 @@ def get_mapping(items: list[str]) -> dict[str, str]:
 
     for line in items:
         parts = str(line).split(' ')
-        mapping[parts[0]] = parts[2].rstrip(',') if parts[2].startswith('"') else f"{int(parts[2].rstrip(',')):04d}"
+
+        rValue = parts[R_VALUE_INDEX].rstrip(',') if parts[R_VALUE_INDEX].startswith('"') else f"{int(parts[R_VALUE_INDEX].rstrip(',')):04d}"
+        category = parts[CATEGORY_VALUE_INDEX].rstrip(',')
+        severity = parts[SEVERITY_VALUE_INDEX].rstrip(',')
+        is_enabled = parts[IS_ENABLED_BY_DEFAULT_VALUE_INDEX].rstrip(',')
+        message = ' '.join(parts[MESSAGE_VALUE_INDEX:]).strip('"')
+
+        mapping[parts[L_VALUE_INDEX]] = [rValue, category, severity, message, is_enabled]
 
     return mapping
 
 
-def generate_rules() -> None:
-    NAMING_RULE_OUTPUT_PATH = pathlib.Path.joinpath(OUTPUT_FILE_PATH, "DiagnosticDescriptorRuleMap.g.ts")
-
-    partsMap = get_mapping(get_parts(NAMING_RULE_PATH))
+def generate_map(source_path: pathlib.Path, output_file_name: str, map_type_name: str, enum_type_name: str, code_formatter: typing.Callable[[str], str]) -> None:
+    OUTPUT_PATH = pathlib.Path.joinpath(OUTPUT_FILE_PATH, output_file_name)
+    PARTS_MAP = get_mapping(get_parts(source_path))
 
     data = list()
     data.append("import * as Models from \"@server/models/index\";\n\n")
-    data.append("export const DiagnosticDescriptorRuleMap: Map<Models.NamingRule, Models.DiagnosticDescriptor> = new Map<Models.NamingRule, Models.DiagnosticDescriptor>([\n")
+    data.append(f"export const {map_type_name}: Map<Models.{enum_type_name}, Models.DiagnosticDescriptor> = new Map<Models.{enum_type_name}, Models.DiagnosticDescriptor>([\n")
 
-    for i, (k, v) in enumerate(partsMap.items()):        
-        data.append(f"    [Models.NamingRule.{k}, new Models.DiagnosticDescriptor({v}, \"Design\", Models.DiagnosticSeverity.ERROR, \"\", \"\", \"\", true)],\n")
+    for i, (k, v) in enumerate(PARTS_MAP.items()):
+        data.append(f"    [Models.{enum_type_name}.{k}, new Models.DiagnosticDescriptor({code_formatter(v[0])}, \"{v[1]}\", Models.DiagnosticSeverity.{v[2]}, \"\", \"\", \"{v[3]}\", {v[4]})],\n")
 
-        if (i + 1== len(partsMap)):
+        if (i == len(PARTS_MAP) - 1):
             data.append("]);\n")
 
-    for line in data:
-        print(''.join(line))
+    OUTPUT_PATH.open('w', encoding = "utf-8").write(''.join(data))
 
-    NAMING_RULE_OUTPUT_PATH.open("w", encoding = "utf-8").write(''.join(data))
+    return
+
+
+def generate_rules() -> None:
+    generate_map(source_path = NAMING_RULE_PATH, output_file_name = "DiagnosticDescriptorRuleMap.g.ts", map_type_name = "DiagnosticDescriptorRuleMap", enum_type_name = "NamingRule", code_formatter = lambda code: code)
 
     return
 
 
 def generate_codes() -> None:
-    ERROR_CODE_OUTPUT_PATH = pathlib.Path.joinpath(OUTPUT_FILE_PATH, "DiagnosticDescriptorMap.g.ts")
-
-    partsMap = get_mapping(get_parts(ERROR_CODE_PATH))
-    data = list()
-    data.append("import * as Models from \"@server/models/index\";\n\n")
-    data.append("export const DiagnosticDescriptorMap: Map<Models.ErrorCode, Models.DiagnosticDescriptor> = new Map<Models.ErrorCode, Models.DiagnosticDescriptor>([\n")
-
-    for i, (k, v) in enumerate(partsMap.items()):        
-        data.append(f"    [Models.ErrorCode.{k}, new Models.DiagnosticDescriptor(\"RPY{v}\", \"Design\", Models.DiagnosticSeverity.ERROR, \"\", \"\", \"\", true)],\n")
-
-        if (i + 1== len(partsMap)):
-            data.append("]);\n")
-
-    for line in data:
-        print(''.join(line))
-
-    ERROR_CODE_OUTPUT_PATH.open("w", encoding = "utf-8").write(''.join(data))
+    generate_map(source_path = ERROR_CODE_PATH, output_file_name = "DiagnosticDescriptorMap.g.ts", map_type_name = "DiagnosticDescriptorMap", enum_type_name = "ErrorCode", code_formatter = lambda code: f"\"RPY{code}\"")
 
     return
 
@@ -91,13 +92,10 @@ def main() -> None:
         os._exit(1)
 
     generate_codes()
-    print('\n')
     generate_rules()
+
+    return
 
 
 if __name__ == "__main__":
     main()
-
-#
-#   Optimize & Normalize all of this
-#
