@@ -236,13 +236,26 @@ export class Parser
         }
         this.checkNamingRule(name, Models.ScopeType.STYLE);
 
-        let isInheriting = false;
-        if (this.peek().Type === Models.TokenType.IS && this.peekNext().Type === Models.TokenType.IDENTIFIER || this.peekNext().Type === Models.TokenType.DEFAULT)
+        if (this.peek().Type === Models.TokenType.IS)
         {
             this.advance();
-            this.advance();
 
-            isInheriting = true;
+            if (this.peek().Type === Models.TokenType.IDENTIFIER || this.peek().Type === Models.TokenType.DEFAULT)
+            {
+                this.advance();
+            }
+            else
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+                return;
+            }
+        }
+        else if (this.peek().Type !== Models.TokenType.COLON)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
         }
 
         const colon = this.advanceIfExpected(Models.TokenType.COLON);
@@ -263,7 +276,7 @@ export class Parser
         );
 
         const first = this.getFirstIndentedToken();
-        if (colon && !first)
+        if (!first && colon)
         {
             this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
 
@@ -357,14 +370,36 @@ export class Parser
 
         this.indentStack.push(token.Range.end.character);
 
-        // Utils.Logger.logDebug(`prev: ${this.indentStack[this.indentStack.length - 2]} | current: ${this.indentStack[this.indentStack.length - 1]}`);
+        Utils.Logger.logDebug(`prev: ${this.indentStack[this.indentStack.length - 2]} | current: ${this.indentStack[this.indentStack.length - 1]}`);
     }
 
     private handleDedent(token: Models.Token): void
     {
         const poppedIndent = this.indentStack.pop();
+        const currentDepth = this.indentStack[this.indentStack.length - 1] ?? 0;
 
-        // Utils.Logger.logDebug(`popped: ${poppedIndent} | current: ${this.indentStack[this.indentStack.length - 1]}`);
+        while (this.scopeStack.length > 0 && this.scopeStack[this.scopeStack.length - 1].depth > currentDepth)
+        {
+            const scope = this.scopeStack.pop();
+            if (scope && scope.node)
+            {
+                scope.node.updateRange(token.Range);
+            }
+ 
+            Utils.Logger.logDebug(`[CLOSE SCOPE] (${scope?.node.Name} | ${scope?.node.Detail} | start: ${scope?.node.Range.start.line}, end: ${scope?.node.Range.end.line}) dedented from ${poppedIndent} to ${currentDepth}`);
+        }
+
+
+        Utils.Logger.logDebug(`popped: ${poppedIndent} | current: ${this.indentStack[this.indentStack.length - 1]}`);
+    }
+
+    //
+    //  Handle no-indent labels too here later 
+    //
+
+    private isInScope(kind: Models.ScopeType): boolean
+    {
+        return this.scopeStack.some((scope): boolean => scope.kind === kind);
     }
 
     private advance(): Models.Token
@@ -400,11 +435,6 @@ export class Parser
     private isEOF(): boolean
     {
         return this.peek().Type === Models.TokenType.EOF;
-    }
-
-    private isInScope(kind: Models.ScopeType): boolean
-    {
-        return this.scopeStack.some((scope): boolean => scope.kind === kind);
     }
 
     private getFirstIndentedToken(): Models.Token | undefined

@@ -40,11 +40,11 @@ export class Node implements Interfaces.INode
 
     public updateRange(range: lsps.Range): void
     {
-        this.Range = range;
+        this.Range.end = range.end;
 
         if (this.Location)
         {
-            this.Location.range = range;
+            this.Location.range.end = range.end;
         }
     }
 
