@@ -63,10 +63,12 @@ export class DocumentUtils
         if (!fs.existsSync(configPath))
         {
             Utils.Logger.logMessage(`No editor config at ${configPath}`);
+            Diagnostics.clearOverrides();
 
             return;
         }
 
+        const overrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
         try
         {
             const config = await editorConfig.parse(".rpy");
@@ -103,7 +105,7 @@ export class DocumentUtils
                     const errorCodeName = Models.ErrorCode[Number(identifier.substring(3))];
                     if (errorCodeName !== undefined)
                     {
-                        Diagnostics.overrideSeverity(identifier.toUpperCase(), Models.DiagnosticSeverity[severityKey]);
+                        overrideMap.set(identifier.toUpperCase(), Models.DiagnosticSeverity[severityKey]);
                     }
                 }
                 else if (prefix === "renpy_naming_rule")
@@ -111,7 +113,7 @@ export class DocumentUtils
                     const namingRuleName = identifier.toUpperCase() as keyof typeof Models.NamingRule;
                     if (validNamingRules.has(namingRuleName))
                     {
-                        Diagnostics.overrideSeverity(namingRuleName, Models.DiagnosticSeverity[severityKey]);
+                        overrideMap.set(namingRuleName, Models.DiagnosticSeverity[severityKey]);
                     }
                 }
             }
@@ -119,7 +121,11 @@ export class DocumentUtils
         catch (ex)
         {
             Utils.Logger.logMessage(`Failed to parse ${configPath}: ${ex}`);
+
+            return;
         }
+
+        Diagnostics.overrideSeverity(overrideMap);
     }
 
     public static isInCwd(path: string): boolean

@@ -5,22 +5,22 @@ import * as Utils from "@server/utils/index";
 export class Diagnostics
 {
     private static connection: lsps.Connection;
+    private static severityOverrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
     private static readonly _diagnosticsMap: Map<string, lsps.Diagnostic[]> = new Map<string, lsps.Diagnostic[]>();
-    private static readonly _severityOverrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
 
     public static init(connection: lsps.Connection): void
     {
         this.connection = connection;
     }
 
-    public static overrideSeverity(diagnosticId: string, severity: Models.DiagnosticSeverity): void
+    public static overrideSeverity(overrideMap: Map<string, Models.DiagnosticSeverity>): void
     {
-        this._severityOverrideMap.set(diagnosticId, severity);
+        this.severityOverrideMap = overrideMap;
     }
 
     public static clearOverrides(): void
     {
-        this._severityOverrideMap.clear();
+        this.severityOverrideMap.clear();
     }
 
     public static clear(fileUri: string): void
@@ -34,7 +34,7 @@ export class Diagnostics
 
     public static push(diagnostic: Models.Diagnostic, fileUri: string): void
     {
-        const severityOverride = this._severityOverrideMap.get(diagnostic.Descriptor.Id);
+        const severityOverride = this.severityOverrideMap.get(diagnostic.Descriptor.Id);
         if (!diagnostic.Descriptor.IsEnabledByDefault && severityOverride === undefined)
         {
             return;
