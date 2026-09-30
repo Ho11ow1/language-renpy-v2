@@ -133,6 +133,11 @@
                 "command": "renpy.deletePersistent",
                 "title": "Remove system & local persistent",
                 "category": "Renpy-v2"
+            },
+            {
+                "command": "renpy.deleteSaves",
+                "title": "Remove system & local saves",
+                "category": "Renpy-v2"
             }
         ],
         "keybindings": [

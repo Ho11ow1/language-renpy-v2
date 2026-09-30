@@ -139,6 +139,7 @@ export class Utility
         return [
             vscode.commands.registerCommand("renpy.clearRpyc", Utility.clearRpyc.bind(Utility)),
             vscode.commands.registerCommand("renpy.deletePersistent", Utility.deletePersistent.bind(Utility)),
+            vscode.commands.registerCommand("renpy.deleteSaves", Utility.deleteSaves.bind(Utility))
         ];
     }
 
@@ -168,46 +169,96 @@ export class Utility
 
     private static async deletePersistent(): Promise<void>
     {
+        const cwdFsPath = await this.getCwdFsPath("Starting persistent removal", "Abandoning persistent removal");
+        if (!cwdFsPath)
+        {
+            return;
+        }
+
+        const paths: string[] = [path.join(cwdFsPath, "game", "saves", "persistent")];
+        this.resolveUpdateIfSaveDir(paths, ["persistent"]);
+        this.removeEntries(paths);
+    }
+
+    private static async deleteSaves(): Promise<void>
+    {
+        const cwdFsPath = await this.getCwdFsPath("Starting save removal", "Abandoning save removal");
+        if (!cwdFsPath)
+        {
+            return;
+        }
+
+        const directories: string[] = [path.join(cwdFsPath, "game", "saves")];
+        this.resolveUpdateIfSaveDir(directories, undefined, ["sync"]);
+
+        const entries: string[] = [];
+        for (const dir of directories)
+        {
+            if (!fs.existsSync(dir))
+            {
+                continue;
+            }
+
+            for (const file of (await fs.promises.readdir(dir, { withFileTypes: true })))
+            {
+                if (file.isFile() && file.name.endsWith(".save"))
+                {
+                    entries.push(path.join(dir, file.name));
+                }
+            }
+        }
+
+        this.removeEntries(entries);
+    }
+
+    private static async getCwdFsPath(startMessage: string, abandonMessage: string): Promise<string | undefined>
+    {
         const cwd = vscode.workspace.workspaceFolders?.[0];
         if (!cwd)
         {
-            return;
+            return undefined;
         }
 
-        Utils.Logger.logMessage(`starting persistent removal`);
+        Utils.Logger.logMessage(startMessage);
 
         if (!(await this.confirm(["NO", "YES"])))
         {
-            Utils.Logger.logMessage(`Abandoned persistent removal`);
+            Utils.Logger.logMessage(abandonMessage);
 
-            return;
+            return undefined;
         }
 
-        const entries: string[] = [];
+        return cwd.uri.fsPath;
+    }
 
-        entries.push(path.join(cwd.uri.fsPath, "game", "saves", "persistent"));
+    private static resolveUpdateIfSaveDir(arr: string[], candidateArgs: string[] = [], extraSaveDirPaths: string[] = []): void
+    {
         if (Config.WorkspaceConfig.fsSaveDirectory !== "")
         {
-            const platfrom = process.platform;
-            let base: string = "";
+            const base: string = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Roaming", "RenPy") : process.platform === "darwin" ? path.join(os.homedir(), "Library", "RenPy") : path.join(os.homedir(), ".renpy");
+            const candidate = path.join(base, Config.WorkspaceConfig.fsSaveDirectory, ...candidateArgs);
 
-            base = platfrom === "win32" ? path.join(os.homedir(), "AppData", "Roaming", "RenPy") : platfrom === "darwin" ? path.join(os.homedir(), "Library", "RenPy") : path.join(os.homedir(), ".renpy");
-
-            const candidate = path.join(base, Config.WorkspaceConfig.fsSaveDirectory, "persistent");
-            //
-            //  Kind of a weird way i guess but we don't allow for config.save_directory which start with a weird path like [ "." | "../" | "../jr" ] so that's fine
-            //  I doubt anyone will ever even touch their save_directory config but just in case i guess since i am kind of resposible for the os and their files here
-            //
             if (path.resolve(candidate).startsWith(path.resolve(base) + path.sep))
             {
-                entries.push(candidate);
+                arr.push(candidate);
+
+                if (extraSaveDirPaths.length > 0)
+                {
+                    for (const dir of extraSaveDirPaths)
+                    {
+                        arr.push(path.join(candidate, dir));
+                    }
+                }
             }
             else
             {
-                Utils.Logger.logDebug(`refused bad save directory: ${Config.WorkspaceConfig.fsSaveDirectory}`);
+                Utils.Logger.logDebug(`Refused bad save directory: ${Config.WorkspaceConfig.fsSaveDirectory}`);
             }
         }
+    }
 
+    private static async removeEntries(entries: string[]): Promise<void>
+    {
         await Promise.all(
             entries.map(async (entry): Promise<void> => {
                 await fs.promises.rm(entry, {
@@ -217,7 +268,7 @@ export class Utility
             })
         );
 
-        Utils.Logger.logMessage(`Removed:\n${entries.map((entry, idx): string => `${idx}: ${entry}`).join('\n')}`);
+        Utils.Logger.logMessage(`Removed:${entries.length > 0 ? '\n' : ''}${entries.map((entry, idx): string => `${idx}: ${entry}`).join('\n')}`);
     }
 
     private static async confirm(options: string[], multipleChoice: boolean = false): Promise<boolean>
