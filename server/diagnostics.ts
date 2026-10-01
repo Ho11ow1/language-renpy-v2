@@ -63,6 +63,8 @@ export class Diagnostics
             uri: fileUri,
             diagnostics: this._diagnosticsMap.get(fileUri) ?? []
         });
+
+        this._diagnosticsMap.delete(fileUri);
     }
 
     public static pushRawDiagnostic(params: lsps.PublishDiagnosticsParams): void

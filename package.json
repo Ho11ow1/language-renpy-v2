@@ -85,6 +85,31 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Dictates whether or not the extension will provide a context menu sub menu for a few useful text based commands"
+                },
+                "renpy.formatter.trimTrailingWhitespace": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates whether or not the renpy formatter should trim trailing whitespace"
+                },
+                "renpy.formatter.addEmptyNewLine": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should emplace an empty new line in the document if it does not exist"
+                },
+                "renpy.formatter.preferredStringQuotes": {
+                    "type": "string",
+                    "enum": [
+                        "\"",
+                        "'",
+                        "MIXED"
+                    ],
+                    "enumDescriptions": [
+                        "Double quote",
+                        "Single quote",
+                        "Mixed (The Junior Special)"
+                    ],
+                    "default": "\"",
+                    "description": "Dictates the renpy formatters preferred string quote to use"
                 }
             }
         },

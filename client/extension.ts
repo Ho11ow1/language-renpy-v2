@@ -13,10 +13,9 @@ let languageClient: lspc.LanguageClient | undefined = undefined;
 export async function activate(context: vscode.ExtensionContext): Promise<void>
 {
     Utils.Logger.clear();
-    Utils.Logger.updateStatusBar("Initializing Ren'Py v2", `$(loading~spin)`);
+    Utils.Logger.updateStatusBar("Initializing Ren'Py v2", "$(loading~spin)");
 
     registerClientCapabilities(context);
-
     await startLanguageServer(context);
 
     const cwd = vscode.workspace.workspaceFolders;
@@ -25,8 +24,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void>
         Utils.EditorUtils.createSettingsJson(cwd[0]);
         registerWorkspaceListeners(context, cwd[0]);
     }
-
-    Utils.Logger.updateStatusBar("Ren'Py v2 Initialized", `$(heart)`);
 }
 
 export function deactivate(): Promise<void> | undefined
@@ -68,9 +65,36 @@ function registerWorkspaceListeners(context: vscode.ExtensionContext, folder: vs
     context.subscriptions.push(watcher);
 }
 
-function registerClientNotificationListeners(client: lspc.LanguageClient): void
+function registerConfigListeners(): void
 {
-    client.onNotification(Common.LSP_SAVE_UPDATE_PATH, (params: Common.INotification): void => Config.WorkspaceConfig.setFsSaveDirectory(params.message));
+    vscode.workspace.onDidChangeConfiguration((e): void => {
+        if (e.affectsConfiguration("renpy.formatter.trimTrailingWhitespace") || e.affectsConfiguration("renpy.formatter.addEmptyNewLine") || e.affectsConfiguration("renpy.formatter.preferredStringQuotes"))
+        {
+            updateServerFormatterConfig();
+        }
+    });
+}
+
+function registerClientNotificationListeners(): void
+{
+    languageClient?.onNotification(Common.LSP_SAVE_UPDATE_PATH, (params: Common.INotification): void => Config.WorkspaceConfig.setFsSaveDirectory(params.Message));
+    languageClient?.onNotification(Common.LSP_INITIALIZED_PATH, (): void => {
+        Utils.Logger.updateStatusBar("Ren'Py v2 Initialized", "$(heart)");
+        updateServerFormatterConfig();
+    });
+}
+
+function updateServerFormatterConfig(): void
+{
+    const formatterConfig = vscode.workspace.getConfiguration("renpy.formatter");
+
+    const formatterConfigOptions: Common.IFormatterConfig = {
+        TrimTrailingWhitespace: formatterConfig.get("trimTrailingWhitespace", true),
+        AddEmptyNewLine: formatterConfig.get("addEmptyNewLine", true),
+        PreferredStringQuotes: formatterConfig.get("preferredStringQuotes", '"')
+    };
+
+    languageClient?.sendNotification(Common.LSP_FORMATTER_UPDATE_PATH, formatterConfigOptions);
 }
 
 function getMiddleware(): lspc.Middleware
@@ -185,7 +209,8 @@ async function startLanguageServer(context: vscode.ExtensionContext): Promise<vo
         getClientOptions()
     );
 
-    registerClientNotificationListeners(languageClient);
+    registerClientNotificationListeners();
+    registerConfigListeners();
 
     await languageClient.start();
 }

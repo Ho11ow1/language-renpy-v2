@@ -8,4 +8,6 @@ export const RENPY_COMPILED_FORMAT_GLOB: string = "**/*.rpyc";
 
 export const LSP_EDITORCONFIG_UPDATE_PATH = "renpyv2/config/editorconfig";
 export const LSP_SAVE_UPDATE_PATH = "renpyv2/config/savedir";
+export const LSP_FORMATTER_UPDATE_PATH = "renpyv2/config/formatter";
+export const LSP_INITIALIZED_PATH = "renpyv2/initialized";
 export const LSP_NORMALIZED_DEBOUNCE_MS = 200;
