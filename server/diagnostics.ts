@@ -7,7 +7,7 @@ export class Diagnostics
     private static connection: lsps.Connection;
     private static severityOverrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
     private static readonly _diagnosticsMap: Map<string, lsps.Diagnostic[]> = new Map<string, lsps.Diagnostic[]>();
-    private static readonly _defaultSupportedAnnotations: Array<string> = new Array<string>("bug", "fix", "todo", "error");
+    private static readonly _defaultSupportedAnnotations: Array<string> = new Array<string>("BUG", "FIX", "TODO", "ERROR");
     private static supportedAnnotations: Array<string> = this._defaultSupportedAnnotations;
 
     public static init(connection: lsps.Connection): void
@@ -93,10 +93,10 @@ export class Diagnostics
             }
 
             const val = token.Value.substring(1).trimStart();
-            const split = val.split(' ');
-            const key = split[0].endsWith(':') ? split[0].substring(0, split[0].length - 1) : split[0];
+            const prefix = val.split(' ')[0];
+            const key = prefix.endsWith(':') ? prefix.substring(0, prefix.length - 1) : prefix;
 
-            if (this.supportedAnnotations.includes(key.toLowerCase()))
+            if (this.supportedAnnotations.includes(key))
             {
                 this.pushRaw({
                     range: token.Range,
