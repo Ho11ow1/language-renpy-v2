@@ -73,7 +73,7 @@
                 },
                 "renpy.processArguments": {
                     "type": "array",
-                    "default": "",
+                    "default": "--compile",
                     "description": "Should be an array of arguments passed to the renpy executable | Example: --compile"
                 },
                 "renpy.debuggerEnabled": {
@@ -94,7 +94,7 @@
                 "renpy.formatter.addEmptyNewLine": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Dictates if the renpy formatter should emplace an empty new line in the document if it does not exist"
+                    "description": "Dictates if the renpy formatter should emplace an empty line at the end of the document if one does not already exist"
                 },
                 "renpy.formatter.preferredStringQuotes": {
                     "type": "string",
@@ -109,7 +109,33 @@
                         "Mixed (The Junior Special)"
                     ],
                     "default": "\"",
-                    "description": "Dictates the renpy formatters preferred string quote to use"
+                    "description": "Dictates the renpy formatters preferred string quote to format strings to"
+                },
+                "renpy.formatter.preferredAssignmentSpace": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ],
+                    "enumDescriptions": [
+                        "No spacing",
+                        "Spacing of 1"
+                    ],
+                    "default": 1,
+                    "description": "Dictates the renpy formatters preferred spacing around operators to format"
+                },
+                "renpy.formatter.preferredExpressionSpace": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ],
+                    "enumDescriptions": [
+                        "No spacing",
+                        "Spacing of 1"
+                    ],
+                    "default": 1,
+                    "description": "Dictates the renpy formatters preferred spacing around expressions to format"
                 }
             }
         },

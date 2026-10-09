@@ -53,13 +53,13 @@ function registerWorkspaceListeners(context: vscode.ExtensionContext, folder: vs
     watcher.onDidChange((): void => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout((): void => {
-            languageClient?.sendNotification(Common.LSP_EDITORCONFIG_UPDATE_PATH, { message: "", type: Common.NotificationType.UPDATE });
+            languageClient?.sendNotification(Common.LSP_EDITORCONFIG_UPDATE_PATH, { Message: "", Type: Common.NotificationType.UPDATE });
         }, Common.LSP_NORMALIZED_DEBOUNCE_MS);
     });
 
     watcher.onDidDelete((): void => {
         clearTimeout(debounceTimer);
-        languageClient?.sendNotification(Common.LSP_EDITORCONFIG_UPDATE_PATH, { message: "", type: Common.NotificationType.DELETE });
+        languageClient?.sendNotification(Common.LSP_EDITORCONFIG_UPDATE_PATH, { Message: "", Type: Common.NotificationType.DELETE });
     });
 
     context.subscriptions.push(watcher);
@@ -68,7 +68,7 @@ function registerWorkspaceListeners(context: vscode.ExtensionContext, folder: vs
 function registerConfigListeners(): void
 {
     vscode.workspace.onDidChangeConfiguration((e): void => {
-        if (e.affectsConfiguration("renpy.formatter.trimTrailingWhitespace") || e.affectsConfiguration("renpy.formatter.addEmptyNewLine") || e.affectsConfiguration("renpy.formatter.preferredStringQuotes"))
+        if (e.affectsConfiguration("renpy.formatter.trimTrailingWhitespace") || e.affectsConfiguration("renpy.formatter.addEmptyNewLine") || e.affectsConfiguration("renpy.formatter.preferredStringQuotes") || e.affectsConfiguration("renpy.formatter.preferredAssignmentSpace") || e.affectsConfiguration("renpy.formatter.preferredExpressionSpace"))
         {
             updateServerFormatterConfig();
         }
@@ -77,7 +77,11 @@ function registerConfigListeners(): void
 
 function registerClientNotificationListeners(): void
 {
-    languageClient?.onNotification(Common.LSP_SAVE_UPDATE_PATH, (params: Common.INotification): void => Config.WorkspaceConfig.setFsSaveDirectory(params.Message));
+    languageClient?.onNotification(Common.LSP_SAVE_UPDATE_PATH, (params: Common.INotification): void => {
+        Utils.Logger.logMessage(`Received saveDir: ${params.Message}`);
+        Config.WorkspaceConfig.setFsSaveDirectory(params.Message);
+    });
+
     languageClient?.onNotification(Common.LSP_INITIALIZED_PATH, (): void => {
         Utils.Logger.updateStatusBar("Ren'Py v2 Initialized", "$(heart)");
         updateServerFormatterConfig();
@@ -91,7 +95,9 @@ function updateServerFormatterConfig(): void
     const formatterConfigOptions: Common.IFormatterConfig = {
         TrimTrailingWhitespace: formatterConfig.get("trimTrailingWhitespace", true),
         AddEmptyNewLine: formatterConfig.get("addEmptyNewLine", true),
-        PreferredStringQuotes: formatterConfig.get("preferredStringQuotes", '"')
+        PreferredStringQuotes: formatterConfig.get("preferredStringQuotes", '"'),
+        PreferredAssignmentSpace: formatterConfig.get("preferredAssignmentSpace", 1),
+        PreferredExpressionSpace: formatterConfig.get("preferredExpressionSpace", 1)
     };
 
     languageClient?.sendNotification(Common.LSP_FORMATTER_UPDATE_PATH, formatterConfigOptions);
@@ -158,6 +164,17 @@ function getMiddleware(): lspc.Middleware
 
                 next(uri, diagnostics);
             });
+        },
+        provideHover(document, position, token, next): vscode.ProviderResult<vscode.Hover> | undefined
+        {
+            return Middleware.withGlobalMiddleware("provideHover", (): vscode.ProviderResult<vscode.Hover> | undefined => {
+                return next(document, position, token);
+            });
+        },
+        provideDocumentFormattingEdits(document, options, token, next): vscode.ProviderResult<vscode.TextEdit[]> {
+            return Middleware.withGlobalMiddleware("provideDocumentFormattingOptions", (): vscode.ProviderResult<vscode.TextEdit[]> => {
+                return next(document, options, token);
+            });
         }
     };
 }
@@ -169,10 +186,7 @@ function getServerOptions(context: vscode.ExtensionContext): lspc.ServerOptions
     return {
         run: {
             module: serverModule,
-            transport: lspc.TransportKind.ipc,
-            options: {
-                execArgv: ["--inspect=1563"]
-            }
+            transport: lspc.TransportKind.ipc
         },
         debug: {
             module: serverModule,
@@ -194,7 +208,9 @@ function getClientOptions(): lspc.LanguageClientOptions
             fileEvents: vscode.workspace.createFileSystemWatcher(Common.RENPY_FORMAT_GLOB)
         },
         markdown: {
-            isTrusted: true
+            isTrusted: true,
+            supportThemeIcons: true,
+            supportHtml: true
         },
         middleware: getMiddleware()
     };

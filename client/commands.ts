@@ -233,27 +233,31 @@ export class Utility
 
     private static resolveUpdateIfSaveDir(arr: string[], candidateArgs: string[] = [], extraSaveDirPaths: string[] = []): void
     {
-        if (Config.WorkspaceConfig.fsSaveDirectory !== "")
+        if (Config.WorkspaceConfig.fsSaveDirectory === undefined)
         {
-            const base: string = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Roaming", "RenPy") : process.platform === "darwin" ? path.join(os.homedir(), "Library", "RenPy") : path.join(os.homedir(), ".renpy");
-            const candidate = path.join(base, Config.WorkspaceConfig.fsSaveDirectory, ...candidateArgs);
+            Utils.Logger.logMessage(`SaveDir = undefined`);
 
-            if (path.resolve(candidate).startsWith(path.resolve(base) + path.sep))
+            return;
+        }
+
+        const base: string = process.platform === "win32" ? path.join(os.homedir(), "AppData", "Roaming", "RenPy") : process.platform === "darwin" ? path.join(os.homedir(), "Library", "RenPy") : path.join(os.homedir(), ".renpy");
+        const candidate = path.join(base, Config.WorkspaceConfig.fsSaveDirectory, ...candidateArgs);
+
+        if (path.resolve(candidate).startsWith(path.resolve(base) + path.sep))
+        {
+            arr.push(candidate);
+
+            if (extraSaveDirPaths.length > 0)
             {
-                arr.push(candidate);
-
-                if (extraSaveDirPaths.length > 0)
+                for (const dir of extraSaveDirPaths)
                 {
-                    for (const dir of extraSaveDirPaths)
-                    {
-                        arr.push(path.join(candidate, dir));
-                    }
+                    arr.push(path.join(candidate, dir));
                 }
             }
-            else
-            {
-                Utils.Logger.logDebug(`Refused bad save directory: ${Config.WorkspaceConfig.fsSaveDirectory}`);
-            }
+        }
+        else
+        {
+            Utils.Logger.logDebug(`Refused bad save directory: ${Config.WorkspaceConfig.fsSaveDirectory}`);
         }
     }
 

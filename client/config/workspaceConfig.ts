@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 export class WorkspaceConfig
 {
-    private static configSaveDirectory = "";
+    private static configSaveDirectory: string | undefined = undefined;
 
     private static get config(): vscode.WorkspaceConfiguration
     {
@@ -39,7 +39,7 @@ export class WorkspaceConfig
         this.configSaveDirectory = dir;
     }
 
-    public static get fsSaveDirectory(): string
+    public static get fsSaveDirectory(): string | undefined
     {
         return this.configSaveDirectory;
     }
