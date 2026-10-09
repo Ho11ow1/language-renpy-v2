@@ -12,6 +12,7 @@ export enum ErrorCode
     ERR_NON_EMPTY_BLOCK_EXPECTED = 117, // Syntax, ERROR, true, "Expected non-empty block"
     ERR_DELIMETER_EXPECTED = 118, // Syntax, ERROR, true, "Expected delimeter character"
     ERR_HINT_EXPECTED = 119, // Syntax, ERROR, true, "Expected python type hint"
+    ERR_ASSIGNMENT_EXPECTED = 120, // Syntax, ERROR, true, "Expected '='"
 
     ERR_LABEL_NOT_DEFINED = 518, // Design, ERROR, true, "Label ({0}) is not defined"
     ERR_SCREEN_NOT_DEFINED = 519, // Design, ERROR, true, "Screen ({0}) is not defined"

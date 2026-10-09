@@ -69,6 +69,7 @@ export class DocumentUtils
         }
 
         const overrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
+        const annotationArr: Array<string> = new Array<string>();
         try
         {
             const config = await editorConfig.parse(".rpy");
@@ -78,12 +79,27 @@ export class DocumentUtils
             for (const [key, value] of Object.entries(config))
             {
                 const split = key.split(".");
+                if (split.length === 2)
+                {
+                    const [prefix, property] = split;
+
+                    if (prefix === "renpy_annotation" && property === "symbols")
+                    {
+                        const entries = String(value).split(',').map((entry): string => entry.trim()).filter(Boolean);
+                        Utils.Logger.logDebug(entries.join(" | "));
+                        annotationArr.push(...entries);
+                    }
+
+                    continue;
+                }
+
                 if (split.length !== 3)
                 {
                     continue;
                 }
 
                 const [prefix, identifier, property] = split;
+
                 if (property !== "severity")
                 {
                     continue;
@@ -126,6 +142,7 @@ export class DocumentUtils
         }
 
         Diagnostics.overrideSeverity(overrideMap);
+        Diagnostics.overrideAnnotation(annotationArr);
     }
 
     public static isInCwd(path: string): boolean

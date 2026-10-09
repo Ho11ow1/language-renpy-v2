@@ -4,3 +4,4 @@ export { DocumentSymbolProvider } from "./documentSymbolProvider";
 export { ReferenceProvider } from "./referenceProvider";
 export { DefinitionProvider } from "./definitionProvider";
 export { RenameProvider } from "./renameProvider";
+export { HoverProvider } from "./hoverProvider";

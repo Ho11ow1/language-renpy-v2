@@ -1,7 +1,8 @@
 export enum DiagnosticSeverity
 {
-    ERROR = 3,
-    WARNING = 2,
-    SUGGESTION = 1,
+    ERROR = 4,
+    WARNING = 3,
+    SUGGESTION = 2,
+    INFORMATION = 1,
     NONE = 0
 }

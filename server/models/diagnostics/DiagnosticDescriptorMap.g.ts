@@ -11,6 +11,7 @@ export const DiagnosticDescriptorMap: Map<Models.ErrorCode, Models.DiagnosticDes
     [Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, new Models.DiagnosticDescriptor("RPY0117", "Syntax", Models.DiagnosticSeverity.ERROR, "", "", "Expected non-empty block", true)],
     [Models.ErrorCode.ERR_DELIMETER_EXPECTED, new Models.DiagnosticDescriptor("RPY0118", "Syntax", Models.DiagnosticSeverity.ERROR, "", "", "Expected delimeter character", true)],
     [Models.ErrorCode.ERR_HINT_EXPECTED, new Models.DiagnosticDescriptor("RPY0119", "Syntax", Models.DiagnosticSeverity.ERROR, "", "", "Expected python type hint", true)],
+    [Models.ErrorCode.ERR_ASSIGNMENT_EXPECTED, new Models.DiagnosticDescriptor("RPY0120", "Syntax", Models.DiagnosticSeverity.ERROR, "", "", "Expected '='", true)],
     [Models.ErrorCode.ERR_LABEL_NOT_DEFINED, new Models.DiagnosticDescriptor("RPY0518", "Design", Models.DiagnosticSeverity.ERROR, "", "", "Label ({0}) is not defined", true)],
     [Models.ErrorCode.ERR_SCREEN_NOT_DEFINED, new Models.DiagnosticDescriptor("RPY0519", "Design", Models.DiagnosticSeverity.ERROR, "", "", "Screen ({0}) is not defined", true)],
     [Models.ErrorCode.WRN_IMAGE_NOT_DEFINED, new Models.DiagnosticDescriptor("RPY0520", "Design", Models.DiagnosticSeverity.WARNING, "", "", "Image ({0}}) is not defined", false)],

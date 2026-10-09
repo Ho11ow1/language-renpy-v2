@@ -37,7 +37,7 @@ export class Store
             }
         }
 
-        for (const node of [...this.labelNodes, ...this.screenNodes, ...this.imageNodes])
+        for (const node of [...this.labelNodes, ...this.screenNodes, ...this.imageNodes, ...this.transformNodes])
         {
             node.References = node.References.map((ref): lsps.Location =>
                 ref.uri === oldUri ? { ...ref, uri: newUri } : ref

@@ -91,6 +91,11 @@ export class Lexer
 
             this.scanToken();
         }
+
+        this.start = this.current;
+        this.startCharacter = this.character;
+        this.startLine = this.line;
+
         while (this.indentStack.length > 1)
         {
             this.indentStack.pop();
@@ -218,10 +223,7 @@ export class Lexer
                 this.addToken(Models.TokenType.AT_SIGN);
                 break;
             case '#':
-                while (this.peek() !== '\n' && !this.isEOF())
-                {
-                    this.advance();
-                }
+                this.scanComment();
                 break;
 
             case '\n':
@@ -271,6 +273,8 @@ export class Lexer
 
     private scanString(quoteChar: string): void
     {
+        const isFString = (this.current >= 2 ? this.source[this.current - 2] : '').toLowerCase() === 'f';
+
         const isTripleQuote = this.peek() === quoteChar && this.peekNext() === quoteChar;
         if (isTripleQuote)
         {
@@ -278,24 +282,29 @@ export class Lexer
             this.advance();
         }
 
+        let braceDepth = 0;
+
         while (!this.isEOF())
         {
-            if (isTripleQuote)
+            if (braceDepth === 0)
             {
-                if (this.peek() === quoteChar && this.peekNext() === quoteChar && this.peekTwoAhead() === quoteChar)
+                if (isTripleQuote)
                 {
-                    this.advance();
-                    this.advance();
+                    if (this.peek() === quoteChar && this.peekNext() === quoteChar && this.peekTwoAhead() === quoteChar)
+                    {
+                        this.advance();
+                        this.advance();
+                        this.advance();
+
+                        break;
+                    }
+                }
+                else if (this.peek() === quoteChar)
+                {
                     this.advance();
 
                     break;
                 }
-            }
-            else if (this.peek() === quoteChar)
-            {
-                this.advance();
-
-                break;
             }
 
             const c = this.advance();
@@ -317,17 +326,40 @@ export class Lexer
             {
                 this.line++;
                 this.character = 0;
+
+                if (!isTripleQuote)
+                {
+                    braceDepth = 0;
+                }
+            }
+            else if (isFString)
+            {
+                if (c === '{')
+                {
+                    if (braceDepth === 0 && this.peek() === '{')
+                    {
+                        this.advance();
+                    }
+                    else
+                    {
+                        braceDepth++;
+                    }
+                }
+                else if (c === '}')
+                {
+                    if (braceDepth > 0)
+                    {
+                        braceDepth--;
+                    }
+                    else if (this.peek() === '}')
+                    {
+                        this.advance();
+                    }
+                }
             }
         }
 
-        if (isTripleQuote)
-        {
-            this.addToken(Models.TokenType.DOC_STRING);
-        }
-        else
-        {
-            this.addToken(Models.TokenType.STRING);
-        }
+        this.addToken(isTripleQuote ? Models.TokenType.DOC_STRING : Models.TokenType.STRING);
     }
 
     private scanNumber(): void
@@ -363,6 +395,16 @@ export class Lexer
         this.addToken(type);
     }
 
+    private scanComment(): void
+    {
+        while (this.peek() !== '\n' && !this.isEOF())
+        {
+            this.advance();
+        }
+
+        this.addToken(Models.TokenType.COMMENT);
+    }
+
     private handleIndentation(): void
     {
         this.atLineStart = false;
@@ -379,22 +421,18 @@ export class Lexer
             if (ch === ' ')
             {
                 indent++;
-                tempChar++;
             }
-            //
-            //  Ren'Py doesn't allow tabs but we kind of have to handle that case anyways, might change later to just ignore tabs or something
-            //
             else if (ch === '\t')
             {
                 isTab = true;
-                indent += 4;
-                tempChar += 4;
+                indent++;
             }
             else
             {
                 break;
             }
 
+            tempChar++;
             tempCurrent++;
         }
 

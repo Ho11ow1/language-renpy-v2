@@ -7,6 +7,8 @@ export class Diagnostics
     private static connection: lsps.Connection;
     private static severityOverrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
     private static readonly _diagnosticsMap: Map<string, lsps.Diagnostic[]> = new Map<string, lsps.Diagnostic[]>();
+    private static readonly _defaultSupportedAnnotations: Array<string> = new Array<string>("bug", "fix", "todo", "error");
+    private static supportedAnnotations: Array<string> = this._defaultSupportedAnnotations;
 
     public static init(connection: lsps.Connection): void
     {
@@ -18,9 +20,15 @@ export class Diagnostics
         this.severityOverrideMap = overrideMap;
     }
 
+    public static overrideAnnotation(annotationArr: Array<string>): void
+    {
+        this.supportedAnnotations = annotationArr.length !== 0 ? annotationArr : this._defaultSupportedAnnotations;
+    }
+
     public static clearOverrides(): void
     {
         this.severityOverrideMap.clear();
+        this.supportedAnnotations = this._defaultSupportedAnnotations;
     }
 
     public static clear(fileUri: string): void
@@ -57,6 +65,14 @@ export class Diagnostics
         this._diagnosticsMap.set(fileUri, diagnostics);
     }
 
+    public static pushRaw(diagnostic: lsps.Diagnostic, fileUri: string): void
+    {
+        const diagnostics = this._diagnosticsMap.get(fileUri) ?? [];
+        diagnostics.push(diagnostic);
+
+        this._diagnosticsMap.set(fileUri, diagnostics);
+    }
+
     public static pushDiagnostics(fileUri: string): void
     {
         this.connection.sendDiagnostics({
@@ -67,10 +83,29 @@ export class Diagnostics
         this._diagnosticsMap.delete(fileUri);
     }
 
-    public static pushRawDiagnostic(params: lsps.PublishDiagnosticsParams): void
+    public static diagnoseAnnotations(tokens: Models.Token[], uri: string): void
     {
-        this.clear(params.uri);
-        this.connection.sendDiagnostics(params);
+        for (const token of tokens)
+        {
+            if (token.Type !== Models.TokenType.COMMENT)
+            {
+                continue;
+            }
+
+            const val = token.Value.substring(1).trimStart();
+            const split = val.split(' ');
+            const key = split[0].endsWith(':') ? split[0].substring(0, split[0].length - 1) : split[0];
+
+            if (this.supportedAnnotations.includes(key.toLowerCase()))
+            {
+                this.pushRaw({
+                    range: token.Range,
+                    message: val,
+                    source: "Ren'Py v2",
+                    severity: this.convertSeverity(Models.DiagnosticSeverity.INFORMATION)
+                }, uri);
+            }
+        }
     }
 
     private static convertSeverity(severity: Models.DiagnosticSeverity): lsps.DiagnosticSeverity

@@ -26,6 +26,7 @@ const documentSymbolProvider = new Providers.DocumentSymbolProvider();
 const referenceProvider = new Providers.ReferenceProvider();
 const definitionProvider = new Providers.DefinitionProvider();
 const renameProvider = new Providers.RenameProvider();
+const hoverProvider = new Providers.HoverProvider();
 
 function getServerCapabilities(): lsps.ServerCapabilities
 {
@@ -50,6 +51,7 @@ function getServerCapabilities(): lsps.ServerCapabilities
         renameProvider: {
             prepareProvider: true
         },
+        hoverProvider: true,
         documentFormattingProvider: true
     };
 }
@@ -64,6 +66,7 @@ function registerFeatureListeners(): void
     connection.onDefinition((params, token): lsps.Definition | undefined => definitionProvider.provideDefinition(params, token, documents));
     connection.onRenameRequest((params, token): lsps.WorkspaceEdit | undefined => renameProvider.provideRename(params, token, documents));
     connection.onPrepareRename((params, token): lsps.PrepareRenameResult | null => renameProvider.onPrepareRename(params, token, documents));
+    connection.onHover((params, token): lsps.Hover | undefined => hoverProvider.provideHover(params, token, documents));
     connection.onDocumentFormatting((params, token): lsps.TextEdit[] => {
         if (token.isCancellationRequested)
         {
@@ -145,9 +148,14 @@ function registerDocumentListeners(): void
             }
 
             const tokens = Lexer.tokenizeDocument(textDocument.getText());
+            for (const token of tokens)
+            {
+                Utils.Logger.logDebug(token.toString());
+            }
 
             Parser.parseDocumentDeclarations(tokens, textDocument);
             Parser.parseDocumentReferences(tokens, textDocument);
+            Diagnostics.diagnoseAnnotations(tokens, normalizedUri);
 
             Diagnostics.pushDiagnostics(normalizedUri);
         }, Common.LSP_NORMALIZED_DEBOUNCE_MS);
@@ -182,10 +190,19 @@ async function initializeWorkspace(): Promise<void>
         const docUri = Utils.DocumentUtils.normalizeUri(pathToFileURL(docPath).href);
         const document = TextDocument.create(docUri, "renpy", 0, await fs.promises.readFile(docPath, { encoding: "utf-8" }));
 
-        const match = document.getText().match(/^\s*define\s+config\.save_directory\s*=\s*(["'])(.*?)\1/m);
+        //
+        //  Counter intuitize but actually faster than full doc multi-line regex
+        //
+        const match = document.getText().split(/\r?\n/).map((line): RegExpMatchArray | null => line.match(/^[ \t]*define\s+config\.save_directory[ \t]*=[ \t]*(["'])(.*?)\1/)).find((match): boolean => match !== null);
         if (match)
         {
-            connection.sendNotification(Common.LSP_SAVE_UPDATE_PATH, { message: match[2], type: Common.NotificationType.UPDATE });
+            const notification: Common.INotification = {
+                Message: match[2],
+                Type: Common.NotificationType.UPDATE
+            };
+
+            Utils.Logger.logMessage(`Sending saveDir: ${notification.Message}`);
+            connection.sendNotification(Common.LSP_SAVE_UPDATE_PATH, notification);
         }
 
         const tokens = Lexer.tokenizeDocument(document.getText());
@@ -196,8 +213,11 @@ async function initializeWorkspace(): Promise<void>
 
     for (const [document, tokens] of tokensByDocument)
     {
+        const normalizedUri = Utils.DocumentUtils.normalizeUri(document.uri);
+
         Parser.parseDocumentReferences(tokens, document);
-        Diagnostics.pushDiagnostics(Utils.DocumentUtils.normalizeUri(document.uri));
+        Diagnostics.diagnoseAnnotations(tokens, normalizedUri);
+        Diagnostics.pushDiagnostics(normalizedUri);
     }
 
     connection.sendNotification(Common.LSP_INITIALIZED_PATH);
