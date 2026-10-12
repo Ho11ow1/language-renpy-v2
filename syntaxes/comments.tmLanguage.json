@@ -22,7 +22,7 @@
         },
         "region-comment": {
             "name": "comment.line.number-sign",
-            "match": "(?<=^[ \\t]*)(#[ \\t]*(?:end)?region)\\b.*$",
+            "match": "^[ \\t]*(#[ \\t]*(?:end)?region)\\b.*$",
             "captures": {
                 "1": {
                     "name": "punctuation.definition.tag.region"
