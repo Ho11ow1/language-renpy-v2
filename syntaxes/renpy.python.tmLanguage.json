@@ -93,7 +93,7 @@
             }
           ]
         },
-        { "include": "source.renpy#comments-base" }
+        { "include": "source.renpy.comments" }
       ]
     },
     "docstring-statement": {
@@ -248,7 +248,7 @@
     },
     "expression-base": {
       "comment": "valid Python expressions with comments and line continuation",
-      "patterns": [ { "include": "#comments" }, { "include": "#expression-bare" }, { "include": "#line-continuation" } ]
+      "patterns": [ { "include": "source.renpy.comments" }, { "include": "#expression-bare" }, { "include": "#line-continuation" } ]
     },
     "expression": {
       "comment": "All valid Python expressions",
@@ -717,7 +717,7 @@
                 "2": { "name": "punctuation.separator.parameters.python" }
               }
             },
-            { "include": "#comments" },
+            { "include": "source.renpy.comments" },
             { "include": "#backticks" },
             { "include": "#illegal-anno" },
             { "include": "#lambda-parameter-with-default" },
@@ -812,7 +812,7 @@
             "2": { "name": "punctuation.separator.parameters.python" }
           }
         },
-        { "include": "#comments" },
+        { "include": "source.renpy.comments" },
         { "include": "#loose-default" },
         { "include": "#annotated-parameter" }
       ]

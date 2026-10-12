@@ -68,7 +68,7 @@ function registerWorkspaceListeners(context: vscode.ExtensionContext, folder: vs
 function registerConfigListeners(): void
 {
     vscode.workspace.onDidChangeConfiguration((e): void => {
-        if (e.affectsConfiguration("renpy.formatter.trimTrailingWhitespace") || e.affectsConfiguration("renpy.formatter.addEmptyNewLine") || e.affectsConfiguration("renpy.formatter.preferredStringQuotes") || e.affectsConfiguration("renpy.formatter.preferredAssignmentSpace") || e.affectsConfiguration("renpy.formatter.preferredExpressionSpace"))
+        if (e.affectsConfiguration("renpy.formatter.trimTrailingWhitespace") || e.affectsConfiguration("renpy.formatter.addEmptyNewLine") || e.affectsConfiguration("renpy.formatter.preferredStringQuotes") || e.affectsConfiguration("renpy.formatter.preferredOperatorSpaces") || e.affectsConfiguration("renpy.formatter.trimLeadingLines") || e.affectsConfiguration("renpy.formatter.preferredParameterAssignmentStyle"))
         {
             updateServerFormatterConfig();
         }
@@ -95,9 +95,10 @@ function updateServerFormatterConfig(): void
     const formatterConfigOptions: Common.IFormatterConfig = {
         TrimTrailingWhitespace: formatterConfig.get("trimTrailingWhitespace", true),
         AddEmptyNewLine: formatterConfig.get("addEmptyNewLine", true),
+        TrimLeadingLines: formatterConfig.get("trimLeaingLines", true),
         PreferredStringQuotes: formatterConfig.get("preferredStringQuotes", '"'),
-        PreferredAssignmentSpace: formatterConfig.get("preferredAssignmentSpace", 1),
-        PreferredExpressionSpace: formatterConfig.get("preferredExpressionSpace", 1)
+        PreferredOperatorSpaces: formatterConfig.get("preferredOperatorSpaces", 1),
+        PreferredParameterAssignmentStyle: formatterConfig.get("preferredParameterAssignmentStyle", 1)
     };
 
     languageClient?.sendNotification(Common.LSP_FORMATTER_UPDATE_PATH, formatterConfigOptions);

@@ -1,0 +1,33 @@
+{
+    "name": "Ren'Py Comments",
+    "scopeName": "source.renpy.comments",
+    "patterns": [
+        {
+            "include": "#comment"
+        },
+        {
+            "include": "#region-comment"
+        }
+    ],
+    "repository": {
+        "comment": {
+            "name": "comment.line.number-sign",
+            "begin": "#",
+            "beginCaptures": {
+                "0": {
+                    "name": "punctuation.definition.comment"
+                }
+            },
+            "end": "$"
+        },
+        "region-comment": {
+            "name": "comment.line.number-sign",
+            "match": "(?<=^[ \\t]*)(#[ \\t]*(?:end)?region)\\b.*$",
+            "captures": {
+                "1": {
+                    "name": "punctuation.definition.tag.region"
+                }
+            }
+        }
+    }
+}

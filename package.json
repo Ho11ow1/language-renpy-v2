@@ -2,7 +2,7 @@
     "name": "language-renpy-v2",
     "displayName": "vscode-language-renpy-v2",
     "description": "An attempt at re-creating and improving the current official vscode renpy extension",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "publisher": "Hollow1",
     "repository": {
         "type": "git",
@@ -94,7 +94,7 @@
                 "renpy.formatter.addEmptyNewLine": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Dictates if the renpy formatter should emplace an empty line at the end of the document if one does not already exist"
+                    "description": "Dictates if the renpy formatter should trim and emplace one empty new line at the end of the file"
                 },
                 "renpy.formatter.preferredStringQuotes": {
                     "type": "string",
@@ -111,31 +111,36 @@
                     "default": "\"",
                     "description": "Dictates the renpy formatters preferred string quote to format strings to"
                 },
-                "renpy.formatter.preferredAssignmentSpace": {
+                "renpy.formatter.preferredOperatorSpaces": {
                     "type": "integer",
                     "enum": [
-                        0,
-                        1
+                        1,
+                        0
                     ],
                     "enumDescriptions": [
                         "No spacing",
                         "Spacing of 1"
                     ],
                     "default": 1,
-                    "description": "Dictates the renpy formatters preferred spacing around operators to format"
+                    "description": "Dictates the renpy formatters preferred amount of spaces around operators"
                 },
-                "renpy.formatter.preferredExpressionSpace": {
+                "renpy.formatter.preferredParameterAssignmentStyle": {
                     "type": "integer",
                     "enum": [
-                        0,
-                        1
+                        1,
+                        0
                     ],
                     "enumDescriptions": [
-                        "No spacing",
-                        "Spacing of 1"
+                        "C Style param (Superior)",
+                        "PEP8 python style param"
                     ],
                     "default": 1,
-                    "description": "Dictates the renpy formatters preferred spacing around expressions to format"
+                    "description": "Dictates the renpy formatters preferred style for paramater assignment spacing"
+                },
+                "renpy.formatter.trimLeadingLines": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should trim empty file leading lines"
                 }
             }
         },
@@ -249,6 +254,10 @@
                 "path": "./syntaxes/renpy.tmLanguage.json"
             },
             {
+                "scopeName": "source.renpy.comments",
+                "path": "./syntaxes/comments.tmLanguage.json"
+            },
+            {
                 "scopeName": "source.renpy.screen",
                 "path": "./syntaxes/renpy.screen.tmLanguage.json"
             },
@@ -267,39 +276,16 @@
             {
                 "scopeName": "source.renpy.python",
                 "path": "./syntaxes/renpy.python.tmLanguage.json"
-            },
-            {
-                "scopeName": "renpy.comment.injection",
-                "path": "./syntaxes/renpy.injection.json",
-                "injectTo": [
-                    "source.python"
-                ],
-                "embeddedLanguages": {
-                    "meta.embedded.renpy": "renpy"
-                }
-            },
-            {
-                "scopeName": "markdown.renpy.codeblock",
-                "path": "./syntaxes/renpy.markdown.json",
-                "injectTo": [
-                    "text.html.markdown"
-                ],
-                "embeddedLanguages": {
-                    "meta.embedded.renpy": "renpy"
-                }
-            },
-            {
-                "scopeName": "text.log.injection",
-                "path": "./syntaxes/log.injection.json",
-                "injectTo": [
-                    "text.log"
-                ]
             }
         ],
         "snippets": [
             {
                 "language": "renpy",
-                "path": "./snippets/snippets.json"
+                "path": "./snippets/renpy.json"
+            },
+            {
+                "language": "renpy",
+                "path": "./snippets/python.json"
             }
         ]
     },

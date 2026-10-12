@@ -7,9 +7,10 @@ export class Formatter
 {
     private static trimTrailingWhitespace: boolean = true;
     private static addEmptyNewLine: boolean = true;
+    private static trimLeadingLines: boolean = true;
     private static preferredStringQuote: string = '"';
-    private static preferredAssignmentSpacing: number = 1;
-    private static preferredExpressionSpacing: number = 1;
+    private static preferredOperatorSpacing: number = 1;
+    private static preferredParameterAssignmentStyle: number = 1;
 
     private static readonly _fileSplitRegex: RegExp = /\r?\n/;
     private static readonly _trailingWhitespaceRegex: RegExp = /\s+$/;
@@ -18,9 +19,10 @@ export class Formatter
     {
         this.trimTrailingWhitespace = config.TrimTrailingWhitespace;
         this.addEmptyNewLine = config.AddEmptyNewLine;
+        this.trimLeadingLines = config.TrimLeadingLines;
         this.preferredStringQuote = config.PreferredStringQuotes;
-        this.preferredAssignmentSpacing = config.PreferredAssignmentSpace;
-        this.preferredExpressionSpacing = config.PreferredExpressionSpace;
+        this.preferredOperatorSpacing = config.PreferredOperatorSpaces;
+        this.preferredParameterAssignmentStyle = config.PreferredParameterAssignmentStyle;
     }
 
     public static formatDocument(tokens: Models.Token[], text: string): lsps.TextEdit[]
@@ -29,56 +31,81 @@ export class Formatter
             ...this.formatFloats(tokens),
             ...this.formatStrings(tokens),
             ...this.formatOperators(tokens),
+            ...this.formatAssignments(tokens),
             ...this.formatPunctuation(tokens),
-            ...this.formatLastLine(text, tokens),
-            ...this.formatTrailingWhitespace(text)
+            ...this.formatLinesAndWhitespace(text, tokens)
         ];
     }
 
-    private static formatLastLine(text: string, tokens: Models.Token[]): lsps.TextEdit[]
+    private static formatLinesAndWhitespace(text: string, tokens: Models.Token[]): lsps.TextEdit[]
     {
-        if (!this.addEmptyNewLine)
-        {
-            return [];
-        }
-
-        if (text.length > 0 && !text.endsWith('\n'))
-        {
-            const endPos = tokens[tokens.length - 1].Range.end;
-
-            return [{
-                range: { start: endPos, end: endPos },
-                newText: "\n"
-            }];
-        }
-
-        return [];
-    }
-
-    private static formatTrailingWhitespace(text: string): lsps.TextEdit[]
-    {
-        if (!this.trimTrailingWhitespace)
+        if (text.length === 0)
         {
             return [];
         }
 
         const edits: lsps.TextEdit[] = [];
         const lines = text.split(this._fileSplitRegex);
+        let startIdx = 0;
+        let endIdx = lines.length;
+        let lastValidIdx = lines.length - 1;
 
-        for (let i = 0; i < lines.length; i++)
+        if (this.trimLeadingLines)
         {
-            const line = lines[i];
-            const match = line.match(this._trailingWhitespaceRegex);
+            if (tokens[0].Range.start.line !== 0)
+            {
+                const firstRange = tokens[0].Range.start;
 
-            if (match && match.index !== undefined)
+                edits.push({
+                    range: { start: { line: 0, character: 0 }, end: firstRange },
+                    newText: ""
+                });
+
+                startIdx = firstRange.line;
+            }
+        }
+
+        if (this.addEmptyNewLine)
+        {
+            let lastContentLine = lastValidIdx;
+            while (lastContentLine > startIdx && lines[lastContentLine].trim().length === 0)
+            {
+                lastContentLine -= 1;
+            }
+
+            const contentEndCharIdx = lines[lastContentLine].trimEnd().length;
+
+            if (!(lastContentLine === lastValidIdx - 1 && lines[lastValidIdx].length === 0 && contentEndCharIdx === lines[lastContentLine].length))
             {
                 edits.push({
                     range: {
-                        start: { line: i, character: match.index },
-                        end: { line: i, character: line.length }
+                        start: { line: lastContentLine, character: contentEndCharIdx },
+                        end: { line: lastValidIdx, character: lines[lastValidIdx].length }
                     },
-                    newText: ""
+                    newText: "\n"
                 });
+            }
+
+            endIdx = lastContentLine;
+        }
+
+        if (this.trimTrailingWhitespace)
+        {
+            for (let i = startIdx; i < endIdx; i++)
+            {
+                const line = lines[i];
+                const match = line.match(this._trailingWhitespaceRegex);
+
+                if (match && match.index !== undefined)
+                {
+                    edits.push({
+                        range: {
+                            start: { line: i, character: match.index },
+                            end: { line: i, character: line.length }
+                        },
+                        newText: ""
+                    });
+                }
             }
         }
 
@@ -182,7 +209,7 @@ export class Formatter
     private static formatOperators(tokens: Models.Token[]): lsps.TextEdit[]
     {
         const edits: lsps.TextEdit[] = [];
-        const spacing = ' '.repeat(this.preferredAssignmentSpacing);
+        const spacing = ' '.repeat(this.preferredOperatorSpacing);
 
         for (let i = 0; i < tokens.length; i++)
         {
@@ -232,7 +259,7 @@ export class Formatter
                             start: current.Range.end,
                             end: candidate.Range.start,
                         },
-                        newText: spacing,
+                        newText: spacing
                     });
 
                     break;
@@ -337,24 +364,71 @@ export class Formatter
         return edits;
     }
 
-    private static isHandledPunctuation(type: Models.TokenType): boolean
+    private static formatAssignments(tokens: Models.Token[]): lsps.TextEdit[]
     {
-        switch (type)
-        {
-            case Models.TokenType.L_PAREN:
-            case Models.TokenType.R_PAREN:
-            case Models.TokenType.L_BRACE:
-            case Models.TokenType.R_BRACE:
-            case Models.TokenType.L_BRACKET:
-            case Models.TokenType.R_BRACKET:
-            case Models.TokenType.COLON:
-            case Models.TokenType.DEF_TYPE_HINT:
-            case Models.TokenType.COMMA:
-                return true;
+        const edits: lsps.TextEdit[] = [];
 
-            default:
-                return false;
+        for (let i = 0; i < tokens.length; i++)
+        {
+            if (tokens[i].Type !== Models.TokenType.ASSIGN)
+            {
+                continue;
+            }
+
+            const assign = tokens[i];
+            const prev = tokens[i - 1];
+            if (!prev)
+            {
+                continue;
+            }
+
+            let isParam = false;
+            for (let j = i; j >= 0; j--)
+            {
+                if (tokens[j].Range.end.line !== assign.Range.start.line)
+                {
+                    break;
+                }
+
+                if (tokens[j].Type === Models.TokenType.L_PAREN)
+                {
+                    isParam = true;
+
+                    break;
+                }
+            }
+
+            edits.push({
+                range: { start: prev.Range.end, end: assign.Range.start },
+                newText: isParam ? ' '.repeat(this.preferredParameterAssignmentStyle) : ' '.repeat(this.preferredOperatorSpacing)
+            });
+
+            let lookAhead = i + 1;
+            while (lookAhead < tokens.length)
+            {
+                const candidate = tokens[lookAhead];
+                if (candidate.Type === Models.TokenType.NEW_LINE)
+                {
+                    break;
+                }
+                if (candidate.Range.start.line === assign.Range.end.line)
+                {
+                    edits.push({
+                        range: {
+                            start: assign.Range.end,
+                            end: candidate.Range.start,
+                        },
+                        newText: isParam ? ' '.repeat(this.preferredParameterAssignmentStyle) : ' '.repeat(this.preferredOperatorSpacing)
+                    });
+
+                    break;
+                }
+
+                lookAhead += 1;
+            }
         }
+
+        return edits;
     }
 
     private static getPunctuationFormatting(currentType: Models.TokenType, prevType: Models.TokenType, prevTwoToken: Models.Token, nextType: Models.TokenType): { prevSpace: string | undefined, afterSpace: string | undefined } | undefined
@@ -453,7 +527,6 @@ export class Formatter
             case Models.TokenType.LEFT_BIT_SHIFT_ASSIGN:
             case Models.TokenType.DIVIDE_FLOOR_ASSIGN:
             case Models.TokenType.BIT_AND_ASSIGN:
-            case Models.TokenType.ASSIGN:
                 return true;
 
             default:
@@ -461,16 +534,19 @@ export class Formatter
         }
     }
 
-    private static canEndExpression(type: Models.TokenType): boolean
+    private static isHandledPunctuation(type: Models.TokenType): boolean
     {
         switch (type)
         {
-            case Models.TokenType.IDENTIFIER:
-            case Models.TokenType.NUMBER:
-            case Models.TokenType.STRING:
+            case Models.TokenType.L_PAREN:
             case Models.TokenType.R_PAREN:
-            case Models.TokenType.R_BRACKET:
+            case Models.TokenType.L_BRACE:
             case Models.TokenType.R_BRACE:
+            case Models.TokenType.L_BRACKET:
+            case Models.TokenType.R_BRACKET:
+            case Models.TokenType.COLON:
+            case Models.TokenType.DEF_TYPE_HINT:
+            case Models.TokenType.COMMA:
                 return true;
 
             default:
@@ -480,6 +556,12 @@ export class Formatter
 
     private static isUnaryMinus(prev: Models.Token): boolean
     {
-        return prev === undefined || !this.canEndExpression(prev.Type);
+        let canEndExpression = false;
+        if (prev.Type === Models.TokenType.IDENTIFIER || prev.Type === Models.TokenType.NUMBER || prev.Type === Models.TokenType.STRING || prev.Type === Models.TokenType.R_PAREN || prev.Type === Models.TokenType.R_BRACKET || prev.Type === Models.TokenType.R_BRACE)
+        {
+            canEndExpression = true;
+        }
+
+        return prev === undefined || !canEndExpression;
     }
 }

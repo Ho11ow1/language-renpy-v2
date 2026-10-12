@@ -206,6 +206,13 @@ export class Parser
         {
             params = this.getParams();
         }
+        else
+        {
+            //
+            //  Not really an error but fine for now
+            //
+            this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, this.peek().Range, undefined);
+        }
 
         const colon = this.advanceIfExpected(Models.TokenType.COLON);
         if (!colon)
@@ -522,7 +529,7 @@ export class Parser
         while (lookahead < this.tokens.length)
         {
             const tokenType = this.tokens[lookahead].Type;
-            if (tokenType === Models.TokenType.NEW_LINE || tokenType === Models.TokenType.TAB)
+            if (tokenType === Models.TokenType.NEW_LINE || tokenType === Models.TokenType.TAB || tokenType === Models.TokenType.COMMENT)
             {
                 lookahead++;
                 continue;
