@@ -11,9 +11,11 @@ export class Formatter
     private static preferredStringQuote: string = '"';
     private static preferredOperatorSpacing: number = 1;
     private static preferredParameterAssignmentStyle: number = 1;
+    private static preferredIndentSize: number = 4;
 
     private static readonly _fileSplitRegex: RegExp = /\r?\n/;
     private static readonly _trailingWhitespaceRegex: RegExp = /\s+$/;
+    private static readonly _tabRegex: RegExp = /^(\t+)/;
 
     public static updateConfig(config: Common.IFormatterConfig): void
     {
@@ -25,19 +27,22 @@ export class Formatter
         this.preferredParameterAssignmentStyle = config.PreferredParameterAssignmentStyle;
     }
 
-    public static formatDocument(tokens: Models.Token[], text: string): lsps.TextEdit[]
+    public static formatDocument(tokens: Models.Token[], text: string, tabSize: number): lsps.TextEdit[]
     {
+        this.preferredIndentSize = tabSize;
+
         return [
             ...this.formatFloats(tokens),
             ...this.formatStrings(tokens),
             ...this.formatOperators(tokens),
             ...this.formatAssignments(tokens),
             ...this.formatPunctuation(tokens),
-            ...this.formatLinesAndWhitespace(text, tokens)
+            ...this.formatKeywords(tokens),
+            ...this.formatWhite(text, tokens)
         ];
     }
 
-    private static formatLinesAndWhitespace(text: string, tokens: Models.Token[]): lsps.TextEdit[]
+    private static formatWhite(text: string, tokens: Models.Token[]): lsps.TextEdit[]
     {
         if (text.length === 0)
         {
@@ -88,6 +93,42 @@ export class Formatter
 
             endIdx = lastContentLine;
         }
+
+        //  TODO
+        //
+        //  For the latter, Create an indentation stack just like the lexer & parser to format leading whitespace
+        //  End: trim leading lines, trim trailing lines, trim trailing whitespace, replace leading tabs, format indentation
+        //  Other formatting rules handle everything in-between
+        //
+        //  Should result in a nice output all things considered unless Junior finds something to fix again.
+        //
+
+        for (let i = startIdx; i < endIdx; i++)
+        {
+            const line = lines[i];
+            if (line.trim() === "")
+            {
+                continue;
+            }
+
+            const match = line.match(this._tabRegex);
+            if (match)
+            {
+                const tabCount = match[0].length;
+
+                edits.push({
+                    range: {
+                        start: { line: i, character: 0 },
+                        end: { line: i, character: tabCount }
+                    },
+                    newText: ' '.repeat(tabCount * this.preferredIndentSize)
+                });
+            }
+        }
+
+        //
+        //  TODO: Should probably combine this as instead of 1 iteration we do 2
+        //
 
         if (this.trimTrailingWhitespace)
         {
@@ -431,6 +472,39 @@ export class Formatter
         return edits;
     }
 
+    private static formatKeywords(tokens: Models.Token[]): lsps.TextEdit[]
+    {
+        const edits: lsps.TextEdit[] = [];
+
+        for (let i = 0; i < tokens.length; i++)
+        {
+            if (!this.isHandledKeyword(tokens[i].Type))
+            {
+                continue;
+            }
+
+            const keyword = tokens[i];
+            const next = tokens[i + 1];
+
+            const spacing = this.getKeywordFormatting(keyword.Type, next.Type);
+            if (spacing === undefined)
+            {
+                continue;
+            }
+
+            Utils.Logger.logError(`editing: ${keyword.toString()} with 1 space to: ${next.toString()}`);
+            edits.push({
+                range: {
+                    start: keyword.Range.end,
+                    end: next.Range.start
+                },
+                newText: " "
+            });
+        }
+
+        return edits;
+    }
+
     private static getPunctuationFormatting(currentType: Models.TokenType, prevType: Models.TokenType, prevTwoToken: Models.Token, nextType: Models.TokenType): { prevSpace: string | undefined, afterSpace: string | undefined } | undefined
     {
         //
@@ -495,6 +569,16 @@ export class Formatter
         return undefined;
     }
 
+    private static getKeywordFormatting(currentType: Models.TokenType, nextType: Models.TokenType): number | undefined
+    {
+        if (currentType === Models.TokenType.LABEL && nextType === Models.TokenType.IDENTIFIER)
+        {
+            return 1;
+        }
+
+        return undefined;
+    }
+
     private static isHandledOperator(type: Models.TokenType): boolean
     {
         switch (type)
@@ -547,6 +631,18 @@ export class Formatter
             case Models.TokenType.COLON:
             case Models.TokenType.DEF_TYPE_HINT:
             case Models.TokenType.COMMA:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static isHandledKeyword(type: Models.TokenType): boolean
+    {
+        switch (type)
+        {
+            case Models.TokenType.LABEL:
                 return true;
 
             default:

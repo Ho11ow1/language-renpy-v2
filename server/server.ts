@@ -82,7 +82,7 @@ function registerFeatureListeners(): void
         const text = document.getText();
         const tokens = Lexer.tokenizeDocument(text);
 
-        return Formatter.formatDocument(tokens, text);
+        return Formatter.formatDocument(tokens, text, params.options.tabSize);
     });
 }
 
