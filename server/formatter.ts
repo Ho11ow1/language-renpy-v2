@@ -486,19 +486,18 @@ export class Formatter
             const keyword = tokens[i];
             const next = tokens[i + 1];
 
-            const spacing = this.getKeywordFormatting(keyword.Type, next.Type);
+            const spacing = this.getKeywordFormatting(keyword, next.Type);
             if (spacing === undefined)
             {
                 continue;
             }
 
-            Utils.Logger.logError(`editing: ${keyword.toString()} with 1 space to: ${next.toString()}`);
             edits.push({
                 range: {
                     start: keyword.Range.end,
                     end: next.Range.start
                 },
-                newText: " "
+                newText: ' '.repeat(spacing)
             });
         }
 
@@ -520,6 +519,11 @@ export class Formatter
         }
         //
         //  DELIMETERS
+        //
+        //
+        //  Change the latter.
+        //  While having formatting definitions is nice, undefined on others is not the desired outcome of a proper formatter
+        //  Probably just need a more sophisticated look back
         //
         if (currentType === Models.TokenType.L_PAREN || currentType === Models.TokenType.L_BRACKET)
         {
@@ -569,9 +573,16 @@ export class Formatter
         return undefined;
     }
 
-    private static getKeywordFormatting(currentType: Models.TokenType, nextType: Models.TokenType): number | undefined
+    private static getKeywordFormatting(current: Models.Token, nextType: Models.TokenType): number | undefined
     {
-        if (currentType === Models.TokenType.LABEL && nextType === Models.TokenType.IDENTIFIER)
+        const currentType = current.Type;
+
+        if (currentType === Models.TokenType.DOLLAR_SIGN_LINE || currentType === Models.TokenType.IF || currentType === Models.TokenType.FOR || currentType === Models.TokenType.IN || currentType === Models.TokenType.IS || currentType === Models.TokenType.NOT || currentType === Models.TokenType.ELIF || currentType === Models.TokenType.AND)
+        {
+            return 1;
+        }
+
+        if ((currentType === Models.TokenType.DEFAULT || currentType === Models.TokenType.DEFINE) && nextType === Models.TokenType.IDENTIFIER || nextType === Models.TokenType.MINUS || nextType === Models.TokenType.NUMBER)
         {
             return 1;
         }
@@ -642,7 +653,22 @@ export class Formatter
     {
         switch (type)
         {
-            case Models.TokenType.LABEL:
+            //
+            //  PYTHON
+            //
+            case Models.TokenType.DOLLAR_SIGN_LINE:
+            case Models.TokenType.IF:
+            case Models.TokenType.FOR:
+            case Models.TokenType.IN:
+            case Models.TokenType.IS:
+            case Models.TokenType.NOT:
+            case Models.TokenType.ELIF:
+            case Models.TokenType.AND:
+            //
+            //  Ren'Py
+            //
+            case Models.TokenType.DEFAULT:
+            case Models.TokenType.DEFINE:
                 return true;
 
             default:
@@ -653,7 +679,8 @@ export class Formatter
     private static isUnaryMinus(prev: Models.Token): boolean
     {
         let canEndExpression = false;
-        if (prev.Type === Models.TokenType.IDENTIFIER || prev.Type === Models.TokenType.NUMBER || prev.Type === Models.TokenType.STRING || prev.Type === Models.TokenType.R_PAREN || prev.Type === Models.TokenType.R_BRACKET || prev.Type === Models.TokenType.R_BRACE)
+        // prev.Type === Models.TokenType.IDENTIFIER || 
+        if (prev.Type === Models.TokenType.NUMBER || prev.Type === Models.TokenType.STRING || prev.Type === Models.TokenType.R_PAREN || prev.Type === Models.TokenType.R_BRACKET || prev.Type === Models.TokenType.R_BRACE)
         {
             canEndExpression = true;
         }
