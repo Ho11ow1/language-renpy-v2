@@ -1,9 +1,12 @@
 export interface IFormatterConfig
 {
     TrimTrailingWhitespace: boolean;
-    AddEmptyNewLine: boolean;
     TrimLeadingLines: boolean;
+    AddEmptyNewLine: boolean;
+    ShouldFormatPunctuation: boolean;
+    ShouldFormatFloats: boolean;
+    ShouldFormatKeywords: boolean;
     PreferredStringQuotes: string;
-    PreferredOperatorSpaces: number;
-    PreferredParameterAssignmentStyle: number;
+    PreferredOperatorSpacing: number;
+    PreferredParameterStyle: number;
 }

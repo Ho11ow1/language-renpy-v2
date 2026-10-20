@@ -80,9 +80,8 @@ function registerFeatureListeners(): void
         }
 
         const text = document.getText();
-        const tokens = Lexer.tokenizeDocument(text);
 
-        return Formatter.formatDocument(tokens, text, params.options.tabSize);
+        return Formatter.formatDocument(Lexer.tokenizeDocument(text), text, params.options.tabSize);
     });
 }
 

@@ -8,9 +8,14 @@ export class Formatter
     private static trimTrailingWhitespace: boolean = true;
     private static addEmptyNewLine: boolean = true;
     private static trimLeadingLines: boolean = true;
+
+    private static shouldFormatPunctuation: boolean = true;
+    private static shouldFormatFloats: boolean = true;
+    private static shouldFormatKeywords: boolean = true;
+
     private static preferredStringQuote: string = '"';
     private static preferredOperatorSpacing: number = 1;
-    private static preferredParameterAssignmentStyle: number = 1;
+    private static preferredParameterStyle: number = 1;
     private static preferredIndentSize: number = 4;
 
     private static readonly _fileSplitRegex: RegExp = /\r?\n/;
@@ -22,9 +27,14 @@ export class Formatter
         this.trimTrailingWhitespace = config.TrimTrailingWhitespace;
         this.addEmptyNewLine = config.AddEmptyNewLine;
         this.trimLeadingLines = config.TrimLeadingLines;
+
+        this.shouldFormatPunctuation = config.ShouldFormatPunctuation;
+        this.shouldFormatFloats = config.ShouldFormatFloats;
+        this.shouldFormatKeywords = config.ShouldFormatKeywords;
+
         this.preferredStringQuote = config.PreferredStringQuotes;
-        this.preferredOperatorSpacing = config.PreferredOperatorSpaces;
-        this.preferredParameterAssignmentStyle = config.PreferredParameterAssignmentStyle;
+        this.preferredOperatorSpacing = config.PreferredOperatorSpacing;
+        this.preferredParameterStyle = config.PreferredParameterStyle;
     }
 
     public static formatDocument(tokens: Models.Token[], text: string, tabSize: number): lsps.TextEdit[]
@@ -315,6 +325,11 @@ export class Formatter
 
     private static formatPunctuation(tokens: Models.Token[]): lsps.TextEdit[]
     {
+        if (!this.shouldFormatPunctuation)
+        {
+            return [];
+        }
+
         const edits: lsps.TextEdit[] = [];
 
         for (let i = 0; i < tokens.length; i++)
@@ -370,6 +385,11 @@ export class Formatter
 
     private static formatFloats(tokens: Models.Token[]): lsps.TextEdit[]
     {
+        if (!this.shouldFormatFloats)
+        {
+            return [];
+        }
+
         const edits: lsps.TextEdit[] = [];
 
         for (let i = 0; i < tokens.length; i++)
@@ -408,12 +428,42 @@ export class Formatter
     private static formatAssignments(tokens: Models.Token[]): lsps.TextEdit[]
     {
         const edits: lsps.TextEdit[] = [];
+        const stack: { isParen: boolean; annotated: boolean }[] = [];
 
         for (let i = 0; i < tokens.length; i++)
         {
-            if (tokens[i].Type !== Models.TokenType.ASSIGN)
+            const token = tokens[i];
+
+            switch (token.Type)
             {
-                continue;
+                case Models.TokenType.L_PAREN:
+                    stack.push({ isParen: true, annotated: false });
+                    continue;
+                case Models.TokenType.L_BRACKET:
+                case Models.TokenType.L_BRACE:
+                    stack.push({ isParen: false, annotated: false });
+                    continue;
+                case Models.TokenType.R_PAREN:
+                case Models.TokenType.R_BRACKET:
+                case Models.TokenType.R_BRACE:
+                    stack.pop();
+                    continue;
+                case Models.TokenType.COLON:
+                    if (stack.length > 0 && stack[stack.length - 1].isParen)
+                    {
+                        stack[stack.length - 1].annotated = true;
+                    }
+                    continue;
+                case Models.TokenType.COMMA:
+                    if (stack.length > 0 && stack[stack.length - 1].isParen)
+                    {
+                        stack[stack.length - 1].annotated = false;
+                    }
+                    continue;
+                case Models.TokenType.ASSIGN:
+                    break;
+                default:
+                    continue;
             }
 
             const assign = tokens[i];
@@ -423,49 +473,25 @@ export class Formatter
                 continue;
             }
 
-            let isParam = false;
-            for (let j = i; j >= 0; j--)
+            const frame = stack[stack.length - 1];
+            const isParam = frame && frame.isParen && !frame.annotated;
+            const spacing = ' '.repeat(isParam ? this.preferredParameterStyle : this.preferredOperatorSpacing);
+
+            if (prev.Range.end.line === assign.Range.start.line)
             {
-                if (tokens[j].Range.end.line !== assign.Range.start.line)
-                {
-                    break;
-                }
-
-                if (tokens[j].Type === Models.TokenType.L_PAREN)
-                {
-                    isParam = true;
-
-                    break;
-                }
+                edits.push({
+                    range: { start: prev.Range.end, end: assign.Range.start },
+                    newText: spacing
+                });
             }
 
-            edits.push({
-                range: { start: prev.Range.end, end: assign.Range.start },
-                newText: isParam ? ' '.repeat(this.preferredParameterAssignmentStyle) : ' '.repeat(this.preferredOperatorSpacing)
-            });
-
-            let lookAhead = i + 1;
-            while (lookAhead < tokens.length)
+            const next = tokens[i + 1];
+            if (next && next.Type !== Models.TokenType.NEW_LINE && next.Range.start.line === assign.Range.end.line)
             {
-                const candidate = tokens[lookAhead];
-                if (candidate.Type === Models.TokenType.NEW_LINE)
-                {
-                    break;
-                }
-                if (candidate.Range.start.line === assign.Range.end.line)
-                {
-                    edits.push({
-                        range: {
-                            start: assign.Range.end,
-                            end: candidate.Range.start,
-                        },
-                        newText: isParam ? ' '.repeat(this.preferredParameterAssignmentStyle) : ' '.repeat(this.preferredOperatorSpacing)
-                    });
-
-                    break;
-                }
-
-                lookAhead += 1;
+                edits.push({
+                    range: { start: assign.Range.end, end: next.Range.start },
+                    newText: spacing
+                });
             }
         }
 
@@ -474,6 +500,11 @@ export class Formatter
 
     private static formatKeywords(tokens: Models.Token[]): lsps.TextEdit[]
     {
+        if (!this.shouldFormatKeywords)
+        {
+            return [];
+        }
+
         const edits: lsps.TextEdit[] = [];
 
         for (let i = 0; i < tokens.length; i++)
@@ -679,7 +710,7 @@ export class Formatter
     private static isUnaryMinus(prev: Models.Token): boolean
     {
         let canEndExpression = false;
-        // prev.Type === Models.TokenType.IDENTIFIER || 
+        // prev.Type === Models.TokenType.IDENTIFIER ||
         if (prev.Type === Models.TokenType.NUMBER || prev.Type === Models.TokenType.STRING || prev.Type === Models.TokenType.R_PAREN || prev.Type === Models.TokenType.R_BRACKET || prev.Type === Models.TokenType.R_BRACE)
         {
             canEndExpression = true;

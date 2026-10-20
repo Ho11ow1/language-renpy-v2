@@ -61,40 +61,55 @@
                     "default": true,
                     "description": "Dictates whether or not the extension will provide diagnostic information"
                 },
-                "renpy.limitedPythonRoot": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Dictates whether or not the immediate python functions should be limited to a common subset or not"
-                },
                 "renpy.sdkPath": {
                     "type": "string",
                     "default": "",
-                    "description": "Should be an absolute path to your renpy sdk | Example: E:\\renpy-8.5.0-sdk"
+                    "description": "Specifies an absolute path to your renpy sdk | Example: E:\\renpy-8.5.0-sdk"
                 },
                 "renpy.processArguments": {
                     "type": "array",
                     "default": "--compile",
-                    "description": "Should be an array of arguments passed to the renpy executable | Example: --compile"
+                    "description": "Specifies the command line arguments with which the game executable will be launched | Example: --compile"
                 },
                 "renpy.debuggerEnabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Dictates whether or not a simple debugger is enabled | Allows you to launch, restart & close your game from vscode"
+                    "description": "Dictates whether or not a simple debugger is enabled | Allows launching, restarting & closing the game executable"
                 },
                 "renpy.createContextSubMenu": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Dictates whether or not the extension will provide a context menu sub menu for a few useful text based commands"
+                    "description": "Dictates whether or not the extension will provide a context menu sub menu containing text-based commands"
                 },
                 "renpy.formatter.trimTrailingWhitespace": {
                     "type": "boolean",
                     "default": true,
                     "description": "Dictates whether or not the renpy formatter should trim trailing whitespace"
                 },
+                "renpy.formatter.trimLeadingLines": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should trim empty leading lines in a file"
+                },
                 "renpy.formatter.addEmptyNewLine": {
                     "type": "boolean",
                     "default": true,
                     "description": "Dictates if the renpy formatter should trim and emplace one empty new line at the end of the file"
+                },
+                "renpy.formatter.shouldFormatPunctuation": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should format delimeters, colons, commas & method type hints"
+                },
+                "renpy.formatter.shouldFormatFloats": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should format floating point numbers with a leading 0"
+                },
+                "renpy.formatter.shouldFormatKeywords": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should format python & renpy keywords"
                 },
                 "renpy.formatter.preferredStringQuotes": {
                     "type": "string",
@@ -106,41 +121,36 @@
                     "enumDescriptions": [
                         "Double quote",
                         "Single quote",
-                        "Mixed (The Junior Special)"
+                        "Mixed (Will not modify strings)"
                     ],
                     "default": "\"",
                     "description": "Dictates the renpy formatters preferred string quote to format strings to"
                 },
-                "renpy.formatter.preferredOperatorSpaces": {
+                "renpy.formatter.preferredOperatorSpacing": {
                     "type": "integer",
                     "enum": [
                         1,
                         0
                     ],
                     "enumDescriptions": [
-                        "No spacing",
-                        "Spacing of 1"
+                        "Spacing of 1",
+                        "No spacing"
                     ],
                     "default": 1,
                     "description": "Dictates the renpy formatters preferred amount of spaces around operators"
                 },
-                "renpy.formatter.preferredParameterAssignmentStyle": {
+                "renpy.formatter.preferredParameterStyle": {
                     "type": "integer",
                     "enum": [
-                        1,
-                        0
+                        0,
+                        1
                     ],
                     "enumDescriptions": [
-                        "C Style param (Superior)",
-                        "PEP8 python style param"
+                        "Style: PEP8",
+                        "Style: C"
                     ],
-                    "default": 1,
-                    "description": "Dictates the renpy formatters preferred style for paramater assignment spacing"
-                },
-                "renpy.formatter.trimLeadingLines": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Dictates if the renpy formatter should trim empty file leading lines"
+                    "default": 0,
+                    "description": "Dictates the renpy formatters preferred style for paramaters"
                 }
             }
         },

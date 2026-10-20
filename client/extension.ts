@@ -68,7 +68,15 @@ function registerWorkspaceListeners(context: vscode.ExtensionContext, folder: vs
 function registerConfigListeners(): void
 {
     vscode.workspace.onDidChangeConfiguration((e): void => {
-        if (e.affectsConfiguration("renpy.formatter.trimTrailingWhitespace") || e.affectsConfiguration("renpy.formatter.addEmptyNewLine") || e.affectsConfiguration("renpy.formatter.preferredStringQuotes") || e.affectsConfiguration("renpy.formatter.preferredOperatorSpaces") || e.affectsConfiguration("renpy.formatter.trimLeadingLines") || e.affectsConfiguration("renpy.formatter.preferredParameterAssignmentStyle"))
+        if (e.affectsConfiguration("renpy.formatter.trimTrailingWhitespace") ||
+            e.affectsConfiguration("renpy.formatter.trimLeadingLines") ||
+            e.affectsConfiguration("renpy.formatter.addEmptyNewLine") ||
+            e.affectsConfiguration("renpy.formatter.shouldFormatPunctuation") ||
+            e.affectsConfiguration("renpy.formatter.shouldFormatFloats") ||
+            e.affectsConfiguration("renpy.formatter.shouldFormatKeywords") ||
+            e.affectsConfiguration("renpy.formatter.preferredStringQuotes") ||
+            e.affectsConfiguration("renpy.formatter.preferredOperatorSpacing") ||
+            e.affectsConfiguration("renpy.formatter.preferredParameterStyle"))
         {
             updateServerFormatterConfig();
         }
@@ -94,11 +102,16 @@ function updateServerFormatterConfig(): void
 
     const formatterConfigOptions: Common.IFormatterConfig = {
         TrimTrailingWhitespace: formatterConfig.get("trimTrailingWhitespace", true),
-        AddEmptyNewLine: formatterConfig.get("addEmptyNewLine", true),
         TrimLeadingLines: formatterConfig.get("trimLeaingLines", true),
+        AddEmptyNewLine: formatterConfig.get("addEmptyNewLine", true),
+
+        ShouldFormatPunctuation: formatterConfig.get("shouldFormatPunctuation", true),
+        ShouldFormatFloats: formatterConfig.get("shouldFormatFloats", true),
+        ShouldFormatKeywords: formatterConfig.get("shouldFormatKeywords", true),
+
         PreferredStringQuotes: formatterConfig.get("preferredStringQuotes", '"'),
-        PreferredOperatorSpaces: formatterConfig.get("preferredOperatorSpaces", 1),
-        PreferredParameterAssignmentStyle: formatterConfig.get("preferredParameterAssignmentStyle", 1)
+        PreferredOperatorSpacing: formatterConfig.get("preferredOperatorSpacing", 1),
+        PreferredParameterStyle: formatterConfig.get("preferredParameterStyle", 1)
     };
 
     languageClient?.sendNotification(Common.LSP_FORMATTER_UPDATE_PATH, formatterConfigOptions);
