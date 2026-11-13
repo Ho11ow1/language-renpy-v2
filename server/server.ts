@@ -12,6 +12,7 @@ import { Store } from "@server/store";
 import { Diagnostics } from "@server/diagnostics";
 import { Formatter } from "@server/formatter";
 
+let isInitialized = false;
 const connection: lsps.Connection = lsps.createConnection(lsps.ProposedFeatures.all);
 const documents: lsps.TextDocuments<TextDocument> = new lsps.TextDocuments(TextDocument);
 const fileOperationFilters: lsps.FileOperationRegistrationOptions = {
@@ -88,6 +89,11 @@ function registerFeatureListeners(): void
 function registerWorkspaceListeners(): void
 {
     connection.workspace.onDidDeleteFiles((params): void => {
+        if (!isInitialized)
+        {
+            return;
+        }
+
         for (const doc of params.files)
         {
             const normalizedUri = Utils.DocumentUtils.normalizeUri(doc.uri);
@@ -102,6 +108,11 @@ function registerWorkspaceListeners(): void
     });
 
     connection.workspace.onDidRenameFiles((params): void => {
+        if (!isInitialized)
+        {
+            return;
+        }
+
         for (const doc of params.files)
         {
             const normalizedOldUri = Utils.DocumentUtils.normalizeUri(doc.oldUri);
@@ -135,6 +146,11 @@ function registerDocumentListeners(): void
 
     function doStuff(e: lsps.TextDocumentChangeEvent<TextDocument>): void
     {
+        if (!isInitialized)
+        {
+            return;
+        }
+
         clearTimeout(debounceTimer);
 
         debounceTimer = setTimeout((): void => {
@@ -147,10 +163,10 @@ function registerDocumentListeners(): void
             }
 
             const tokens = Lexer.tokenizeDocument(textDocument.getText());
-            for (const token of tokens)
-            {
-                Utils.Logger.logDebug(token.toString());
-            }
+            // for (const token of tokens)
+            // {
+            //     Utils.Logger.logDebug(token.toString());
+            // }
 
             Parser.parseDocumentDeclarations(tokens, textDocument);
             Parser.parseDocumentReferences(tokens, textDocument);
@@ -220,6 +236,7 @@ async function initializeWorkspace(): Promise<void>
     }
 
     connection.sendNotification(Common.LSP_INITIALIZED_PATH);
+    isInitialized = true;
 }
 
 function registerLifecycle(): void

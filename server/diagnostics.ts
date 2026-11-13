@@ -7,7 +7,7 @@ export class Diagnostics
     private static connection: lsps.Connection;
     private static severityOverrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
     private static readonly _diagnosticsMap: Map<string, lsps.Diagnostic[]> = new Map<string, lsps.Diagnostic[]>();
-    private static readonly _defaultSupportedAnnotations: Array<string> = new Array<string>("BUG", "FIX", "TODO", "ERROR");
+    private static readonly _defaultSupportedAnnotations: Array<string> = new Array<string>("BUG", "FIX", "TODO", "ERROR", "NOTE");
     private static supportedAnnotations: Array<string> = this._defaultSupportedAnnotations;
 
     public static init(connection: lsps.Connection): void
