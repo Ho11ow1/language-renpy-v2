@@ -17,7 +17,7 @@ export class Parser
     private currentGlobalLabel: Models.LabelNode | undefined = undefined;
 
     private indentStack: number[] = [0];
-    private scopeStack: Interfaces.IScope[] = [{ Kind: Models.ScopeType.ROOT, Depth: -1, Node: undefined }];
+    private scopeStack: Interfaces.IScope[] = [{ Kind: Models.ScopeType.ROOT, Depth: 0, Node: undefined }];
 
     private parsedNodes: Models.Node[] = [];
     private currentDocument: TextDocument;
@@ -130,12 +130,29 @@ export class Parser
                     this.parseTransformDef(token);
                 }
                 break;
+            case Models.TokenType.INIT:
+                if (scopeKind === Models.ScopeType.ROOT)
+                {
+                    this.parseInitDef(token);
+                }
+                break;
+            case Models.TokenType.CLASS:
+                if (scopeKind === Models.ScopeType.BLOCK || scopeKind === Models.ScopeType.NAMESPACE)
+                {
+                    this.parseClassDef(token, scopeKind);
+                }
+                break;
         }
     }
 
     // #region DEFINITION
     private parseLabelDef(token: Models.Token): void
     {
+        if (this.prev() && this.prev().Type === Models.TokenType.INDENT && !this.isInScope(Models.ScopeType.LABEL))
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, lsps.Range.create(this.prev().Range.start, this.prev().Range.end), undefined, this.prev().toString());
+        }
+
         const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
         if (!name)
         {
@@ -433,6 +450,136 @@ export class Parser
 
         Utils.Logger.logDebug(`${token.Type === Models.TokenType.DEFINE ? "define" : "default"}: ${nameParts.map((part): string => part.Value).join('')} = ${txt}`);
     }
+
+    private parseInitDef(token: Models.Token): void
+    {
+        const parts: Models.Token[] = [token];
+        let initPython = false;
+        let isNamed = false;
+
+        //
+        //  init offset = n
+        //
+        if (this.peek().Value === "offset")
+        {
+            return;
+        }
+
+        const offset = this.getOptionalOffset();
+        if (offset !== undefined)
+        {
+            parts.push(...offset);
+        }
+
+        if (this.peek().Type === Models.TokenType.PYTHON)
+        {
+            parts.push(this.advance());
+            initPython = true;
+        }
+        if (initPython && this.peek().Type === Models.TokenType.IN)
+        {
+            parts.push(this.advance());
+
+            if (this.peek().Type !== Models.TokenType.IDENTIFIER)
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, this.peek().Range, undefined);
+
+                return;
+            }
+
+            parts.push(this.advance());
+            isNamed = true;
+        }
+        if (this.peek().Type !== Models.TokenType.COLON)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, this.peek().Range, undefined);
+
+            return;
+        }
+
+        const colon = this.advance();
+        parts.push(colon);
+
+        const declarationRange: lsps.Range = {
+            start: token.Range.start,
+            end: colon.Range.end
+        };
+
+        const init = new Models.Node(
+            //
+            //  Is it a bad approach? Absolutely
+            //  Does it work for now? Yes, yes it does
+            //
+            parts.map((p) => p.Value).join(" ").replace("- ", "-"),
+            this.currentDocument.getText(declarationRange),
+            declarationRange,
+            declarationRange,
+            lsps.CompletionItemKind.Folder,
+            lsps.SymbolKind.Namespace,
+            { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: token.Range }
+        );
+
+        this.parsedNodes.push(init);
+
+        const first = this.getFirstIndentedToken();
+        if (!first)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        this.scopeStack.push({
+            Kind: isNamed ? Models.ScopeType.NAMESPACE : Models.ScopeType.BLOCK,
+            Depth: first.Range.start.character,
+            Node: init
+        });
+
+        Utils.Logger.logDebug(parts.map((p) => p.Value).join(" "));
+    }
+
+    private parseClassDef(token: Models.Token, scopeKind: Models.ScopeType): void
+    {
+        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!name)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, this.peek().Range, undefined);
+
+            return;
+        }
+
+        const inheritance: string[] = [];
+
+        this.checkNamingRule(name, Models.ScopeType.CLASS);
+
+        if (this.peek().Type === Models.TokenType.L_PAREN)
+        {
+            this.advance();
+
+            while (this.peek().Type !== Models.TokenType.NEW_LINE && this.peek().Type !== Models.TokenType.R_PAREN)
+            {
+                inheritance.push(this.advance().Value);
+            }
+
+            if (this.peek().Type === Models.TokenType.R_PAREN)
+            {
+                this.advance();
+            }
+        }
+        
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
+        if (!colon)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, this.peek().Range, undefined);
+
+            return;
+        }
+        //
+        //  TODO: Get First
+        //
+
+        Utils.Logger.logDebug(`class ${name.Value} | ${inheritance.map((e) => e === "," ? ", " : e).join("")}`);
+    }
     // #endregion
 
     // #region REFERENCE
@@ -440,6 +587,9 @@ export class Parser
     // #endregion
 
     // #region UTILS
+    //
+    //  Indentation mis-match kind of, disabled for now due to other priorities
+    //
     private handleIndent(token: Models.Token): void
     {
         if (token.Type === Models.TokenType.TAB)
@@ -448,6 +598,11 @@ export class Parser
 
             return;
         }
+
+        // if (token.Range.end.character !== this.currentScope().Depth)
+        // {
+        //     this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, token.Range, undefined, token.toString());
+        // }
 
         this.indentStack.push(token.Range.end.character);
 
@@ -469,6 +624,11 @@ export class Parser
 
             Utils.Logger.logDebug(`[CLOSE SCOPE] (${scope?.Node?.Name} | ${scope?.Node?.Detail} | start: ${scope?.Node?.Range.start.line}, end: ${scope?.Node?.Range.end.line}) dedented from ${poppedIndent} to ${currentDepth}`);
         }
+
+        // if (token.Range.end.character !== this.currentScope().Depth && this.prev().Type !== Models.TokenType.COMMENT && this.prev().Type !== Models.TokenType.UNKNOWN)
+        // {
+        //     this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, token.Range, undefined, token.toString());
+        // }
 
         Utils.Logger.logDebug(`popped: ${poppedIndent} | current: ${this.indentStack[this.indentStack.length - 1]}`);
     }
@@ -522,11 +682,42 @@ export class Parser
         return this.peek().Type === Models.TokenType.EOF;
     }
 
+    private getOptionalOffset(): Models.Token[] | undefined
+    {
+        const arr: Models.Token[] = [];
+        const peek = this.peek();
+    
+        if (peek.Type !== Models.TokenType.MINUS && peek.Type !== Models.TokenType.NUMBER)
+        {
+            return undefined
+        }
+
+        if (peek.Type === Models.TokenType.MINUS)
+        {
+            arr.push(this.advance());
+
+            if (this.peek().Type === Models.TokenType.NUMBER)
+            {
+                arr.push(this.advance());
+            }
+            else
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, this.peek().Range, undefined, "Expected negative offset");
+            }
+        }
+        else if (peek.Type === Models.TokenType.NUMBER)
+        {
+            arr.push(this.advance());
+        }
+
+        return arr;
+    }
+
     private getFirstIndentedToken(): Models.Token | undefined
     {
         let lookahead = this.current;
 
-        while (lookahead < this.tokens.length)
+        while (lookahead < this.tokens.length - 1)
         {
             const tokenType = this.tokens[lookahead].Type;
             if (tokenType === Models.TokenType.NEW_LINE || tokenType === Models.TokenType.TAB || tokenType === Models.TokenType.COMMENT)
@@ -643,7 +834,6 @@ export class Parser
                 }
                 else
                 {
-                    // '*args' syntax
                     isVarargs = true;
 
                     if (hasSeenVarargs)
@@ -1027,6 +1217,12 @@ export class Parser
                 if (!Diagnostics.isSnakeCase(val))
                 {
                     this.pushDiagnostic(Models.NamingRule.STYLES_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
+            case Models.ScopeType.CLASS:
+                if (!Diagnostics.isPascalCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.CLASSES_SHOULD_BE_PASCAL_CASE, range);
                 }
                 break;
         }
