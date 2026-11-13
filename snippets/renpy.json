@@ -1,24 +1,8 @@
 {
-	"For Loop": {
-		"prefix": "for",
-		"body": [ 
-			"for ${1:i} in ${2:range(0, 5)}:",
-			"\tprint(${1})$0"
-		],
-		"description": "Inserts a simple for loop snippet\n"
-	},
-	"If Statement": {
-		"prefix": "if",
-		"body": [
-			"if ${1:condition}:",
-			"\t$0"
-		],
-		"description": "Inserts a simple if snippet\n"
-	},
-	"Label Block Definition": {
+    "Label Block Definition": {
 		"prefix": "label",
 		"body": [
-			"label ${1:labelName}:",
+			"label ${1:labelName}():",
 			"\t$0"
 		],
 		"description": "Inserts a simple label snippet\n"
@@ -47,7 +31,29 @@
 		],
 		"description": "Inserts a simple transform snippet\n"
 	},
-	"Default Variable Definition": {
+	"Image Definition": {
+		"prefix": "image",
+		"body": [
+            "image ${1:varName} = \"${2:images/path}\"$0"
+        ],
+		"description": "Inserts an example image statement\n"
+	},
+	"Movie Definition": {
+		"prefix": "movie",
+		"body": [
+            "image ${1:varName} = Movie(play = \"${2:movies/path}\")$0"
+        ],
+		"description": "Inserts an example movie statement\n"
+	},
+    "Style Definition": {
+        "prefix": "style",
+        "body": [
+            "style ${1:styleName}:",
+            "\t$0"
+        ],
+        "description": "Inserts a simple style snippet\n"
+    },
+    "Default Variable Definition": {
 		"prefix": "default",
 		"body": [
             "default ${1:varName} = ${2:\"value\"}$0"
@@ -60,13 +66,6 @@
             "define ${1:varName} = ${2:\"value\"}$0"
         ],
 		"description": "Inserts an example define statement\n"
-	},
-	"Image Definition": {
-		"prefix": "image",
-		"body": [
-            "image ${1:varName} = Image(${2:\"myImagePath\"})$0"
-        ],
-		"description": "Inserts an example image statement\n"
 	},
 	"Init Block": {
 		"prefix": "init",
@@ -91,38 +90,5 @@
 			"\t$0"
 		],
 		"description": "Inserts a simple python block"
-	},
-	"Static Method Definition": {
-		"prefix": "staticmethod",
-		"body": [
-			"@staticmethod",
-			"def ${1:methodName}(${2})${3}:",
-			"\t$0"
-		],
-		"description": "Inserts a class static method example\n"
-	},
-	"Class Method Definition": {
-		"prefix": "classmethod",
-		"body": [
-			"@classmethod",
-			"def ${1:methodName}(cls${2})${3}:",
-			"\t$0"
-		],
-		"description": "Inserts a class class method example\n"
-	},
-	"Instance Method Definition": {
-		"prefix": "def",
-		"body": [
-			"def ${1:methodName}(self${2})${3}:",
-			"\t$0"
-		],
-		"description": "Inserts a class instance method example\n"
-	},
-	"@NOQA": {
-		"prefix": "@NOQA",
-		"body": [
-			"# @NOQA"
-		],
-		"description": "Inserts a No Quality Assurance notice for the extension\n"
 	}
 }

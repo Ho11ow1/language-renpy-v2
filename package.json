@@ -2,7 +2,7 @@
     "name": "language-renpy-v2",
     "displayName": "vscode-language-renpy-v2",
     "description": "An attempt at re-creating and improving the current official vscode renpy extension",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "publisher": "Hollow1",
     "repository": {
         "type": "git",
@@ -61,25 +61,96 @@
                     "default": true,
                     "description": "Dictates whether or not the extension will provide diagnostic information"
                 },
-                "renpy.limitedPythonRoot": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Dictates whether or not the immediate python functions should be limited to a common subset or not"
-                },
                 "renpy.sdkPath": {
                     "type": "string",
                     "default": "",
-                    "description": "Should be an absolute path to your renpy sdk | Example: E:\\renpy-8.5.0-sdk"
+                    "description": "Specifies an absolute path to your renpy sdk | Example: E:\\renpy-8.5.0-sdk"
+                },
+                "renpy.processArguments": {
+                    "type": "array",
+                    "default": "--compile",
+                    "description": "Specifies the command line arguments with which the game executable will be launched | Example: --compile"
                 },
                 "renpy.debuggerEnabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Dictates whether or not a simple debugger is enabled | Allows you to launch, restart & close your game from vscode"
+                    "description": "Dictates whether or not a simple debugger is enabled | Allows launching, restarting & closing the game executable"
                 },
                 "renpy.createContextSubMenu": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Dictates whether or not the extension will provide a context menu sub menu for a few useful text based commands"
+                    "description": "Dictates whether or not the extension will provide a context menu sub menu containing text-based commands"
+                },
+                "renpy.formatter.trimTrailingWhitespace": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates whether or not the renpy formatter should trim trailing whitespace"
+                },
+                "renpy.formatter.trimLeadingLines": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should trim empty leading lines in a file"
+                },
+                "renpy.formatter.addEmptyNewLine": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should trim and emplace one empty new line at the end of the file"
+                },
+                "renpy.formatter.shouldFormatPunctuation": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should format delimeters, colons, commas & method type hints"
+                },
+                "renpy.formatter.shouldFormatFloats": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should format floating point numbers with a leading 0"
+                },
+                "renpy.formatter.shouldFormatKeywords": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Dictates if the renpy formatter should format python & renpy keywords"
+                },
+                "renpy.formatter.preferredStringQuotes": {
+                    "type": "string",
+                    "enum": [
+                        "\"",
+                        "'",
+                        "MIXED"
+                    ],
+                    "enumDescriptions": [
+                        "Double quote",
+                        "Single quote",
+                        "Mixed (Will not modify strings)"
+                    ],
+                    "default": "\"",
+                    "description": "Dictates the renpy formatters preferred string quote to format strings to"
+                },
+                "renpy.formatter.preferredOperatorSpacing": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        0
+                    ],
+                    "enumDescriptions": [
+                        "Spacing of 1",
+                        "No spacing"
+                    ],
+                    "default": 1,
+                    "description": "Dictates the renpy formatters preferred amount of spaces around operators"
+                },
+                "renpy.formatter.preferredParameterStyle": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ],
+                    "enumDescriptions": [
+                        "Style: PEP8",
+                        "Style: C"
+                    ],
+                    "default": 0,
+                    "description": "Dictates the renpy formatters preferred style for paramaters"
                 }
             }
         },
@@ -127,6 +198,11 @@
             {
                 "command": "renpy.deletePersistent",
                 "title": "Remove system & local persistent",
+                "category": "Renpy-v2"
+            },
+            {
+                "command": "renpy.deleteSaves",
+                "title": "Remove system & local saves",
                 "category": "Renpy-v2"
             }
         ],
@@ -188,6 +264,10 @@
                 "path": "./syntaxes/renpy.tmLanguage.json"
             },
             {
+                "scopeName": "source.renpy.comments",
+                "path": "./syntaxes/comments.tmLanguage.json"
+            },
+            {
                 "scopeName": "source.renpy.screen",
                 "path": "./syntaxes/renpy.screen.tmLanguage.json"
             },
@@ -206,50 +286,29 @@
             {
                 "scopeName": "source.renpy.python",
                 "path": "./syntaxes/renpy.python.tmLanguage.json"
-            },
-            {
-                "scopeName": "renpy.comment.injection",
-                "path": "./syntaxes/renpy.injection.json",
-                "injectTo": [
-                    "source.python"
-                ],
-                "embeddedLanguages": {
-                    "meta.embedded.renpy": "renpy"
-                }
-            },
-            {
-                "scopeName": "markdown.renpy.codeblock",
-                "path": "./syntaxes/renpy.markdown.json",
-                "injectTo": [
-                    "text.html.markdown"
-                ],
-                "embeddedLanguages": {
-                    "meta.embedded.renpy": "renpy"
-                }
-            },
-            {
-                "scopeName": "text.log.injection",
-                "path": "./syntaxes/log.injection.json",
-                "injectTo": [
-                    "text.log"
-                ]
             }
         ],
         "snippets": [
             {
                 "language": "renpy",
-                "path": "./snippets/snippets.json"
+                "path": "./snippets/renpy.json"
+            },
+            {
+                "language": "renpy",
+                "path": "./snippets/python.json"
             }
         ]
     },
     "scripts": {
         "vscode:prepublish": "pnpm run package",
-        "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+        "compile": "pnpm run check-types && pnpm run python && pnpm run lint && node esbuild.js",
         "watch": "npm-run-all -p watch:*",
         "watch:esbuild": "node esbuild.js --watch",
         "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-        "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+        "watch:python": "python scripts/emit.py",
+        "package": "pnpm run check-types && pnpm run python && pnpm run lint && node esbuild.js --production",
         "check-types": "tsc --noEmit",
+        "python": "python scripts/emit.py",
         "lint": "eslint server && eslint client"
     },
     "devDependencies": {

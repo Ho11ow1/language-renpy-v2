@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 
 export class WorkspaceConfig
 {
-    private static configSaveDirectory = "";
+    private static configSaveDirectory: string | undefined = undefined;
 
     private static get config(): vscode.WorkspaceConfiguration
     {
@@ -24,6 +24,11 @@ export class WorkspaceConfig
         return this.config.get<string>("sdkPath", "");
     }
 
+    public static get processArgs(): string[]
+    {
+        return this.config.get<string[]>("processArguments", []);
+    }
+
     public static get debuggerEnabled(): boolean
     {
         return this.config.get<boolean>("debuggerEnabled", true);
@@ -34,7 +39,7 @@ export class WorkspaceConfig
         this.configSaveDirectory = dir;
     }
 
-    public static get fsSaveDirectory(): string
+    public static get fsSaveDirectory(): string | undefined
     {
         return this.configSaveDirectory;
     }

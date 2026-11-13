@@ -1,0 +1,721 @@
+import * as lsps from "vscode-languageserver";
+import * as Common from "@common/index";
+import * as Models from "@server/models/index";
+import * as Utils from "@server/utils/index";
+
+export class Formatter
+{
+    private static trimTrailingWhitespace: boolean = true;
+    private static addEmptyNewLine: boolean = true;
+    private static trimLeadingLines: boolean = true;
+
+    private static shouldFormatPunctuation: boolean = true;
+    private static shouldFormatFloats: boolean = true;
+    private static shouldFormatKeywords: boolean = true;
+
+    private static preferredStringQuote: string = '"';
+    private static preferredOperatorSpacing: number = 1;
+    private static preferredParameterStyle: number = 1;
+    private static preferredIndentSize: number = 4;
+
+    private static readonly _fileSplitRegex: RegExp = /\r?\n/;
+    private static readonly _trailingWhitespaceRegex: RegExp = /\s+$/;
+    private static readonly _tabRegex: RegExp = /^(\t+)/;
+
+    public static updateConfig(config: Common.IFormatterConfig): void
+    {
+        this.trimTrailingWhitespace = config.TrimTrailingWhitespace;
+        this.addEmptyNewLine = config.AddEmptyNewLine;
+        this.trimLeadingLines = config.TrimLeadingLines;
+
+        this.shouldFormatPunctuation = config.ShouldFormatPunctuation;
+        this.shouldFormatFloats = config.ShouldFormatFloats;
+        this.shouldFormatKeywords = config.ShouldFormatKeywords;
+
+        this.preferredStringQuote = config.PreferredStringQuotes;
+        this.preferredOperatorSpacing = config.PreferredOperatorSpacing;
+        this.preferredParameterStyle = config.PreferredParameterStyle;
+    }
+
+    public static formatDocument(tokens: Models.Token[], text: string, tabSize: number): lsps.TextEdit[]
+    {
+        this.preferredIndentSize = tabSize;
+
+        return [
+            ...this.formatFloats(tokens),
+            ...this.formatStrings(tokens),
+            ...this.formatOperators(tokens),
+            ...this.formatAssignments(tokens),
+            ...this.formatPunctuation(tokens),
+            ...this.formatKeywords(tokens),
+            ...this.formatWhite(text, tokens)
+        ];
+    }
+
+    private static formatWhite(text: string, tokens: Models.Token[]): lsps.TextEdit[]
+    {
+        if (text.length === 0)
+        {
+            return [];
+        }
+
+        const edits: lsps.TextEdit[] = [];
+        const lines = text.split(this._fileSplitRegex);
+        let startIdx = 0;
+        let endIdx = lines.length;
+        let lastValidIdx = lines.length - 1;
+
+        if (this.trimLeadingLines)
+        {
+            if (tokens[0].Range.start.line !== 0)
+            {
+                const firstRange = tokens[0].Range.start;
+
+                edits.push({
+                    range: { start: { line: 0, character: 0 }, end: firstRange },
+                    newText: ""
+                });
+
+                startIdx = firstRange.line;
+            }
+        }
+
+        if (this.addEmptyNewLine)
+        {
+            let lastContentLine = lastValidIdx;
+            while (lastContentLine > startIdx && lines[lastContentLine].trim().length === 0)
+            {
+                lastContentLine -= 1;
+            }
+
+            const contentEndCharIdx = lines[lastContentLine].trimEnd().length;
+
+            if (!(lastContentLine === lastValidIdx - 1 && lines[lastValidIdx].length === 0 && contentEndCharIdx === lines[lastContentLine].length))
+            {
+                edits.push({
+                    range: {
+                        start: { line: lastContentLine, character: contentEndCharIdx },
+                        end: { line: lastValidIdx, character: lines[lastValidIdx].length }
+                    },
+                    newText: "\n"
+                });
+            }
+
+            endIdx = lastContentLine;
+        }
+
+        //  TODO
+        //
+        //  For the latter, Create an indentation stack just like the lexer & parser to format leading whitespace
+        //  End: trim leading lines, trim trailing lines, trim trailing whitespace, replace leading tabs, format indentation
+        //  Other formatting rules handle everything in-between
+        //
+        //  Should result in a nice output all things considered unless Junior finds something to fix again.
+        //
+
+        for (let i = startIdx; i < endIdx; i++)
+        {
+            const line = lines[i];
+            if (line.trim() === "")
+            {
+                continue;
+            }
+
+            const match = line.match(this._tabRegex);
+            if (match)
+            {
+                const tabCount = match[0].length;
+
+                edits.push({
+                    range: {
+                        start: { line: i, character: 0 },
+                        end: { line: i, character: tabCount }
+                    },
+                    newText: ' '.repeat(tabCount * this.preferredIndentSize)
+                });
+            }
+        }
+
+        //
+        //  TODO: Should probably combine this as instead of 1 iteration we do 2
+        //
+
+        if (this.trimTrailingWhitespace)
+        {
+            for (let i = startIdx; i < endIdx; i++)
+            {
+                const line = lines[i];
+                const match = line.match(this._trailingWhitespaceRegex);
+
+                if (match && match.index !== undefined)
+                {
+                    edits.push({
+                        range: {
+                            start: { line: i, character: match.index },
+                            end: { line: i, character: line.length }
+                        },
+                        newText: ""
+                    });
+                }
+            }
+        }
+
+        return edits;
+    }
+
+    private static formatStrings(tokens: Models.Token[]): lsps.TextEdit[]
+    {
+        if (this.preferredStringQuote === "MIXED")
+        {
+            return [];
+        }
+
+        const edits: lsps.TextEdit[] = [];
+
+        for (let i = 0; i < tokens.length; i++)
+        {
+            const token = tokens[i];
+            if (token.Type !== Models.TokenType.STRING)
+            {
+                continue;
+            }
+
+            const currentQuote = token.Value[0];
+            if (currentQuote === this.preferredStringQuote || token.Value.length < 2)
+            {
+                continue;
+            }
+
+            const prev = tokens[i - 1];
+            const isInterpolationString = (prev && prev.Type === Models.TokenType.IDENTIFIER && prev.Value.toLowerCase() === "f" && prev.Range.end.character === token.Range.start.character && prev.Range.end.line === token.Range.start.line);
+            let braceDepth = 0;
+            let converted = "";
+
+            for (let j = 1; j < token.Value.length - 1; j++)
+            {
+                const char = token.Value[j];
+                const nextChar = token.Value[j + 1];
+
+                if (char === '\\')
+                {
+                    if (nextChar === currentQuote)
+                    {
+                        converted += nextChar;
+                    }
+                    else if (nextChar === this.preferredStringQuote)
+                    {
+                        converted += `\\${this.preferredStringQuote}`;
+                    }
+                    else
+                    {
+                        converted += char + nextChar;
+                    }
+
+                    j += 1;
+
+                    continue;
+                }
+                if (isInterpolationString)
+                {
+                    if (char === '{')
+                    {
+                        if (braceDepth === 0 && nextChar === '{')
+                        {
+                            converted += "{{";
+                            j += 1;
+
+                            continue;
+                        }
+
+                        braceDepth++;
+                    }
+                    else if (char === '}')
+                    {
+                        if (braceDepth > 0)
+                        {
+                            braceDepth--;
+                        }
+                        else if (nextChar === '}')
+                        {
+                            converted += "}}";
+                            j += 1;
+
+                            continue;
+                        }
+                    }
+                }
+
+                converted += char === this.preferredStringQuote && braceDepth === 0 ? `\\${this.preferredStringQuote}` : char;
+            }
+
+            edits.push({
+                range: tokens[i].Range,
+                newText: `${this.preferredStringQuote}${converted}${this.preferredStringQuote}`
+            });
+        }
+
+        return edits;
+    }
+
+    private static formatOperators(tokens: Models.Token[]): lsps.TextEdit[]
+    {
+        const edits: lsps.TextEdit[] = [];
+        const spacing = ' '.repeat(this.preferredOperatorSpacing);
+
+        for (let i = 0; i < tokens.length; i++)
+        {
+            const current = tokens[i];
+            if (!this.isHandledOperator(current.Type))
+            {
+                continue;
+            }
+
+            const prev = tokens[i - 1];
+            if (current.Type === Models.TokenType.MINUS && this.isUnaryMinus(prev))
+            {
+                continue;
+            }
+            if (current.Type === Models.TokenType.MULTIPLY)
+            {
+                const tempNextType = tokens[i + 1].Type;
+                if (tempNextType === Models.TokenType.COMMA || tempNextType === Models.TokenType.IDENTIFIER || tempNextType === Models.TokenType.MULTIPLY)
+                {
+                    continue;
+                }
+            }
+
+            if (prev.Range.end.line === current.Range.start.line)
+            {
+                edits.push({
+                    range: {
+                        start: prev.Range.end,
+                        end: current.Range.start,
+                    },
+                    newText: spacing,
+                });
+            }
+
+            let lookAhead = i + 1;
+            while (lookAhead < tokens.length)
+            {
+                const candidate = tokens[lookAhead];
+                if (candidate.Type === Models.TokenType.NEW_LINE)
+                {
+                    break;
+                }
+                if (candidate.Range.start.line === current.Range.end.line)
+                {
+                    edits.push({
+                        range: {
+                            start: current.Range.end,
+                            end: candidate.Range.start,
+                        },
+                        newText: spacing
+                    });
+
+                    break;
+                }
+
+                lookAhead += 1;
+            }
+        }
+
+        return edits;
+    }
+
+    private static formatPunctuation(tokens: Models.Token[]): lsps.TextEdit[]
+    {
+        if (!this.shouldFormatPunctuation)
+        {
+            return [];
+        }
+
+        const edits: lsps.TextEdit[] = [];
+
+        for (let i = 0; i < tokens.length; i++)
+        {
+            const current = tokens[i];
+            if (!this.isHandledPunctuation(current.Type))
+            {
+                continue;
+            }
+
+            const prev = tokens[i - 1];
+            if (prev === undefined)
+            {
+                continue;
+            }
+
+            const next = tokens[i + 1];
+            if (!next)
+            {
+                break;
+            }
+
+            const spacing = this.getPunctuationFormatting(current.Type, prev.Type, tokens[i - 2], next.Type);
+            if (spacing === undefined)
+            {
+                continue;
+            }
+
+            if (prev.Range.end.line === current.Range.start.line && spacing.prevSpace !== undefined)
+            {
+                edits.push({
+                    range: {
+                        start: prev.Range.end,
+                        end: current.Range.start,
+                    },
+                    newText: spacing.prevSpace,
+                });
+            }
+            if (next.Type !== Models.TokenType.NEW_LINE && next.Range.start.line === current.Range.end.line && spacing.afterSpace !== undefined)
+            {
+                edits.push({
+                    range: {
+                        start: current.Range.end,
+                        end: next.Range.start,
+                    },
+                    newText: spacing.afterSpace,
+                });
+            }
+        }
+
+        return edits;
+    }
+
+    private static formatFloats(tokens: Models.Token[]): lsps.TextEdit[]
+    {
+        if (!this.shouldFormatFloats)
+        {
+            return [];
+        }
+
+        const edits: lsps.TextEdit[] = [];
+
+        for (let i = 0; i < tokens.length; i++)
+        {
+            if (tokens[i].Type !== Models.TokenType.PERIOD)
+            {
+                continue;
+            }
+
+            const next = tokens[i + 1];
+            if (next.Type === Models.TokenType.NUMBER)
+            {
+                const prev = tokens[i - 1];
+                if (!prev)
+                {
+                    continue;
+                }
+                if (prev.Type !== Models.TokenType.NUMBER)
+                {
+                    Utils.Logger.logError(`found non-natural float`);
+                }
+
+                edits.push({
+                    range: {
+                        start: tokens[i].Range.start,
+                        end: next.Range.end
+                    },
+                    newText: `0.${next.Value}`
+                });
+            }
+        }
+
+        return edits;
+    }
+
+    private static formatAssignments(tokens: Models.Token[]): lsps.TextEdit[]
+    {
+        const edits: lsps.TextEdit[] = [];
+        const stack: { isParen: boolean; annotated: boolean }[] = [];
+
+        for (let i = 0; i < tokens.length; i++)
+        {
+            const token = tokens[i];
+
+            switch (token.Type)
+            {
+                case Models.TokenType.L_PAREN:
+                    stack.push({ isParen: true, annotated: false });
+                    continue;
+                case Models.TokenType.L_BRACKET:
+                case Models.TokenType.L_BRACE:
+                    stack.push({ isParen: false, annotated: false });
+                    continue;
+                case Models.TokenType.R_PAREN:
+                case Models.TokenType.R_BRACKET:
+                case Models.TokenType.R_BRACE:
+                    stack.pop();
+                    continue;
+                case Models.TokenType.COLON:
+                    if (stack.length > 0 && stack[stack.length - 1].isParen)
+                    {
+                        stack[stack.length - 1].annotated = true;
+                    }
+                    continue;
+                case Models.TokenType.COMMA:
+                    if (stack.length > 0 && stack[stack.length - 1].isParen)
+                    {
+                        stack[stack.length - 1].annotated = false;
+                    }
+                    continue;
+                case Models.TokenType.ASSIGN:
+                    break;
+                default:
+                    continue;
+            }
+
+            const assign = tokens[i];
+            const prev = tokens[i - 1];
+            if (!prev)
+            {
+                continue;
+            }
+
+            const frame = stack[stack.length - 1];
+            const isParam = frame && frame.isParen && !frame.annotated;
+            const spacing = ' '.repeat(isParam ? this.preferredParameterStyle : this.preferredOperatorSpacing);
+
+            if (prev.Range.end.line === assign.Range.start.line)
+            {
+                edits.push({
+                    range: { start: prev.Range.end, end: assign.Range.start },
+                    newText: spacing
+                });
+            }
+
+            const next = tokens[i + 1];
+            if (next && next.Type !== Models.TokenType.NEW_LINE && next.Range.start.line === assign.Range.end.line)
+            {
+                edits.push({
+                    range: { start: assign.Range.end, end: next.Range.start },
+                    newText: spacing
+                });
+            }
+        }
+
+        return edits;
+    }
+
+    private static formatKeywords(tokens: Models.Token[]): lsps.TextEdit[]
+    {
+        if (!this.shouldFormatKeywords)
+        {
+            return [];
+        }
+
+        const edits: lsps.TextEdit[] = [];
+
+        for (let i = 0; i < tokens.length; i++)
+        {
+            if (!this.isHandledKeyword(tokens[i].Type))
+            {
+                continue;
+            }
+
+            const keyword = tokens[i];
+            const next = tokens[i + 1];
+
+            const spacing = this.getKeywordFormatting(keyword, next.Type);
+            if (spacing === undefined)
+            {
+                continue;
+            }
+
+            edits.push({
+                range: {
+                    start: keyword.Range.end,
+                    end: next.Range.start
+                },
+                newText: ' '.repeat(spacing)
+            });
+        }
+
+        return edits;
+    }
+
+    private static getPunctuationFormatting(currentType: Models.TokenType, prevType: Models.TokenType, prevTwoToken: Models.Token, nextType: Models.TokenType): { prevSpace: string | undefined, afterSpace: string | undefined } | undefined
+    {
+        //
+        //  BASE
+        //
+        if (currentType === Models.TokenType.COMMA || currentType === Models.TokenType.COLON)
+        {
+            return { prevSpace: "", afterSpace: " " };
+        }
+        if (currentType === Models.TokenType.DEF_TYPE_HINT)
+        {
+            return { prevSpace: " ", afterSpace: " " };
+        }
+        //
+        //  DELIMETERS
+        //
+        //
+        //  Change the latter.
+        //  While having formatting definitions is nice, undefined on others is not the desired outcome of a proper formatter
+        //  Probably just need a more sophisticated look back
+        //
+        if (currentType === Models.TokenType.L_PAREN || currentType === Models.TokenType.L_BRACKET)
+        {
+            if (prevTwoToken && (prevTwoToken.Type === Models.TokenType.FUNC || prevTwoToken.Type === Models.TokenType.CLASS))
+            {
+                return { prevSpace: "", afterSpace: "" };
+            }
+            if (nextType === Models.TokenType.R_PAREN || nextType === Models.TokenType.R_BRACKET)
+            {
+                return { prevSpace: undefined, afterSpace: undefined };
+            }
+
+            return { prevSpace: undefined, afterSpace: "" };
+        }
+        if (currentType === Models.TokenType.R_PAREN || currentType === Models.TokenType.R_BRACKET)
+        {
+            if (prevType === Models.TokenType.COMMA)
+            {
+                return { prevSpace: undefined, afterSpace: undefined };
+            }
+            if (prevType === Models.TokenType.L_PAREN || prevType === Models.TokenType.L_BRACKET)
+            {
+                return { prevSpace: "", afterSpace: undefined };
+            }
+
+            return { prevSpace: "", afterSpace: undefined };
+        }
+        if (currentType === Models.TokenType.L_BRACE)
+        {
+            if (nextType === Models.TokenType.R_BRACE)
+            {
+                return { prevSpace: undefined, afterSpace: undefined };
+            }
+
+            return { prevSpace: undefined, afterSpace: " " };
+        }
+        if (currentType === Models.TokenType.R_BRACE)
+        {
+            if (prevType === Models.TokenType.L_BRACE)
+            {
+                return { prevSpace: "", afterSpace: undefined };
+            }
+
+            return { prevSpace: " ", afterSpace: undefined };
+        }
+
+        return undefined;
+    }
+
+    private static getKeywordFormatting(current: Models.Token, nextType: Models.TokenType): number | undefined
+    {
+        const currentType = current.Type;
+
+        if (currentType === Models.TokenType.DOLLAR_SIGN_LINE || currentType === Models.TokenType.IF || currentType === Models.TokenType.FOR || currentType === Models.TokenType.IN || currentType === Models.TokenType.IS || currentType === Models.TokenType.NOT || currentType === Models.TokenType.ELIF || currentType === Models.TokenType.AND)
+        {
+            return 1;
+        }
+
+        if ((currentType === Models.TokenType.DEFAULT || currentType === Models.TokenType.DEFINE) && nextType === Models.TokenType.IDENTIFIER || nextType === Models.TokenType.MINUS || nextType === Models.TokenType.NUMBER)
+        {
+            return 1;
+        }
+
+        return undefined;
+    }
+
+    private static isHandledOperator(type: Models.TokenType): boolean
+    {
+        switch (type)
+        {
+            case Models.TokenType.PLUS:
+            case Models.TokenType.MINUS:
+            case Models.TokenType.MULTIPLY:
+            case Models.TokenType.DIVIDE:
+            case Models.TokenType.DIVIDE_FLOOR:
+            case Models.TokenType.MOD:
+            case Models.TokenType.LEFT_BIT_SHIFT:
+            case Models.TokenType.RIGHT_BIT_SHIFT:
+            case Models.TokenType.BIT_XOR:
+            case Models.TokenType.BIT_OR:
+            case Models.TokenType.BIT_AND:
+            case Models.TokenType.NOT_EQUALS:
+            case Models.TokenType.GREATER:
+            case Models.TokenType.GREATER_EQUALS:
+            case Models.TokenType.LESSER:
+            case Models.TokenType.LESSER_EQUALS:
+            case Models.TokenType.EQUALS:
+            case Models.TokenType.PLUS_ASSIGN:
+            case Models.TokenType.MINUS_ASSIGN:
+            case Models.TokenType.MULTIPLY_ASSIGN:
+            case Models.TokenType.DIVIDE_ASSIGN:
+            case Models.TokenType.MOD_ASSIGN:
+            case Models.TokenType.BIT_OR_ASSIGN:
+            case Models.TokenType.BIT_XOR_ASSIGN:
+            case Models.TokenType.RIGHT_BIT_SHIFT_ASSIGN:
+            case Models.TokenType.LEFT_BIT_SHIFT_ASSIGN:
+            case Models.TokenType.DIVIDE_FLOOR_ASSIGN:
+            case Models.TokenType.BIT_AND_ASSIGN:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static isHandledPunctuation(type: Models.TokenType): boolean
+    {
+        switch (type)
+        {
+            case Models.TokenType.L_PAREN:
+            case Models.TokenType.R_PAREN:
+            case Models.TokenType.L_BRACE:
+            case Models.TokenType.R_BRACE:
+            case Models.TokenType.L_BRACKET:
+            case Models.TokenType.R_BRACKET:
+            case Models.TokenType.COLON:
+            case Models.TokenType.DEF_TYPE_HINT:
+            case Models.TokenType.COMMA:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static isHandledKeyword(type: Models.TokenType): boolean
+    {
+        switch (type)
+        {
+            //
+            //  PYTHON
+            //
+            case Models.TokenType.DOLLAR_SIGN_LINE:
+            case Models.TokenType.IF:
+            case Models.TokenType.FOR:
+            case Models.TokenType.IN:
+            case Models.TokenType.IS:
+            case Models.TokenType.NOT:
+            case Models.TokenType.ELIF:
+            case Models.TokenType.AND:
+            //
+            //  Ren'Py
+            //
+            case Models.TokenType.DEFAULT:
+            case Models.TokenType.DEFINE:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private static isUnaryMinus(prev: Models.Token): boolean
+    {
+        let canEndExpression = false;
+        // prev.Type === Models.TokenType.IDENTIFIER ||
+        if (prev.Type === Models.TokenType.NUMBER || prev.Type === Models.TokenType.STRING || prev.Type === Models.TokenType.R_PAREN || prev.Type === Models.TokenType.R_BRACKET || prev.Type === Models.TokenType.R_BRACE)
+        {
+            canEndExpression = true;
+        }
+
+        return prev === undefined || !canEndExpression;
+    }
+}

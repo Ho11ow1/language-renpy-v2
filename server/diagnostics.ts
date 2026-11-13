@@ -5,17 +5,30 @@ import * as Utils from "@server/utils/index";
 export class Diagnostics
 {
     private static connection: lsps.Connection;
+    private static severityOverrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
     private static readonly _diagnosticsMap: Map<string, lsps.Diagnostic[]> = new Map<string, lsps.Diagnostic[]>();
-    private static readonly _severityOverrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
+    private static readonly _defaultSupportedAnnotations: Array<string> = new Array<string>("BUG", "FIX", "TODO", "ERROR", "NOTE");
+    private static supportedAnnotations: Array<string> = this._defaultSupportedAnnotations;
 
     public static init(connection: lsps.Connection): void
     {
         this.connection = connection;
     }
 
-    public static overrideSeverity(diagnosticId: string, severity: Models.DiagnosticSeverity): void
+    public static overrideSeverity(overrideMap: Map<string, Models.DiagnosticSeverity>): void
     {
-        this._severityOverrideMap.set(diagnosticId, severity);
+        this.severityOverrideMap = overrideMap;
+    }
+
+    public static overrideAnnotation(annotationArr: Array<string>): void
+    {
+        this.supportedAnnotations = annotationArr.length !== 0 ? annotationArr : this._defaultSupportedAnnotations;
+    }
+
+    public static clearOverrides(): void
+    {
+        this.severityOverrideMap.clear();
+        this.supportedAnnotations = this._defaultSupportedAnnotations;
     }
 
     public static clear(fileUri: string): void
@@ -29,7 +42,7 @@ export class Diagnostics
 
     public static push(diagnostic: Models.Diagnostic, fileUri: string): void
     {
-        const severityOverride = this._severityOverrideMap.get(diagnostic.Descriptor.Id);
+        const severityOverride = this.severityOverrideMap.get(diagnostic.Descriptor.Id);
         if (!diagnostic.Descriptor.IsEnabledByDefault && severityOverride === undefined)
         {
             return;
@@ -52,18 +65,47 @@ export class Diagnostics
         this._diagnosticsMap.set(fileUri, diagnostics);
     }
 
+    public static pushRaw(diagnostic: lsps.Diagnostic, fileUri: string): void
+    {
+        const diagnostics = this._diagnosticsMap.get(fileUri) ?? [];
+        diagnostics.push(diagnostic);
+
+        this._diagnosticsMap.set(fileUri, diagnostics);
+    }
+
     public static pushDiagnostics(fileUri: string): void
     {
         this.connection.sendDiagnostics({
             uri: fileUri,
             diagnostics: this._diagnosticsMap.get(fileUri) ?? []
         });
+
+        this._diagnosticsMap.delete(fileUri);
     }
 
-    public static pushRawDiagnostic(params: lsps.PublishDiagnosticsParams): void
+    public static diagnoseAnnotations(tokens: Models.Token[], uri: string): void
     {
-        this.clear(params.uri);
-        this.connection.sendDiagnostics(params);
+        for (const token of tokens)
+        {
+            if (token.Type !== Models.TokenType.COMMENT)
+            {
+                continue;
+            }
+
+            const val = token.Value.substring(1).trimStart();
+            const prefix = val.split(' ')[0];
+            const key = prefix.endsWith(':') ? prefix.substring(0, prefix.length - 1) : prefix;
+
+            if (this.supportedAnnotations.includes(key))
+            {
+                this.pushRaw({
+                    range: token.Range,
+                    message: val,
+                    source: "Ren'Py v2",
+                    severity: this.convertSeverity(Models.DiagnosticSeverity.INFORMATION)
+                }, uri);
+            }
+        }
     }
 
     private static convertSeverity(severity: Models.DiagnosticSeverity): lsps.DiagnosticSeverity
@@ -81,7 +123,7 @@ export class Diagnostics
         }
     }
 
-    private static isPascalCase(value: string): boolean
+    public static isPascalCase(value: string): boolean
     {
         if (!this.isUppercase(value[0]))
         {
@@ -101,7 +143,7 @@ export class Diagnostics
         return true;
     }
 
-    private static isSnakeCase(value: string): boolean
+    public static isSnakeCase(value: string): boolean
     {
         if (value[value.length - 1] === '_')
         {
@@ -135,7 +177,7 @@ export class Diagnostics
         return true;
     }
 
-    private static isScreamingSnakeCase(value: string): boolean
+    public static isScreamingSnakeCase(value: string): boolean
     {
         if (value[0] === '_' || value[value.length - 1] === '_')
         {

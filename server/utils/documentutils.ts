@@ -62,11 +62,14 @@ export class DocumentUtils
         const configPath = path.join(this.cwd, ".editorconfig");
         if (!fs.existsSync(configPath))
         {
-            Utils.Logger.logDebug(`No editor config at ${configPath}`);
+            Utils.Logger.logMessage(`No editor config at ${configPath}`);
+            Diagnostics.clearOverrides();
 
             return;
         }
 
+        const overrideMap: Map<string, Models.DiagnosticSeverity> = new Map<string, Models.DiagnosticSeverity>();
+        const annotationArr: Array<string> = new Array<string>();
         try
         {
             const config = await editorConfig.parse(".rpy");
@@ -76,12 +79,27 @@ export class DocumentUtils
             for (const [key, value] of Object.entries(config))
             {
                 const split = key.split(".");
+                if (split.length === 2)
+                {
+                    const [prefix, property] = split;
+
+                    if (prefix === "renpy_annotation" && property === "symbols")
+                    {
+                        const entries = String(value).split(',').map((entry): string => entry.trim()).filter(Boolean);
+                        Utils.Logger.logDebug(entries.join(" | "));
+                        annotationArr.push(...entries);
+                    }
+
+                    continue;
+                }
+
                 if (split.length !== 3)
                 {
                     continue;
                 }
 
                 const [prefix, identifier, property] = split;
+
                 if (property !== "severity")
                 {
                     continue;
@@ -103,7 +121,7 @@ export class DocumentUtils
                     const errorCodeName = Models.ErrorCode[Number(identifier.substring(3))];
                     if (errorCodeName !== undefined)
                     {
-                        Diagnostics.overrideSeverity(identifier.toUpperCase(), Models.DiagnosticSeverity[severityKey]);
+                        overrideMap.set(identifier.toUpperCase(), Models.DiagnosticSeverity[severityKey]);
                     }
                 }
                 else if (prefix === "renpy_naming_rule")
@@ -111,15 +129,20 @@ export class DocumentUtils
                     const namingRuleName = identifier.toUpperCase() as keyof typeof Models.NamingRule;
                     if (validNamingRules.has(namingRuleName))
                     {
-                        Diagnostics.overrideSeverity(namingRuleName, Models.DiagnosticSeverity[severityKey]);
+                        overrideMap.set(namingRuleName, Models.DiagnosticSeverity[severityKey]);
                     }
                 }
             }
         }
         catch (ex)
         {
-            Utils.Logger.logError(`Failed to parse ${configPath}: ${ex}`);
+            Utils.Logger.logMessage(`Failed to parse ${configPath}: ${ex}`);
+
+            return;
         }
+
+        Diagnostics.overrideSeverity(overrideMap);
+        Diagnostics.overrideAnnotation(annotationArr);
     }
 
     public static isInCwd(path: string): boolean

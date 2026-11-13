@@ -1,4 +1,5 @@
 import * as lsps from "vscode-languageserver/node";
+import { TextDocument } from "vscode-languageserver-textdocument";
 import * as Models from "@server/models/index";
 import * as Interfaces from "@server/interfaces/index";
 import * as Utils from "@server/utils/index";
@@ -9,31 +10,41 @@ export class Parser
 {
     private tokens: Models.Token[];
     private current: number = 0;
+    //
+    //  Turns out labels don't need an indented block as they're essentially just C labels so... Yeah
+    //  Also with the whole | hey, what about local labels | this should satisfy both cases
+    //
+    private currentGlobalLabel: Models.LabelNode | undefined = undefined;
 
     private indentStack: number[] = [0];
-    private scopeStack: Interfaces.IScope[] = [{ depth: 0, kind: Models.ScopeType.ROOT }];
-    private menuStack: Models.MenuNode[] = [];
-    private labelStack: Models.LabelNode[] = [];
+    private scopeStack: Interfaces.IScope[] = [{ Kind: Models.ScopeType.ROOT, Depth: 0, Node: undefined }];
 
     private parsedNodes: Models.Node[] = [];
-    private currentFileUri: string;
+    private currentDocument: TextDocument;
 
-    private constructor(tokens: Models.Token[], uri: string)
+    private constructor(tokens: Models.Token[], document: TextDocument)
     {
         this.tokens = tokens;
-        this.currentFileUri = uri;
+        this.currentDocument = document;
     }
 
-    public static parseDocumentDeclarations(tokens: Models.Token[], uri: string): void
+    public static parseDocumentDeclarations(tokens: Models.Token[], document: TextDocument): void
     {
-        const parser = new Parser(tokens, uri);
+        const parser = new Parser(tokens, document);
 
         parser.pass1();
     }
 
-    public static parseDocumentReferences(tokens: Models.Token[], uri: string): void
+    public static parseComments(tokens: Models.Token[], document: TextDocument): void
     {
-        const parser = new Parser(tokens, uri);
+        const parser = new Parser(tokens, document);
+
+        parser.passComments();
+    }
+
+    public static parseDocumentReferences(tokens: Models.Token[], document: TextDocument): void
+    {
+        const parser = new Parser(tokens, document);
 
         parser.pass2();
     }
@@ -45,135 +56,91 @@ export class Parser
             this.parseDefinition();
         }
 
-        Store.setDocumentNodes(this.currentFileUri, this.parsedNodes);
+        Store.setDocumentNodes(Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), this.parsedNodes);
     }
 
     private pass2(): void
     {
-        while (!this.isEOF())
-        {
-            this.parseReferences();
-        }
+        // while (!this.isEOF())
+        // {
+        //     this.parseReferences();
+        // }
     }
 
-    private parseReferences(): void
+    private passComments(): void
     {
-        const token = this.advance();
-
-        switch (token.Type)
+        while (!this.isEOF())
         {
-            //
-            //  Yeah
-            //
-            case Models.TokenType.JUMP:
-                this.parseJump(token);
-                break;
-            case Models.TokenType.CALL:
-                this.parseCall(token);
-                break;
+            const token = this.advance();
+            if (token.Type !== Models.TokenType.COMMENT)
+            {
+                continue;
+            }
 
-            //
-            //  Yeah
-            //
-            case Models.TokenType.SHOW:
-            case Models.TokenType.HIDE:
-                this.parseShowHide(token);
-                break;
-            case Models.TokenType.SCENE:
-                this.parseScene(token);
-                break;
+            switch (token.Value)
+            {
 
-            //
-            //  In Screen
-            //
-            case Models.TokenType.USE:
-                break;
-            case Models.TokenType.ADD:
-                break;
-
-            //
-            //  Transfomr
-            //
-            case Models.TokenType.AT:
-                this.parseAt(token);
-                break;
-            //
-            //  Style
-            //
-            case Models.TokenType.AS:
-                break;
+            }
         }
     }
 
     private parseDefinition(): void
     {
         const token = this.advance();
+        const scopeKind = this.currentScope().Kind;
 
         switch (token.Type)
         {
-            //
-            //  Indent logic to hold scope
-            //
+            case Models.TokenType.TAB:
             case Models.TokenType.INDENT:
                 this.handleIndent(token);
                 break;
             case Models.TokenType.DEDENT:
-                this.handleDedent();
+                this.handleDedent(token);
                 break;
 
-            //
-            //  Yeah
-            //
             case Models.TokenType.DEFAULT:
-                // Mark as variable
-                break;
             case Models.TokenType.DEFINE:
-                // Mark as constant
-                break;
-            case Models.TokenType.STRING:
-                if (this.currentScope()?.kind === Models.ScopeType.MENU)
+                if (scopeKind === Models.ScopeType.ROOT)
                 {
-                    this.parseMenuOption(token);
-                }
-                break;
-
-            //
-            //  Special usage things
-            //
-            case Models.TokenType.LABEL:
-                if (!this.isInScope(Models.ScopeType.SCREEN))
-                {
-                    this.parseLabelDef(token);
+                    this.parseRenpyVarDef(token);
                 }
                 break;
             case Models.TokenType.SCREEN:
-                if (!this.isInScope(Models.ScopeType.LABEL))
+                if (scopeKind === Models.ScopeType.ROOT)
                 {
                     this.parseScreenDef(token);
                 }
                 break;
-            case Models.TokenType.IMAGE:
-                if (!this.isInScope(Models.ScopeType.SCREEN))
+            case Models.TokenType.LABEL:
+                if (scopeKind === Models.ScopeType.ROOT || scopeKind === Models.ScopeType.LABEL)
                 {
-                    this.parseImageDef(token);
+                    this.parseLabelDef(token);
                 }
                 break;
-            case Models.TokenType.MENU:
-                this.parseMenuDef(token);
+            case Models.TokenType.STYLE:
+                if (scopeKind === Models.ScopeType.ROOT)
+                {
+                    this.parseStyleDef(token);
+                }
                 break;
             case Models.TokenType.TRANSFORM:
-                this.parseTransformDef(token);
+                if (scopeKind === Models.ScopeType.ROOT)
+                {
+                    this.parseTransformDef(token);
+                }
                 break;
-
-            //
-            //  Custom python stuff
-            //
+            case Models.TokenType.INIT:
+                if (scopeKind === Models.ScopeType.ROOT)
+                {
+                    this.parseInitDef(token);
+                }
+                break;
             case Models.TokenType.CLASS:
-                break;
-            case Models.TokenType.FUNC:
-                break;
-
-            default:
+                if (scopeKind === Models.ScopeType.BLOCK || scopeKind === Models.ScopeType.NAMESPACE)
+                {
+                    this.parseClassDef(token, scopeKind);
+                }
                 break;
         }
     }
@@ -181,448 +148,508 @@ export class Parser
     // #region DEFINITION
     private parseLabelDef(token: Models.Token): void
     {
-        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken)
+        if (this.prev() && this.prev().Type === Models.TokenType.INDENT && !this.isInScope(Models.ScopeType.LABEL))
         {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+            this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, lsps.Range.create(this.prev().Range.start, this.prev().Range.end), undefined, this.prev().toString());
+        }
+
+        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!name)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+        this.checkNamingRule(name, Models.ScopeType.LABEL);
+
+        let params: param[] = [];
+        if (this.peek().Type === Models.TokenType.L_PAREN)
+        {
+            params = this.getParams();
+        }
+
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
+        if (!colon)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
 
             return;
         }
 
-        const fullRange: lsps.Range = {
+        const declarationRange: lsps.Range = {
             start: token.Range.start,
-            end: nameToken.Range.end
+            end: colon.Range.end
         };
 
-        const labelNode = new Models.LabelNode(
-            nameToken.Value,
-            `label ${nameToken.Value}`,
-            fullRange,
-            nameToken.Range,
+        const label = new Models.LabelNode(
+            name.Value,
+            this.currentDocument.getText(declarationRange),
+            declarationRange,
+            name.Range,
             lsps.CompletionItemKind.Interface,
             lsps.SymbolKind.Interface,
-            { uri: this.currentFileUri, range: fullRange },
+            { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: token.Range }
         );
+        this.parsedNodes.push(label);
 
-        //
-        // TODO: Check for params and colon or colon
-        //
-
-        if (this.labelStack.length === 0)
+        const first = this.getFirstIndentedToken();
+        if (!first)
         {
-            this.parsedNodes.push(labelNode);
-            labelNode.References.push({ range: nameToken.Range, uri: this.currentFileUri });
+            return;
         }
 
-        if (this.peek().Type === Models.TokenType.COLON)
-        {
-            this.pushScope(Models.ScopeType.LABEL, nameToken.Value);
-            this.labelStack.push(labelNode);
-        }
-        else
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(nameToken.Range.end, nameToken.Range.end));
-        }
+        this.scopeStack.push({
+            Kind: Models.ScopeType.LABEL,
+            Depth: first.Range.start.character,
+            Node: label
+        });
+
+        Utils.Logger.logDebug(`[OPEN SCOPE] LABEL (${label.Name}) set to expected depth ${first.Range.start.character}`);
     }
 
     private parseScreenDef(token: Models.Token): void
     {
-        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken)
+        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!name)
         {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+        this.checkNamingRule(name, Models.ScopeType.SCREEN);
+
+        let params: param[] = [];
+        if (this.peek().Type === Models.TokenType.L_PAREN)
+        {
+            params = this.getParams();
+        }
+        else
+        {
+            //
+            //  Not really an error but fine for now
+            //
+            this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, this.peek().Range, undefined);
+        }
+
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
+        if (!colon)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
 
             return;
         }
 
-        const fullRange: lsps.Range = {
+        const declarationRange: lsps.Range = {
             start: token.Range.start,
-            end: nameToken.Range.end
+            end: colon.Range.end
         };
 
-        const screenNode = new Models.ScreenNode(
-            nameToken.Value,
-            `screen ${nameToken.Value}`,
-            fullRange,
-            nameToken.Range,
+        const screen = new Models.ScreenNode(
+            name.Value,
+            this.currentDocument.getText(declarationRange),
+            declarationRange,
+            name.Range,
             lsps.CompletionItemKind.Interface,
             lsps.SymbolKind.Interface,
-            { uri: this.currentFileUri, range: fullRange },
+            { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: token.Range }
         );
 
-        //
-        // TODO: Check for params and colon or colon
-        //
+        this.parsedNodes.push(screen);
 
-        screenNode.References.push({ range: nameToken.Range, uri: this.currentFileUri });
-        this.parsedNodes.push(screenNode);
-        this.pushScope(Models.ScopeType.SCREEN, nameToken.Value);
-    }
-
-    private parseImageDef(token: Models.Token): void
-    {
-        const nameTokens: Models.Token[] = [];
-
-        while (this.peek().Type === Models.TokenType.IDENTIFIER)
+        const first = this.getFirstIndentedToken();
+        if (!first)
         {
-            nameTokens.push(this.advance());
-        }
-
-        if (nameTokens.length === 0)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+            this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
 
             return;
         }
 
-        const imageName = nameTokens.map((t): string => t.Value).join(' ');
-        const firstNameToken = nameTokens[0];
-        const lastNameToken = nameTokens[nameTokens.length - 1];
-
-        const nextToken = this.peek();
-
-        const fullRange: lsps.Range = {
-            start: token.Range.start,
-            end: lastNameToken.Range.end
-        };
-        const selectionRange: lsps.Range = {
-            start: firstNameToken.Range.start,
-            end: lastNameToken.Range.end
-        };
-
-        if (nextToken.Type === Models.TokenType.ASSIGN)
+        if (first.Type === Models.TokenType.DOC_STRING)
         {
-            this.advance();
-
-            const imageNode = new Models.ImageNode(
-                imageName,
-                `image ${imageName}`,
-                fullRange,
-                selectionRange,
-                lsps.CompletionItemKind.Constant,
-                lsps.SymbolKind.Constant,
-                { uri: this.currentFileUri, range: fullRange }
-            );
-
-            imageNode.References.push({ range: selectionRange, uri: this.currentFileUri });
-            this.parsedNodes.push(imageNode);
+            Utils.Logger.logDebug(`doc string for screen:\n${first.Value.trim()}`);
+            screen.Documentation = first.Value.trim();
         }
-        else if (nextToken.Type === Models.TokenType.COLON)
-        {
-            this.advance();
 
-            const imageNode = new Models.ImageNode(
-                imageName,
-                `image ${imageName}:`,
-                fullRange,
-                selectionRange,
-                lsps.CompletionItemKind.Constant,
-                lsps.SymbolKind.Constant,
-                { uri: this.currentFileUri, range: fullRange }
-            );
+        this.scopeStack.push({
+            Kind: Models.ScopeType.SCREEN,
+            Depth: first.Range.start.character,
+            Node: screen
+        });
 
-            imageNode.References.push({ range: selectionRange, uri: this.currentFileUri });
-            this.parsedNodes.push(imageNode);
-        }
-        else
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(nextToken.Range.end, nextToken.Range.end));
-        }
+        Utils.Logger.logDebug(`[OPEN SCOPE] SCREEN (${screen.Name}) set to expected depth ${first.Range.start.character}`);
     }
 
-    private parseMenuDef(token: Models.Token): void
+    private parseStyleDef(token: Models.Token): void
     {
-        if (this.prev()?.Value === "tag")
+        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER) ?? this.advanceIfExpected(Models.TokenType.DEFAULT);
+        if (!name)
         {
-            return;
-        }
-
-        let menuName = "menu";
-        let isNamed = false;
-        let nameRange = token.Range;
-
-        if (this.peek().Type === Models.TokenType.IDENTIFIER)
-        {
-            const nameToken = this.advance();
-
-            menuName = nameToken.Value;
-            isNamed = true;
-            nameRange = nameToken.Range;
-        }
-
-        const fullRange: lsps.Range = {
-            start: token.Range.start,
-            end: nameRange.end
-        };
-
-        const menuNode = new Models.MenuNode(
-            menuName,
-            isNamed ? `menu ${menuName}` : "menu",
-            fullRange,
-            nameRange,
-            lsps.CompletionItemKind.Enum,
-            lsps.SymbolKind.Enum,
-            isNamed,
-            { uri: this.currentFileUri, range: fullRange }
-        );
-        if (isNamed)
-        {
-            menuNode.References.push({ range: nameRange, uri: this.currentFileUri });
-        }
-
-        if (this.peek().Type === Models.TokenType.COLON)
-        {
-            this.advance();
-        }
-        else
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
 
             return;
         }
+        this.checkNamingRule(name, Models.ScopeType.STYLE);
 
-        const activeLabel: Models.LabelNode | undefined = (this.labelStack.length > 0) ? this.labelStack[this.labelStack.length - 1] : undefined;
-        if (activeLabel)
+        let baseToken: Models.Token | undefined = undefined;
+        const hasBase = this.peek().Type === Models.TokenType.IS;
+        if (hasBase)
         {
-            activeLabel.addMenu(menuNode);
-        }
-        else
-        {
-            this.parsedNodes.push(menuNode);
-        }
+            this.advance();
 
-        this.menuStack.push(menuNode);
-        this.pushScope(Models.ScopeType.MENU, menuName);
-    }
-
-    private parseMenuOption(stringToken: Models.Token): void
-    {
-        while (this.peek().Type !== Models.TokenType.COLON)
-        {
-            if (this.peek().Type === Models.TokenType.NEW_LINE || this.peek().Type === Models.TokenType.DEDENT)
+            const peekType = this.peek().Type;
+            if (peekType !== Models.TokenType.IDENTIFIER && peekType !== Models.TokenType.DEFAULT)
             {
+                this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
                 return;
             }
-
-            this.advance();
+            else
+            {
+                baseToken = this.advance();
+            }
         }
 
-        //
-        // TODO: Check for condition and colon or colon
-        //
-
-        const activeMenu = this.menuStack[this.menuStack.length - 1];
-        if (activeMenu)
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
+        if (!hasBase && !colon)
         {
-            const optionRange: lsps.Range = {
-                start: stringToken.Range.start,
-                end: stringToken.Range.end
-            };
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
 
-            activeMenu.addOption({
-                Option: stringToken.Value,
-                Range: optionRange
-            });
+            return;
         }
+
+        const declarationRange: lsps.Range = {
+            start: token.Range.start,
+            end: hasBase ? baseToken!.Range.end : name.Range.end
+        };
+
+        const style = new Models.StyleNode(
+            name.Value,
+            this.currentDocument.getText(declarationRange),
+            declarationRange,
+            name.Range,
+            lsps.CompletionItemKind.Struct,
+            lsps.SymbolKind.Struct,
+            { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: declarationRange }
+        );
+
+        this.parsedNodes.push(style);
+
+        if (!colon)
+        {
+            return;
+        }
+
+        const first = this.getFirstIndentedToken();
+        if (!first)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        this.scopeStack.push({
+            Kind: Models.ScopeType.STYLE,
+            Depth: first.Range.start.character,
+            Node: style
+        });
+
+        Utils.Logger.logDebug(`[OPEN SCOPE] STYLE (${style.Name}) set to expected depth ${first.Range.start.character}`);
     }
 
     private parseTransformDef(token: Models.Token): void
     {
-        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken)
+        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!name)
         {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+        this.checkNamingRule(name, Models.ScopeType.TRANSFORM);
+
+        let params: param[] = [];
+        if (this.peek().Type === Models.TokenType.L_PAREN)
+        {
+            params = this.getParams();
+        }
+
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
+        if (!colon)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
 
             return;
         }
 
-        const nameRange = nameToken.Range;
-        const fullRange: lsps.Range = {
+        const declarationRange: lsps.Range = {
             start: token.Range.start,
-            end: nameToken.Range.end
+            end: colon.Range.end
         };
 
+        const transform = new Models.TransformNode(
+            name.Value,
+            this.currentDocument.getText(declarationRange),
+            declarationRange,
+            name.Range,
+            lsps.CompletionItemKind.Struct,
+            lsps.SymbolKind.Struct,
+            { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: token.Range }
+        );
+
+        this.parsedNodes.push(transform);
+
+        const first = this.getFirstIndentedToken();
+        if (!first)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        this.scopeStack.push({
+            Kind: Models.ScopeType.TRANSFORM,
+            Depth: first.Range.start.character,
+            Node: transform
+        });
+
+
+        Utils.Logger.logDebug(`[OPEN SCOPE] TRANSFORM (${transform.Name}) set to expected depth ${first.Range.start.character}`);
+    }
+
+    private parseRenpyVarDef(token: Models.Token): void
+    {
+        const nameParts: Models.Token[] = [];
+        const valueParts: Models.Token[] = [];
+
+        while (!this.isEOF() && (this.peek().Type !== Models.TokenType.NEW_LINE && this.peek().Type !== Models.TokenType.ASSIGN))
+        {
+            nameParts.push(this.advance());
+        }
+
+        const assign = this.advanceIfExpected(Models.TokenType.ASSIGN);
+        if (!assign)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_ASSIGNMENT_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        while (!this.isEOF() && this.peek().Type !== Models.TokenType.NEW_LINE)
+        {
+            valueParts.push(this.advance());
+        }
+        if (!(valueParts.length > 0))
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_ASSIGNMENT_EXPECTED, assign.Range, undefined, "Expected value");
+        }
+
+        const txt = this.currentDocument.getText({
+            start: nameParts[0].Range.start,
+            end: valueParts.length > 0 ? valueParts[valueParts.length - 1].Range.end : nameParts[nameParts.length - 1].Range.end
+        });
+
+        Utils.Logger.logDebug(`${token.Type === Models.TokenType.DEFINE ? "define" : "default"}: ${nameParts.map((part): string => part.Value).join('')} = ${txt}`);
+    }
+
+    private parseInitDef(token: Models.Token): void
+    {
+        const parts: Models.Token[] = [token];
+        let initPython = false;
+        let isNamed = false;
+
         //
-        // TODO: Check for params and colon or colon
+        //  init offset = n
+        //
+        if (this.peek().Value === "offset")
+        {
+            return;
+        }
+
+        const offset = this.getOptionalOffset();
+        if (offset !== undefined)
+        {
+            parts.push(...offset);
+        }
+
+        if (this.peek().Type === Models.TokenType.PYTHON)
+        {
+            parts.push(this.advance());
+            initPython = true;
+        }
+        if (initPython && this.peek().Type === Models.TokenType.IN)
+        {
+            parts.push(this.advance());
+
+            if (this.peek().Type !== Models.TokenType.IDENTIFIER)
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, this.peek().Range, undefined);
+
+                return;
+            }
+
+            parts.push(this.advance());
+            isNamed = true;
+        }
+        if (this.peek().Type !== Models.TokenType.COLON)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, this.peek().Range, undefined);
+
+            return;
+        }
+
+        const colon = this.advance();
+        parts.push(colon);
+
+        const declarationRange: lsps.Range = {
+            start: token.Range.start,
+            end: colon.Range.end
+        };
+
+        const init = new Models.Node(
+            //
+            //  Is it a bad approach? Absolutely
+            //  Does it work for now? Yes, yes it does
+            //
+            parts.map((p) => p.Value).join(" ").replace("- ", "-"),
+            this.currentDocument.getText(declarationRange),
+            declarationRange,
+            declarationRange,
+            lsps.CompletionItemKind.Folder,
+            lsps.SymbolKind.Namespace,
+            { uri: Utils.DocumentUtils.normalizeUri(this.currentDocument.uri), range: token.Range }
+        );
+
+        this.parsedNodes.push(init);
+
+        const first = this.getFirstIndentedToken();
+        if (!first)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_NON_EMPTY_BLOCK_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+
+            return;
+        }
+
+        this.scopeStack.push({
+            Kind: isNamed ? Models.ScopeType.NAMESPACE : Models.ScopeType.BLOCK,
+            Depth: first.Range.start.character,
+            Node: init
+        });
+
+        Utils.Logger.logDebug(parts.map((p) => p.Value).join(" "));
+    }
+
+    private parseClassDef(token: Models.Token, scopeKind: Models.ScopeType): void
+    {
+        const name = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
+        if (!name)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, this.peek().Range, undefined);
+
+            return;
+        }
+
+        const inheritance: string[] = [];
+
+        this.checkNamingRule(name, Models.ScopeType.CLASS);
+
+        if (this.peek().Type === Models.TokenType.L_PAREN)
+        {
+            this.advance();
+
+            while (this.peek().Type !== Models.TokenType.NEW_LINE && this.peek().Type !== Models.TokenType.R_PAREN)
+            {
+                inheritance.push(this.advance().Value);
+            }
+
+            if (this.peek().Type === Models.TokenType.R_PAREN)
+            {
+                this.advance();
+            }
+        }
+        
+        const colon = this.advanceIfExpected(Models.TokenType.COLON);
+        if (!colon)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_COLON_EXPECTED, this.peek().Range, undefined);
+
+            return;
+        }
+        //
+        //  TODO: Get First
         //
 
-        const transformNode = new Models.TransformNode(
-            nameToken.Value,
-            `transform ${nameToken.Value}`,
-            fullRange,
-            nameRange,
-            lsps.CompletionItemKind.Constant,
-            lsps.SymbolKind.Constant,
-            { uri: this.currentFileUri, range: fullRange }
-        );
-        transformNode.References.push({ uri: this.currentFileUri, range: fullRange });
-        this.parsedNodes.push(transformNode);
+        Utils.Logger.logDebug(`class ${name.Value} | ${inheritance.map((e) => e === "," ? ", " : e).join("")}`);
     }
     // #endregion
 
     // #region REFERENCE
-    private parseJump(token: Models.Token): void
-    {
-        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
 
-            return;
-        }
-
-        const node = Store.getLabel(nameToken.Value);
-        if (!node)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_LABEL_NOT_DEFINED, nameToken.Range, undefined, nameToken.Value);
-
-            return;
-        }
-
-        node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
-    }
-
-    private parseCall(token: Models.Token): void
-    {
-        if (this.peek().Type === Models.TokenType.SCREEN)
-        {
-            this.advance();
-            this.resolveScreenRef(token);
-
-            return;
-        }
-
-        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
-
-            return;
-        }
-
-        const node = Store.getLabel(nameToken.Value);
-        if (!node)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_LABEL_NOT_DEFINED, nameToken.Range, undefined, nameToken.Value);
-
-            return;
-        }
-
-        node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
-    }
-
-    private parseShowHide(token: Models.Token): void
-    {
-        if (this.prev()?.Value === "on")
-        {
-            return;
-        }
-
-        if (this.peek().Type === Models.TokenType.SCREEN)
-        {
-            this.advance();
-            this.resolveScreenRef(token);
-
-            return;
-        }
-
-        this.parseScene(token);
-    }
-
-    private resolveScreenRef(token: Models.Token): void
-    {
-        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
-
-            return;
-        }
-
-        const node = Store.getScreen(nameToken.Value);
-        if (!node)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_SCREEN_NOT_DEFINED, nameToken.Range, undefined, nameToken.Value);
-
-            return;
-        }
-
-        node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
-    }
-
-    private parseScene(token: Models.Token): void
-    {
-        const nameTokens: Models.Token[] = [];
-
-        while (this.peek().Type === Models.TokenType.IDENTIFIER)
-        {
-            nameTokens.push(this.advance());
-        }
-
-        if (nameTokens.length === 0)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
-
-            return;
-        }
-
-        const imageName = nameTokens.map((t): string => t.Value).join(' ');
-        const fullRange: lsps.Range = {
-            start: nameTokens[0].Range.start,
-            end: nameTokens[nameTokens.length - 1].Range.end
-        };
-
-        const node = Store.getImage(imageName);
-        if (!node)
-        {
-            this.pushErrorCode(Models.ErrorCode.WRN_IMAGE_NOT_DEFINED, fullRange, undefined, imageName);
-
-            return;
-        }
-
-        node.addReference({ uri: this.currentFileUri, range: fullRange });
-    }
-
-    private parseAt(token: Models.Token): void
-    {
-        const { success, token: nameToken } = this.advanceIfExpected(Models.TokenType.IDENTIFIER);
-        if (!success || !nameToken || nameToken?.Type === Models.TokenType.EOF)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(token.Range.end, token.Range.end));
-
-            return;
-        }
-
-        const node = Store.getTransform(nameToken.Value);
-        if (!node)
-        {
-            this.pushErrorCode(Models.ErrorCode.ERR_TRANSFORM_NOT_DEFINED, nameToken.Range, undefined, nameToken.Value);
-
-            return;
-        }
-
-        node.addReference({ uri: this.currentFileUri, range: nameToken.Range });
-    }
     // #endregion
 
     // #region UTILS
+    //
+    //  Indentation mis-match kind of, disabled for now due to other priorities
+    //
+    private handleIndent(token: Models.Token): void
+    {
+        if (token.Type === Models.TokenType.TAB)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, token.Range, undefined, token.Value);
+
+            return;
+        }
+
+        // if (token.Range.end.character !== this.currentScope().Depth)
+        // {
+        //     this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, token.Range, undefined, token.toString());
+        // }
+
+        this.indentStack.push(token.Range.end.character);
+
+        Utils.Logger.logDebug(`prev: ${this.indentStack[this.indentStack.length - 2]} | current: ${this.indentStack[this.indentStack.length - 1]}`);
+    }
+
+    private handleDedent(token: Models.Token): void
+    {
+        const poppedIndent = this.indentStack.pop();
+        const currentDepth = this.indentStack[this.indentStack.length - 1] ?? 0;
+
+        while (this.scopeStack.length > 1 && this.scopeStack[this.scopeStack.length - 1].Depth > currentDepth)
+        {
+            const scope = this.scopeStack.pop();
+            if (scope && scope.Node)
+            {
+                scope.Node.updateRange(token.Range);
+            }
+
+            Utils.Logger.logDebug(`[CLOSE SCOPE] (${scope?.Node?.Name} | ${scope?.Node?.Detail} | start: ${scope?.Node?.Range.start.line}, end: ${scope?.Node?.Range.end.line}) dedented from ${poppedIndent} to ${currentDepth}`);
+        }
+
+        // if (token.Range.end.character !== this.currentScope().Depth && this.prev().Type !== Models.TokenType.COMMENT && this.prev().Type !== Models.TokenType.UNKNOWN)
+        // {
+        //     this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, token.Range, undefined, token.toString());
+        // }
+
+        Utils.Logger.logDebug(`popped: ${poppedIndent} | current: ${this.indentStack[this.indentStack.length - 1]}`);
+    }
+
+    //
+    //  Handle no-indent labels too here later
+    //
+
+    private isInScope(kind: Models.ScopeType): boolean
+    {
+        return this.scopeStack.some((scope): boolean => scope.Kind === kind);
+    }
+
+    private currentScope(): Interfaces.IScope
+    {
+        return this.scopeStack[this.scopeStack.length - 1];
+    }
+
     private advance(): Models.Token
     {
-        const token = this.tokens[this.current];
-
-        this.current += 1;
-
-        return token;
-    }
-
-    private prev(): Models.Token | undefined
-    {
-        return ((this.current - 2) < 0 ? undefined : this.tokens[this.current - 2]);
-    }
-
-    private prevTwo(): Models.Token | undefined
-    {
-        return ((this.current - 3) < 0 ? undefined : this.tokens[this.current - 3]);
+        return this.tokens[this.current++];
     }
 
     private peek(): Models.Token
@@ -630,62 +657,24 @@ export class Parser
         return this.tokens[this.current];
     }
 
-    private handleIndent(token: Models.Token): void
+    private peekNext(): Models.Token
     {
-        this.indentStack.push(this.indentStack.length);
+        return this.tokens[this.current + 1];
     }
 
-    private handleDedent(): void
+    private prev(): Models.Token
     {
-        if (this.indentStack.length > 1)
-        {
-            this.indentStack.pop();
-        }
-
-        const currentDepth = this.currentDepth();
-        while (this.scopeStack.length > 1 && this.scopeStack[this.scopeStack.length - 1].depth >= currentDepth)
-        {
-            const poppedScope = this.scopeStack.pop();
-
-            if (poppedScope?.kind === Models.ScopeType.LABEL)
-            {
-                this.labelStack.pop();
-            }
-            else if (poppedScope?.kind === Models.ScopeType.MENU)
-            {
-                this.menuStack.pop();
-            }
-        }
+        return this.tokens[this.current - 2];
     }
 
-    private currentDepth(): number
-    {
-        return this.indentStack[this.indentStack.length - 1];
-    }
-
-    private pushScope(kind: Models.ScopeType, name?: string): void
-    {
-        this.scopeStack.push({ kind, depth: this.currentDepth(), name });
-    }
-
-    private isInScope(kind: Models.ScopeType): boolean
-    {
-        return this.scopeStack.some((scope): boolean => scope.kind === kind);
-    }
-
-    private currentScope(): Interfaces.IScope | undefined
-    {
-        return this.scopeStack[this.scopeStack.length - 1];
-    }
-
-    private advanceIfExpected(expected: Models.TokenType): { success: boolean, token?: Models.Token }
+    private advanceIfExpected(expected: Models.TokenType): Models.Token | undefined
     {
         if (this.isEOF() || this.peek().Type !== expected)
         {
-            return { success: false, token: undefined };
+            return undefined;
         }
 
-        return { success: true, token: this.advance() };
+        return this.advance();
     }
 
     private isEOF(): boolean
@@ -693,31 +682,557 @@ export class Parser
         return this.peek().Type === Models.TokenType.EOF;
     }
 
-    private pushErrorCode(code: Models.ErrorCode, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void
+    private getOptionalOffset(): Models.Token[] | undefined
     {
-        const descriptor = Models.DiagnosticDescriptorMap.get(code);
+        const arr: Models.Token[] = [];
+        const peek = this.peek();
+    
+        if (peek.Type !== Models.TokenType.MINUS && peek.Type !== Models.TokenType.NUMBER)
+        {
+            return undefined
+        }
+
+        if (peek.Type === Models.TokenType.MINUS)
+        {
+            arr.push(this.advance());
+
+            if (this.peek().Type === Models.TokenType.NUMBER)
+            {
+                arr.push(this.advance());
+            }
+            else
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, this.peek().Range, undefined, "Expected negative offset");
+            }
+        }
+        else if (peek.Type === Models.TokenType.NUMBER)
+        {
+            arr.push(this.advance());
+        }
+
+        return arr;
+    }
+
+    private getFirstIndentedToken(): Models.Token | undefined
+    {
+        let lookahead = this.current;
+
+        while (lookahead < this.tokens.length - 1)
+        {
+            const tokenType = this.tokens[lookahead].Type;
+            if (tokenType === Models.TokenType.NEW_LINE || tokenType === Models.TokenType.TAB || tokenType === Models.TokenType.COMMENT)
+            {
+                lookahead++;
+                continue;
+            }
+            if (tokenType === Models.TokenType.INDENT)
+            {
+                return this.tokens[lookahead + 1];
+            }
+
+            break;
+        }
+
+        return undefined;
+    }
+
+    private getParams(hintsAllowed: boolean = false): param[]
+    {
+        this.advance();
+
+        if (this.peek().Type === Models.TokenType.R_PAREN)
+        {
+            this.advance();
+
+            return [];
+        }
+
+        const paramArr: param[] = [];
+        const tokenArr: Models.Token[] = [];
+
+        let hasSeenDefault = false;
+        let hasSeenBareStar = false;
+        let hasSeenVarargs = false;
+        let hasSeenKwargs = false;
+        let bareStarToken: Models.Token | undefined = undefined;
+
+        while (!this.isEOF())
+        {
+            if (this.peek().Type === Models.TokenType.NEW_LINE || this.peek().Type === Models.TokenType.R_PAREN)
+            {
+                break;
+            }
+
+            if (hasSeenKwargs)
+            {
+                this.pushDiagnostic(
+                    Models.ErrorCode.ERR_UNEXPECTED_TOKEN,
+                    lsps.Range.create(this.peek().Range.start, this.peek().Range.end),
+                    undefined,
+                    "No parameters allowed after **kwargs."
+                );
+            }
+
+            let isVarargs = false;
+            let isKwargs = false;
+
+            if (this.peek().Type === Models.TokenType.MULTIPLY)
+            {
+                const starToken = this.advance();
+
+                if (this.peek().Type === Models.TokenType.MULTIPLY)
+                {
+                    this.advance();
+
+                    isKwargs = true;
+
+                    if (hasSeenKwargs)
+                    {
+                        this.pushDiagnostic(
+                            Models.ErrorCode.ERR_UNEXPECTED_TOKEN,
+                            lsps.Range.create(starToken.Range.start, starToken.Range.end),
+                            undefined,
+                            "Duplicate **kwargs parameter."
+                        );
+                    }
+                    hasSeenKwargs = true;
+                }
+                else if (!this.isParamNameToken(this.peek().Type))
+                {
+                    if (hasSeenBareStar)
+                    {
+                        this.pushDiagnostic(
+                            Models.ErrorCode.ERR_UNEXPECTED_TOKEN,
+                            lsps.Range.create(starToken.Range.start, starToken.Range.end),
+                            undefined,
+                            "Cannot have multiple bare '*' separators."
+                        );
+                    }
+                    if (hasSeenVarargs)
+                    {
+                        this.pushDiagnostic(
+                            Models.ErrorCode.ERR_UNEXPECTED_TOKEN,
+                            lsps.Range.create(starToken.Range.start, starToken.Range.end),
+                            undefined,
+                            "Cannot have bare '*' after *args."
+                        );
+                    }
+
+                    hasSeenBareStar = true;
+                    bareStarToken = starToken;
+
+                    if (this.peek().Type === Models.TokenType.COMMA)
+                    {
+                        this.advance();
+                        if (this.peek().Type === Models.TokenType.R_PAREN)
+                        {
+                            this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_COMMA, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+                        }
+                    }
+
+                    continue;
+                }
+                else
+                {
+                    isVarargs = true;
+
+                    if (hasSeenVarargs)
+                    {
+                        this.pushDiagnostic(
+                            Models.ErrorCode.ERR_UNEXPECTED_TOKEN,
+                            lsps.Range.create(starToken.Range.start, starToken.Range.end),
+                            undefined,
+                            "Cannot have multiple *args parameters."
+                        );
+                    }
+                    if (hasSeenBareStar)
+                    {
+                        this.pushDiagnostic(
+                            Models.ErrorCode.ERR_UNEXPECTED_TOKEN,
+                            lsps.Range.create(starToken.Range.start, starToken.Range.end),
+                            undefined,
+                            "Cannot have *args after bare '*'."
+                        );
+                    }
+
+                    hasSeenVarargs = true;
+                }
+            }
+
+            if (!this.isParamNameToken(this.peek().Type))
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_IDENTIFIER_EXPECTED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+                this.recoverParameterList();
+
+                continue;
+            }
+
+            const arg = this.advance();
+            tokenArr.push(arg);
+
+            let bracketDepth = 0;
+            let parenDepth = 0;
+            let braceDepth = 0;
+            let hint = "";
+            let hasVal = false;
+            let valStr = "";
+
+            if (this.peek().Type === Models.TokenType.COLON)
+            {
+                this.advance();
+                const typeTokens: Models.Token[] = [];
+
+                while (!this.isEOF() && this.peek().Type !== Models.TokenType.NEW_LINE)
+                {
+                    const nextType = this.peek().Type;
+
+                    if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0)
+                    {
+                        if (nextType === Models.TokenType.ASSIGN || nextType === Models.TokenType.COMMA || nextType === Models.TokenType.R_PAREN)
+                        {
+                            break;
+                        }
+                    }
+                    if (nextType === Models.TokenType.ASSIGN)
+                    {
+                        this.pushDiagnostic(Models.ErrorCode.ERR_UNEXPECTED_TOKEN, lsps.Range.create(this.peek().Range.start, this.peek().Range.end), undefined, this.peek().Value);
+
+                        break;
+                    }
+
+                    const token = this.advance();
+                    switch (token.Type)
+                    {
+                        case Models.TokenType.L_PAREN: parenDepth += 1; break;
+                        case Models.TokenType.R_PAREN: parenDepth -= 1; break;
+                        case Models.TokenType.L_BRACE: braceDepth += 1; break;
+                        case Models.TokenType.R_BRACE: braceDepth -= 1; break;
+                        case Models.TokenType.L_BRACKET: bracketDepth += 1; break;
+                        case Models.TokenType.R_BRACKET: bracketDepth -= 1; break;
+                    }
+
+                    typeTokens.push(token);
+                }
+
+                const lastToken = typeTokens[typeTokens.length - 1];
+                if (lastToken?.Type === Models.TokenType.BIT_OR)
+                {
+                    this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_PIPE, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+                }
+                if (!hintsAllowed)
+                {
+                    this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, lsps.Range.create(this.peek().Range.start, this.peek().Range.end));
+                }
+                if (bracketDepth !== 0 || parenDepth !== 0 || braceDepth !== 0)
+                {
+                    this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+
+                    if (this.peek().Type !== Models.TokenType.ASSIGN)
+                    {
+                        this.recoverParameterList();
+                    }
+                }
+                else
+                {
+                    hint = typeTokens.map((token): string => token.Value).join('');
+                }
+            }
+
+            if (this.peek().Type === Models.TokenType.ASSIGN)
+            {
+                if (isVarargs || isKwargs)
+                {
+                    this.pushDiagnostic(
+                        Models.ErrorCode.ERR_UNEXPECTED_TOKEN,
+                        lsps.Range.create(this.peek().Range.start, this.peek().Range.end),
+                        undefined,
+                        "Varargs (*args) and varkwargs (**kwargs) cannot have default values."
+                    );
+                }
+
+                parenDepth = 0;
+                bracketDepth = 0;
+                braceDepth = 0;
+                hasVal = true;
+
+                if (!hasSeenBareStar && !hasSeenVarargs)
+                {
+                    hasSeenDefault = true;
+                }
+
+                const RValueArr: string[] = [];
+
+                this.advance();
+
+                while (!this.isEOF() && this.peek().Type !== Models.TokenType.NEW_LINE)
+                {
+                    if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0)
+                    {
+                        const nextType = this.peek().Type;
+                        if (nextType === Models.TokenType.COMMA || nextType === Models.TokenType.R_PAREN)
+                        {
+                            break;
+                        }
+                    }
+
+                    const token = this.advance();
+                    switch (token.Type)
+                    {
+                        case Models.TokenType.L_PAREN: parenDepth += 1; break;
+                        case Models.TokenType.R_PAREN: parenDepth -= 1; break;
+                        case Models.TokenType.L_BRACE: braceDepth += 1; break;
+                        case Models.TokenType.R_BRACE: braceDepth -= 1; break;
+                        case Models.TokenType.L_BRACKET: bracketDepth += 1; break;
+                        case Models.TokenType.R_BRACKET: bracketDepth -= 1; break;
+                    }
+
+                    RValueArr.push(token.Value);
+                }
+
+                valStr = RValueArr.join('');
+            }
+            else if (hasSeenDefault && !hasSeenBareStar && !hasSeenVarargs && !isVarargs && !isKwargs)
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_DEFAULT_VALUE_BEFORE_REQUIRED_VALUE, lsps.Range.create(arg.Range.start, arg.Range.end));
+            }
+
+            paramArr.push({
+                token: arg,
+                typeHint: hint,
+                RValue: {
+                    hasDefault: hasVal,
+                    value: valStr
+                }
+            });
+
+            if (this.peek().Type === Models.TokenType.COMMA)
+            {
+                this.advance();
+                if (this.peek().Type === Models.TokenType.R_PAREN)
+                {
+                    this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_COMMA, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+                }
+            }
+            else if (this.peek().Type !== Models.TokenType.R_PAREN)
+            {
+                this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+
+                break;
+            }
+        }
+
+        if (hasSeenBareStar && paramArr.length === 0)
+        {
+            this.pushDiagnostic(
+                Models.ErrorCode.ERR_UNEXPECTED_TOKEN,
+                lsps.Range.create(bareStarToken!.Range.start, bareStarToken!.Range.end),
+                undefined,
+                "Named arguments must follow bare '*'."
+            );
+        }
+        if (this.peek().Type === Models.TokenType.R_PAREN)
+        {
+            this.advance();
+        }
+        else
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+        }
+
+        return paramArr;
+    }
+
+    private isParamNameToken(type: Models.TokenType): boolean
+    {
+        switch (type)
+        {
+            case Models.TokenType.LABEL:
+            case Models.TokenType.SCREEN:
+            case Models.TokenType.MENU:
+            case Models.TokenType.STYLE:
+            case Models.TokenType.IMAGE:
+            case Models.TokenType.TRANSFORM:
+            case Models.TokenType.DEFAULT:
+            case Models.TokenType.DEFINE:
+            case Models.TokenType.INIT:
+            case Models.TokenType.PYTHON:
+            case Models.TokenType.CALL:
+            case Models.TokenType.JUMP:
+            case Models.TokenType.SHOW:
+            case Models.TokenType.HIDE:
+            case Models.TokenType.SCENE:
+            case Models.TokenType.USE:
+            case Models.TokenType.ADD:
+            case Models.TokenType.AT:
+            case Models.TokenType.AS:
+            case Models.TokenType.IDENTIFIER:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private recoverParameterList(): void
+    {
+        while (!this.isEOF())
+        {
+            const peekType = this.peek().Type;
+            if (peekType === Models.TokenType.COMMA || peekType === Models.TokenType.R_PAREN || peekType === Models.TokenType.NEW_LINE)
+            {
+                break;
+            }
+
+            this.advance();
+        }
+
+        if (this.peek().Type === Models.TokenType.COMMA)
+        {
+            this.advance();
+        }
+    }
+
+    private getFuncTypeHint(hintsAllowed: boolean = false): string
+    {
+        this.advance();
+        if (this.peek().Type === Models.TokenType.COLON)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_HINT_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+
+            return "";
+        }
+
+        let bracketDepth = 0;
+        let parenDepth = 0;
+        const typeTokens: Models.Token[] = [];
+
+        while (!this.isEOF())
+        {
+            const peekType = this.peek().Type;
+            if (peekType === Models.TokenType.NEW_LINE || peekType === Models.TokenType.COLON)
+            {
+                break;
+            }
+
+            const token = this.advance();
+            switch (token.Type)
+            {
+                case Models.TokenType.L_BRACKET: bracketDepth += 1; break;
+                case Models.TokenType.R_BRACKET: bracketDepth -= 1; break;
+                case Models.TokenType.L_PAREN: parenDepth += 1; break;
+                case Models.TokenType.R_PAREN: parenDepth -= 1; break;
+            }
+
+            typeTokens.push(token);
+        }
+
+        if (bracketDepth != 0 || parenDepth != 0)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_DELIMETER_EXPECTED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+            this.recoverTypeHint();
+
+            return "";
+        }
+
+        const lastToken = typeTokens[typeTokens.length - 1];
+        if (lastToken?.Type === Models.TokenType.BIT_OR)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_TRAILING_PIPE, lsps.Range.create(lastToken.Range.start, lastToken.Range.end));
+
+            return "";
+        }
+        if (!hintsAllowed)
+        {
+            this.pushDiagnostic(Models.ErrorCode.ERR_TYPE_HINTS_NOT_ALLOWED, lsps.Range.create(this.prev().Range.start, this.prev().Range.end));
+        }
+
+        return typeTokens.map((token): string => token.Value).join('');
+    }
+
+    private recoverTypeHint(): void
+    {
+        while (!this.isEOF())
+        {
+            const peekType = this.peek().Type;
+            if (peekType === Models.TokenType.COLON || peekType === Models.TokenType.NEW_LINE)
+            {
+                break;
+            }
+
+            this.advance();
+        }
+    }
+
+    private pushDiagnostic(rule: Models.NamingRule, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void;
+    private pushDiagnostic(code: Models.ErrorCode, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void;
+    private pushDiagnostic(ruleOrCode: Models.ErrorCode | Models.NamingRule, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void
+    {
+        let descriptor: Models.DiagnosticDescriptor | undefined = undefined;
+
+        if (typeof ruleOrCode === "string")
+        {
+            descriptor = Models.DiagnosticDescriptorRuleMap.get(ruleOrCode);
+        }
+        else
+        {
+            descriptor = Models.DiagnosticDescriptorMap.get(ruleOrCode);
+        }
+
         if (!descriptor)
         {
-            Utils.Logger.logDebug(`${code.constructor.name} not present in ${Models.DiagnosticDescriptorMap.constructor.name}`);
+            Utils.Logger.logError(`Missing descriptor in map for: ${ruleOrCode.toString()}`);
 
             return;
         }
 
-        Diagnostics.push(descriptor.createDiagnostic(range, relatedInformation, ...args), this.currentFileUri);
+        Diagnostics.push(descriptor.createDiagnostic(range, relatedInformation, ...args), Utils.DocumentUtils.normalizeUri(this.currentDocument.uri));
     }
 
-    private pushNameViolation(rule: Models.NamingRule, range: lsps.Range, relatedInformation?: lsps.DiagnosticRelatedInformation[], ...args: string[]): void
+    private checkNamingRule(token: Models.Token, scopeType: Models.ScopeType): void
     {
-        // const descriptor = Models.NamingRuleDescriptorMap.get(rule);
-        // if (!descriptor)
-        // {
-        //     Utils.Logger.logDebug(`${rule.constructor.name} not present in ${Models.NamingRuleDescriptorMap.constructor.name}`);
+        const val = token.Value;
+        const range = token.Range;
 
-        //     return;
-        // }
-
-        // Diagnostics.push(descriptor.createDiagnostic(range, relatedInformation, ...args), this.currentFileUri);
-
+        switch (scopeType)
+        {
+            case Models.ScopeType.LABEL:
+                if (!Diagnostics.isSnakeCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.LABELS_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
+            case Models.ScopeType.SCREEN:
+                if (!Diagnostics.isSnakeCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.SCREENS_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
+            case Models.ScopeType.TRANSFORM:
+                if (!Diagnostics.isSnakeCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.TRANSFORMS_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
+            case Models.ScopeType.STYLE:
+                if (!Diagnostics.isSnakeCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.STYLES_SHOULD_BE_SNAKE_CASE, range);
+                }
+                break;
+            case Models.ScopeType.CLASS:
+                if (!Diagnostics.isPascalCase(val))
+                {
+                    this.pushDiagnostic(Models.NamingRule.CLASSES_SHOULD_BE_PASCAL_CASE, range);
+                }
+                break;
+        }
     }
     // #endregion
+}
+
+export interface param
+{
+    RValue: { hasDefault: boolean, value: string };
+    typeHint: string;
+    token: Models.Token;
 }

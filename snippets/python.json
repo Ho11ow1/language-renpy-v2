@@ -1,0 +1,53 @@
+{
+	"For Loop": {
+		"prefix": "for",
+		"body": [ 
+			"for ${1:i} in ${2:range(0, 5)}:",
+			"\tprint(${1})$0"
+		],
+		"description": "Inserts a simple for loop snippet\n"
+	},
+	"If Statement": {
+		"prefix": "if",
+		"body": [
+			"if ${1:condition}:",
+			"\t$0"
+		],
+		"description": "Inserts a simple if snippet\n"
+	},
+	"Class Definition": {
+		"prefix": "class",
+		"body": [
+			"class ${1:name}():",
+			"\tdef __init__(self, ${2:args}):",
+			"\t\t$0"
+		],
+		"description": "Inserts a class definition example"
+	},
+	"Instance Method Definition": {
+		"prefix": "def",
+		"body": [
+			"def ${1:methodName}(self${2})${3}:",
+			"\t$0"
+		],
+		"description": "Inserts a class instance method example\n"
+	},
+	"Class Method Definition": {
+		"prefix": "classmethod",
+		"body": [
+			"@classmethod",
+			"def ${1:methodName}(cls${2})${3}:",
+			"\t$0"
+		],
+		"description": "Inserts a class class method example\n"
+	},
+	"Static Method Definition": {
+		"prefix": "staticmethod",
+		"body": [
+			"@staticmethod",
+			"def ${1:methodName}(${2})${3}:",
+			"\t$0"
+		],
+		"description": "Inserts a class static method example\n"
+	}
+}

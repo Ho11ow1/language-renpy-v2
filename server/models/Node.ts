@@ -38,6 +38,16 @@ export class Node implements Interfaces.INode
         }
     }
 
+    public updateRange(range: lsps.Range): void
+    {
+        this.Range.end = range.end;
+
+        if (this.Location)
+        {
+            this.Location.range.end = range.end;
+        }
+    }
+
     public toCompletionItem(): lsps.CompletionItem
     {
         return {

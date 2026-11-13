@@ -27,6 +27,6 @@ export enum TokenType
     //
     //  OTHER
     //
-    NUMBER = "number", STRING = "string", DOC_STRING = "docstring", IDENTIFIER = "word", COLON = ":",
+    NUMBER = "number", STRING = "string", DOC_STRING = "docstring", IDENTIFIER = "word", COLON = ":", COMMENT = "Comment",
     INDENT = "indent", DEDENT = "dedent", NEW_LINE = "\\n", EOF = "EOF", TAB = "\\t", UNKNOWN = "UNKNOWN",
 }

@@ -4,6 +4,7 @@ import * as lsps from "vscode-languageserver/node";
 export class LabelNode extends Models.Node
 {
     public Menus: Models.MenuNode[] = [];
+    public LocalLabels: Models.LabelNode[] = [];
 
     public addMenu(menu: Models.MenuNode | Models.MenuNode[]): void
     {
@@ -15,6 +16,11 @@ export class LabelNode extends Models.Node
         {
             this.Menus.push(menu);
         }
+    }
+
+    public addLocalLabel(label: Models.LabelNode): void
+    {
+        this.LocalLabels.push(label);
     }
 
     public override toDocumentSymbol(): lsps.DocumentSymbol

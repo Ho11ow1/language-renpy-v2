@@ -13,6 +13,10 @@
         "skipLibCheck": true,
         "noFallthroughCasesInSwitch": true,
         "resolveJsonModule": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "noImplicitOverride": true,
+        "noImplicitThis": true,
         "paths": {
             "@client/*": ["./client/*"],
             "@server/*": ["./server/*"],
