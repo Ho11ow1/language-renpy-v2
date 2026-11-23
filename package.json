@@ -68,7 +68,10 @@
                 },
                 "renpy.processArguments": {
                     "type": "array",
-                    "default": "--compile",
+                    "default": ["--compile"],
+                    "items": {
+                        "type": "string"
+                    },
                     "description": "Specifies the command line arguments with which the game executable will be launched | Example: --compile"
                 },
                 "renpy.debuggerEnabled": {
