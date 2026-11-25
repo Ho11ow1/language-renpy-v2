@@ -8,8 +8,10 @@ export class ProcessService
 {
     private process: cp.ChildProcess | undefined = undefined;
     private exitEmitter = new vscode.EventEmitter<void>();
+    private outputEmitter = new vscode.EventEmitter<string>();
 
     public readonly onProcessExit = this.exitEmitter.event;
+    public readonly onOutput = this.outputEmitter.event;
 
     public async Spawn(): Promise<void>
     {
@@ -27,7 +29,7 @@ export class ProcessService
         const exe = path.join(Config.WorkspaceConfig.sdkPath, process.platform === "win32" ? "renpy.exe" : "renpy.sh");
         try
         {
-            this.process = cp.spawn(exe, [...Config.WorkspaceConfig.processArgs, root, "run"], { cwd: Config.WorkspaceConfig.sdkPath });
+            this.process = cp.spawn(exe, [...Config.WorkspaceConfig.processArgs, root, "run"], { cwd: Config.WorkspaceConfig.sdkPath, stdio: ["ignore", "pipe", "pipe"] });
 
             this.SetupListeners();
         }
@@ -96,6 +98,14 @@ export class ProcessService
 
     private SetupListeners(): void
     {
+        this.process!.stdout?.on("data", (data: Buffer): void => {
+            this.outputEmitter.fire(data.toString());
+        });
+
+        this.process!.stderr?.on("data", (data: Buffer): void => {
+            this.outputEmitter.fire(data.toString());
+        });
+
         this.process!.once("spawn", (): Promise<void> => this.OnStart());
         this.process!.once("close", (err, signal): Promise<void> => this.OnClose(err, signal));
         this.process!.once("error", (err): Promise<void> => this.OnError(err));

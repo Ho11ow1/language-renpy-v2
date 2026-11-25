@@ -28,7 +28,7 @@ export class DebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory
         return vscode.commands.registerCommand("renpy.processRun", this.debugCommandCallback);
     }
 
-    private static debugCommandCallback(): void
+    private static async debugCommandCallback(): Promise<void>
     {
         if (!Config.WorkspaceConfig.debuggerEnabled)
         {
@@ -46,12 +46,12 @@ export class DebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory
             return;
         }
 
-        vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], {
+        await vscode.debug.startDebugging(vscode.workspace.workspaceFolders?.[0], {
             type: "renpy",
             request: "launch",
             name: "Ren'Py",
-            noDebug: true,
-            internalConsoleOptions: "neverOpen"
+            noDebug: false,
+            internalConsoleOptions: "openOnSessionStart"
         });
     }
 }
@@ -61,6 +61,7 @@ export class DebugAdapter implements vscode.DebugAdapter
     private readonly _processService = new Services.ProcessService();
     private readonly _messageEmitter = new vscode.EventEmitter<vscode.DebugProtocolMessage>();
     private readonly _exitSub: vscode.Disposable;
+    private readonly _outputSub: vscode.Disposable;
 
     public readonly onDidSendMessage: vscode.Event<vscode.DebugProtocolMessage> = this._messageEmitter.event;
 
@@ -68,13 +69,20 @@ export class DebugAdapter implements vscode.DebugAdapter
     private terminatedSent = false;
     private suppressExit = false;
 
-    constructor()
+    public constructor()
     {
         this._exitSub = this._processService.onProcessExit((): void => {
             if (!this.suppressExit)
             {
                 this.sendTerminated();
             }
+        });
+
+        this._outputSub = this._processService.onOutput((output: string): void => {
+            this.sendEvent("output", {
+                category: "stdout",
+                output
+            });
         });
     }
 
@@ -114,6 +122,7 @@ export class DebugAdapter implements vscode.DebugAdapter
     public dispose(): void
     {
         this._exitSub.dispose();
+        this._outputSub.dispose();
     }
 
     private onInitialize(req: DebugProtocol.Request): void
