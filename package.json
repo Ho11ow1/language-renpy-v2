@@ -66,13 +66,21 @@
                     "default": "",
                     "description": "Specifies an absolute path to your renpy sdk | Example: E:\\renpy-8.5.0-sdk"
                 },
-                "renpy.processArguments": {
+                "renpy.debugArguments": {
                     "type": "array",
                     "default": ["--compile"],
                     "items": {
                         "type": "string"
                     },
-                    "description": "Specifies the command line arguments with which the game executable will be launched | Example: --compile"
+                    "description": "Specifies the command line arguments[global options...] with which the game executable will be launched | Example: --compile-python"
+                },
+                "renpy.lintArguments": {
+                    "type": "array",
+                    "default": ["--all-problems", "--check-unclosed-tags"],
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Specific the command line arguments[options...] with which the lint process will be launched | Example: --by-character"
                 },
                 "renpy.debuggerEnabled": {
                     "type": "boolean",
@@ -207,12 +215,22 @@
                 "command": "renpy.deleteSaves",
                 "title": "Remove system & local saves",
                 "category": "Renpy-v2"
+            },
+            {
+                "command": "renpy.lint",
+                "title": "Run the builtin Ren;Py linter with all flags",
+                "category": "Renpy-v2"
             }
         ],
         "keybindings": [
             {
                 "command": "renpy.processRun",
                 "key": "F5",
+                "when": "resourceLangId == renpy"
+            },
+            {
+                "command": "renpy.lint",
+                "key": "F6",
                 "when": "resourceLangId == renpy"
             }
         ],

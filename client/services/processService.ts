@@ -29,13 +29,13 @@ export class ProcessService
         const exe = path.join(Config.WorkspaceConfig.sdkPath, process.platform === "win32" ? "renpy.exe" : "renpy.sh");
         try
         {
-            this.process = cp.spawn(exe, [...Config.WorkspaceConfig.processArgs, root, "run"], { cwd: Config.WorkspaceConfig.sdkPath, stdio: ["ignore", "pipe", "pipe"] });
+            this.process = cp.spawn(exe, [...Config.WorkspaceConfig.debugArgs, root, "run"], { cwd: Config.WorkspaceConfig.sdkPath, stdio: ["ignore", "pipe", "pipe"] });
 
             this.SetupListeners();
         }
         catch (ex)
         {
-            Utils.Logger.logMessage(`Failed to spawn process | ${ex}`);
+            Utils.Logger.logError(`Failed to spawn process | ${ex}`);
 
             this.process = undefined;
         }

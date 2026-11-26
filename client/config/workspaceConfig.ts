@@ -24,9 +24,14 @@ export class WorkspaceConfig
         return this.config.get<string>("sdkPath", "");
     }
 
-    public static get processArgs(): string[]
+    public static get debugArgs(): string[]
     {
-        return this.config.get<string[]>("processArguments", []);
+        return this.config.get<string[]>("debugArguments", []);
+    }
+
+    public static get lintArgs(): string[]
+    {
+        return this.config.get<string[]>("lintArguments", []);
     }
 
     public static get debuggerEnabled(): boolean

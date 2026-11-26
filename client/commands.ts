@@ -6,6 +6,7 @@ import * as Config from "@client/config/index";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
+import * as cp from "child_process";
 
 export class ContextMenu
 {
@@ -139,7 +140,8 @@ export class Utility
         return [
             vscode.commands.registerCommand("renpy.clearRpyc", Utility.clearRpyc.bind(Utility)),
             vscode.commands.registerCommand("renpy.deletePersistent", Utility.deletePersistent.bind(Utility)),
-            vscode.commands.registerCommand("renpy.deleteSaves", Utility.deleteSaves.bind(Utility))
+            vscode.commands.registerCommand("renpy.deleteSaves", Utility.deleteSaves.bind(Utility)),
+            vscode.commands.registerCommand("renpy.lint", Utility.lint.bind(Utility))
         ];
     }
 
@@ -209,6 +211,41 @@ export class Utility
         }
 
         this.removeEntries(entries);
+    }
+
+    private static async lint(): Promise<void>
+    {
+        if (!Config.WorkspaceConfig.sdkPath)
+        {
+            return;
+        }
+
+        const root = vscode.workspace.workspaceFolders?.[0].uri;
+        if (!root)
+        {
+            return;
+        }
+
+        Utils.Logger.logDebug("Starting Lint");
+
+        const exe = path.join(Config.WorkspaceConfig.sdkPath, process.platform === "win32" ? "renpy.exe" : "renpy.sh");
+        try
+        {
+            cp.execFile(exe, [root.fsPath, "lint", ...Config.WorkspaceConfig.lintArgs], { cwd: Config.WorkspaceConfig.sdkPath }, (err: cp.ExecFileException | null, stdout: string, stderr: string) => {
+                if (err !== null)
+                {
+                    Utils.Logger.logError(`Lint error: ${err.message}`);
+                }
+
+                vscode.workspace.fs.writeFile(vscode.Uri.joinPath(root, "lint.txt"), Buffer.from(`${stdout}${stderr}`.trim()));
+
+                Utils.Logger.logDebug("Finished & wrote Lint");
+            });
+        }
+        catch (ex)
+        {
+            Utils.Logger.logError(`Failed to run lint | ${ex}`);
+        }
     }
 
     private static async getCwdFsPath(startMessage: string, abandonMessage: string): Promise<string | undefined>

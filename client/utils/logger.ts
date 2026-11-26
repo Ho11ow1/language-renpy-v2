@@ -17,6 +17,11 @@ export class Logger
         this._outputChannel.debug(`${this._messagePrefix} | ${msg}`);
     }
 
+    public static logError(msg: string): void
+    {
+        this._outputChannel.error(`${this._messagePrefix} | ${msg}`);
+    }
+
     public static clear(): void
     {
         this._outputChannel.clear();
@@ -30,6 +35,6 @@ export class Logger
         }
 
         this._statusBar.show();
-        this._statusBar.text = `${icon !== undefined ? icon : ""} ${msg}`;
+        this._statusBar.text = `${icon !== undefined ? `${icon} ` : ""}${msg}`;
     }
 }
